@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fortnightly refresh of the DTD feeds, as a macOS launchd agent.
+
+  This is a TEMPLATE. Replace __PROJECT_ROOT__ with the absolute path of your
+  checkout, and __LABEL__ with a reverse-DNS label of your own, then install:
+
+      sed -e "s|__PROJECT_ROOT__|$PWD|g" -e "s|__LABEL__|com.example.rail.refresh|g" \
+          deploy/refresh.plist.template > ~/Library/LaunchAgents/com.example.rail.refresh.plist
+      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.rail.refresh.plist
+
+  Inspect:  launchctl print gui/$(id -u)/com.example.rail.refresh
+  Run now:  launchctl kickstart -p gui/$(id -u)/com.example.rail.refresh
+  Remove:   launchctl bootout gui/$(id -u)/com.example.rail.refresh
+            rm ~/Library/LaunchAgents/com.example.rail.refresh.plist
+
+  Scheduled on the 1st and 15th rather than a rolling 14-day interval: the dates
+  are predictable, and a calendar schedule re-anchors itself after a reboot
+  where an interval restarts its clock. The longest gap that produces is 17
+  days (15 Jan to 1 Feb), comfortably inside the roughly 30 days the portal
+  allows before deleting an unused account.
+
+  If the Mac is asleep at the scheduled time, launchd runs the job shortly
+  after it next wakes.
+
+  Create data/logs/ before the first run — launchd will not create it, and a
+  missing directory makes the job fail with no output saying why.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>__LABEL__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <!-- Validate only when the refresh succeeded: there is nothing useful
+             to check after a fetch that never reached the portal. -->
+        <string>.venv/bin/rail refresh &amp;&amp; .venv/bin/rail validate</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_ROOT__</string>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Day</key><integer>1</integer>
+            <key>Hour</key><integer>7</integer>
+            <key>Minute</key><integer>15</integer>
+        </dict>
+        <dict>
+            <key>Day</key><integer>15</integer>
+            <key>Hour</key><integer>7</integer>
+            <key>Minute</key><integer>15</integer>
+        </dict>
+    </array>
+
+    <!-- Don't fire on login or on install; the schedule is the schedule. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__PROJECT_ROOT__/data/logs/refresh.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_ROOT__/data/logs/refresh.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

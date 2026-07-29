@@ -1,0 +1,42 @@
+# Credentials — NRDP access is personal to the licensee and must never be committed.
+.env
+.env.local
+# Cached NRDP auth token. Normally lives under data/, but ignore it anywhere
+# in case RAIL_DATA_DIR is ever pointed at the repo.
+.nrdp_token.json
+**/.nrdp_token.json
+
+# Licensed feed data — not ours to redistribute. See README "Rules of use".
+data/
+# `data/` only matches paths under a directory of that name. RAIL_DATA_DIR can
+# put a database or a downloaded feed anywhere, including the repo root, so the
+# artefacts are named as well as the directory.
+*.duckdb
+*.duckdb.wal
+*.parquet
+RJ*.ZIP
+RJ*.zip
+
+# RSPS specification PDFs. RDG's documents, not ours to redistribute — they are
+# read to check field offsets, and cited by section number, never republished.
+specs/
+
+# Local working notes. Cites the specifications directly, so it stays local;
+# what a reader of this repo needs is in docs/.
+CLAUDE.md
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# Local editor/tooling settings
+.claude/

@@ -1,0 +1,32 @@
+[project]
+name = "uk-rail-data-engine"
+version = "0.1.0"
+description = "Query GB rail future timetables and fares from the RDG DTD feeds"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "typer>=0.12",
+    "rich>=13",
+    "duckdb>=1.1",
+    "pyarrow>=17",
+    "numpy>=2.0",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+rail = "rail.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rail"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
