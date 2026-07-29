@@ -126,3 +126,62 @@ def test_dates_in_the_status_file_are_utc_isoformat(config):
 
     parsed = dt.datetime.fromisoformat(stamp)
     assert parsed.tzinfo is not None
+
+
+# --- one build sequence, not two ---------------------------------------------
+
+
+def test_the_refresh_does_not_keep_its_own_list_of_build_stages():
+    """`rail build` and `rail refresh` must run the *same* stages.
+
+    They used to each name their own, and the lists drifted: refresh ran five
+    of the ten. Nothing errored, because the missing stages leave tables that a
+    previous manual build had already written — so the database stayed
+    plausible and went stale in place. `ticket_validity_current` was the tell:
+    `build_fares_reference` writes a six-column intermediate of it and
+    `build_ticket_validity` replaces that with the real fifteen-column table, so
+    skipping the second leaves a table that exists, has the right row count, and
+    is missing every return-window column.
+
+    Pinned at the source level because the failure is a *missing* call, which no
+    amount of exercising the code that is still there will catch.
+    """
+    import inspect
+
+    from rail import cli, refresh as refresh_module
+    from rail.model import build_all
+
+    for module in (cli, refresh_module):
+        source = inspect.getsource(module)
+        assert "build_all(" in source, f"{module.__name__} must delegate"
+        for stage in ("build_reference(", "build_timetable(", "build_railcards(",
+                      "build_fares_reference(", "build_restrictions("):
+            assert stage not in source, (
+                f"{module.__name__} names {stage} itself — that is the "
+                "duplication that drifted"
+            )
+
+    # And the one sequence really does run every stage the model exports.
+    body = inspect.getsource(build_all)
+    for stage in ("build_reference(", "build_timetable(", "classify_locations(",
+                  "build_fares_reference(", "build_restrictions(",
+                  "build_ticket_validity(", "build_railcards(",
+                  "build_associations(", "build_plusbus(", "build_routeing("):
+        assert stage in body, f"build_all is missing {stage}"
+
+
+def test_the_optional_sources_survive_a_build():
+    """Positions and the supplementary station list are passed on every build.
+
+    A refresh that dropped them rebuilt `station` with no corroborated grid
+    references at all — which looks like nothing at the row-count level and
+    moves every station on a map.
+    """
+    import inspect
+
+    from rail.model import build_all
+
+    body = inspect.getsource(build_all)
+    for optional in ("supplementary", "geography", "naptan"):
+        assert f'_optional("{optional}")' in body
+    assert "supplementary_dir, geography_dir, naptan_dir" in body

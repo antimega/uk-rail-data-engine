@@ -102,14 +102,7 @@ def refresh(
     """
     import duckdb
 
-    from .model import (
-        build_fares_reference,
-        build_railcards,
-        build_reference,
-        build_restrictions,
-        build_timetable,
-        snapshot_parquet_dir,
-    )
+    from .model import build_all
     from .parse import ingest_snapshot
 
     result = RefreshResult(
@@ -153,13 +146,10 @@ def refresh(
     if result.ingested or rebuild_anyway:
         try:
             connection = duckdb.connect(str(config.db_path))
-            timetable_dir = snapshot_parquet_dir(config, Feed.TIMETABLE)
-            fares_dir = snapshot_parquet_dir(config, Feed.FARES)
-            build_reference(connection, timetable_dir, fares_dir)
-            build_timetable(connection, timetable_dir, horizon_days=horizon_days)
-            build_fares_reference(connection, fares_dir)
-            build_restrictions(connection, fares_dir)
-            build_railcards(connection, fares_dir)
+            # The same sequence `rail build` runs. Listing the stages here
+            # instead is what let an unattended refresh write a database that
+            # was quietly missing half of them.
+            build_all(connection, config, horizon_days=horizon_days)
             connection.close()
             result.rebuilt = True
             log("rebuilt the database")

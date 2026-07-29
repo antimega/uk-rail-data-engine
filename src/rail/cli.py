@@ -12,16 +12,7 @@ from .acquire import Feed, NRDPSource, PollTooSoon, SnapshotStore
 from .config import load_config
 from .model import (
     add_ons_from,
-    build_associations,
-    build_fares_reference,
-    classify_locations,
-    build_plusbus,
-    build_railcards,
-    build_reference,
-    build_restrictions,
-    build_ticket_validity,
-    build_routeing,
-    build_timetable,
+    build_all,
     cheapest_from,
     fare_options,
     eligible_railcards,
@@ -191,32 +182,17 @@ def build(
 
     config.data_dir.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect(str(config.db_path))
-    # Optional third source, OGL v3 rather than the DTD licence: absent unless
-    # `rail geography <path>` has imported it.
-    geography_dir = config.parquet_dir / "geography"
-    if not geography_dir.exists():
-        geography_dir = None
-    naptan_dir = config.parquet_dir / "naptan"
-    if not naptan_dir.exists():
-        naptan_dir = None
-    counts = build_reference(connection, timetable_dir, fares_dir,
-                             supplementary_dir, geography_dir, naptan_dir)
-    timetable = build_timetable(connection, timetable_dir, horizon_days=horizon)
-    # Needs the timetable: a location's character comes from what calls there.
-    kinds = classify_locations(connection)
-    fares = build_fares_reference(connection, fares_dir, supplementary_dir)
-    restrictions = build_restrictions(connection, fares_dir)
-    validities = build_ticket_validity(connection, fares_dir)
-    railcards = build_railcards(connection, fares_dir)
-    associations = build_associations(connection, timetable_dir)
-    plusbus = build_plusbus(connection, fares_dir, supplementary_dir)
-
-    routeing_manifest = SnapshotStore(config.raw_dir).latest(Feed.ROUTEING)
-    routeing = None
-    if routeing_manifest is not None:
-        routeing = build_routeing(
-            connection, SnapshotStore(config.raw_dir).path_for(routeing_manifest)
-        )
+    built = build_all(connection, config, horizon_days=horizon)
+    counts = built.reference
+    timetable = built.timetable
+    kinds = built.kinds
+    fares = built.fares
+    restrictions = built.restrictions
+    validities = built.validities
+    railcards = built.railcards
+    associations = built.associations
+    plusbus = built.plusbus
+    routeing = built.routeing
 
     table = Table("table", "rows")
     table.add_row("station", f"{counts.stations:,}")

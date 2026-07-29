@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 from ..acquire import Feed, SnapshotStore
@@ -36,6 +37,8 @@ from .validate import Check, run_checks
 
 __all__ = [
     "AssociationCounts",
+    "BuildCounts",
+    "build_all",
     "Check",
     "Distances",
     "FaresCounts",
@@ -90,6 +93,86 @@ __all__ = [
 # loudly on a mismatch, which is the only cheap way to make a silent breakage
 # noisy.
 SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True)
+class BuildCounts:
+    """What one full build produced, per stage."""
+
+    reference: ReferenceCounts
+    timetable: TimetableCounts
+    kinds: dict
+    fares: FaresCounts
+    restrictions: RestrictionCounts
+    validities: ValidityCounts
+    railcards: RailcardCounts
+    associations: AssociationCounts
+    plusbus: PlusBusCounts
+    routeing: RouteingCounts | None
+
+
+def build_all(connection, config: Config, *, horizon_days: int = 90) -> BuildCounts:
+    """Build every table, in the one order that satisfies the dependencies.
+
+    **There is exactly one build sequence, and this is it.** `rail build` and
+    `rail refresh` both call this rather than each listing the stages, because
+    the second list drifted from the first and the failure was silent: refresh
+    ran five of the ten stages, so an unattended run left `ticket_validity_current`
+    with the six-column shape `build_fares_reference` writes as an intermediate,
+    and `station.kind`, the associations, PlusBus and the whole routeing guide
+    frozen at whatever the last manual `rail build` produced.
+
+    Nothing errored, because every one of those tables still existed. It only
+    surfaced when a query wanted a column that the losing writer does not
+    produce — and by then the database had been wrong for as long as nobody had
+    run `rail build` by hand.
+
+    Order matters twice: `classify_locations` needs the timetable, since what a
+    location *is* comes from what calls there, and `build_ticket_validity` must
+    run after `build_fares_reference`, which writes the same table name as a
+    narrower intermediate.
+    """
+    timetable_dir = snapshot_parquet_dir(config, Feed.TIMETABLE)
+    fares_dir = snapshot_parquet_dir(config, Feed.FARES)
+
+    # The three optional sources. Each is absent unless its own command has been
+    # run, and each must be passed through on every build — dropping them is how
+    # a refresh used to silently discard the corroborated station positions.
+    def _optional(name: str) -> Path | None:
+        path = config.parquet_dir / name
+        return path if path.exists() else None
+
+    supplementary_dir = _optional("supplementary")
+    geography_dir = _optional("geography")
+    naptan_dir = _optional("naptan")
+
+    reference = build_reference(connection, timetable_dir, fares_dir,
+                                supplementary_dir, geography_dir, naptan_dir)
+    timetable = build_timetable(connection, timetable_dir,
+                                horizon_days=horizon_days)
+    kinds = classify_locations(connection)
+    fares = build_fares_reference(connection, fares_dir, supplementary_dir)
+    restrictions = build_restrictions(connection, fares_dir)
+    validities = build_ticket_validity(connection, fares_dir)
+    railcards = build_railcards(connection, fares_dir)
+    associations = build_associations(connection, timetable_dir)
+    plusbus = build_plusbus(connection, fares_dir, supplementary_dir)
+
+    # The routeing guide is read from its ZIP rather than from Parquet — the
+    # ingest marks its files spec-pending and writes none — so it is skipped
+    # rather than failed when no snapshot has been fetched.
+    store = SnapshotStore(config.raw_dir)
+    manifest = store.latest(Feed.ROUTEING)
+    routeing = (
+        build_routeing(connection, store.path_for(manifest))
+        if manifest is not None else None
+    )
+
+    return BuildCounts(
+        reference=reference, timetable=timetable, kinds=kinds, fares=fares,
+        restrictions=restrictions, validities=validities, railcards=railcards,
+        associations=associations, plusbus=plusbus, routeing=routeing,
+    )
 
 
 def snapshot_parquet_dir(config: Config, feed: Feed) -> Path:
