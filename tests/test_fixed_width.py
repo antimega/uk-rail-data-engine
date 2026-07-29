@@ -2,7 +2,7 @@
 
 These verify the *machinery*: slicing, type conversion, null handling,
 multi-record dispatch and schema unioning. They do not prove the field offsets
-in ``rail.layouts`` match the real feed — nothing short of real data can. That
+in ``rail.layouts`` match the real feed - nothing short of real data can. That
 check lives in ``rail validate``, which cross-references parsed values against
 each other (every stop location must exist as a TIPLOC, every CRS must be three
 letters, and so on).
@@ -140,7 +140,7 @@ def test_public_time_is_minutes_and_0000_means_no_public_time(tmp_path):
     rows = read_fixed_width(path, TIMES)[0]["times"].to_pylist()
 
     assert rows[0]["public"] == 7 * 60 + 30
-    # CIF uses 0000 for "no public time" — a passing point, not midnight.
+    # CIF uses 0000 for "no public time" - a passing point, not midnight.
     assert rows[1]["public"] is None
 
 
@@ -216,7 +216,7 @@ def test_line_numbers_let_stops_be_traced_back_to_their_schedule(tmp_path):
     tables, _ = read_fixed_width(path, MCA)
     schedules = tables["schedule"].to_pylist()
 
-    # Rows come out grouped by record type, not in file order — LO and LT are
+    # Rows come out grouped by record type, not in file order - LO and LT are
     # separate specs. Consumers must sort by line_no, which is the point of it.
     stops = sorted(tables["stop_time"].to_pylist(), key=lambda s: s["line_no"])
 
@@ -267,7 +267,7 @@ def test_mca_schedule_fields_land_at_documented_offsets(tmp_path):
 
 
 def test_ffl_flow_and_fare_records_split_into_two_tables(tmp_path):
-    """Byte 0 is the update marker and byte 1 the record type — not the reverse.
+    """Byte 0 is the update marker and byte 1 the record type - not the reverse.
 
     The flow line below is taken verbatim from RJFAF833, which is what settled
     the question; a synthetic fixture had happily encoded the wrong order.

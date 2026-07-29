@@ -35,7 +35,7 @@ def world():
             c.execute("insert into station_link values (?, ?, ?)",
                       [target, source, miles])
         c.execute("create table station (crs varchar, easting bigint, northing bigint)")
-        # A and D are 8,046.72 m apart — exactly five miles.
+        # A and D are 8,046.72 m apart - exactly five miles.
         for crs, easting, northing in (grid if grid is not None else
                                        [("A", 0, 0), ("D", 8047, 0)]):
             c.execute("insert into station values (?, ?, ?)", [crs, easting, northing])
@@ -63,7 +63,7 @@ def test_a_station_with_no_rail_path_returns_none(world):
 
 def test_one_scan_answers_every_destination(world):
     """A one-to-all sweep needs 2,600 distances, and Dijkstra gives them all at
-    once — asking pair by pair would rescan the graph each time."""
+    once - asking pair by pair would rescan the graph each time."""
     distances = world()
 
     assert distances.shortest_from("A") == pytest.approx(
@@ -72,7 +72,7 @@ def test_one_scan_answers_every_destination(world):
 
 def test_a_journey_is_measured_between_its_calling_points(world):
     """The guide's links run between *adjacent* stations, but a journey calls at
-    few of them — York to Newcastle calls at Darlington, not everywhere. So each
+    few of them - York to Newcastle calls at Darlington, not everywhere. So each
     consecutive pair is measured by its own shortest distance."""
     distances = world()
 
@@ -85,7 +85,7 @@ def test_a_journey_is_measured_between_its_calling_points(world):
 def test_an_unmeasurable_leg_makes_the_whole_journey_unmeasurable(world):
     """RSPS5047 6.1.6.2: bus, ferry and the Elizabeth Line stations carry no
     station links. A total that silently omits a leg would understate the
-    journey, and the rule it feeds is a permission — so None, not a partial
+    journey, and the rule it feeds is a permission - so None, not a partial
     sum."""
     distances = world()
 
@@ -166,7 +166,7 @@ def test_directness_is_absent_without_a_grid_reference(world):
 
 def test_an_empty_link_table_is_falsy_rather_than_broken(world):
     """No routeing snapshot means no station links, and the shortest-route rule
-    then simply never fires — which is the behaviour before RGD was parsed."""
+    then simply never fires - which is the behaviour before RGD was parsed."""
     distances = world(links=[])
 
     assert not distances

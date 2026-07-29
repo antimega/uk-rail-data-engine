@@ -3,9 +3,9 @@
 Three files carry the data the routing engine needs for transfers, and each has
 its own idiosyncratic format:
 
-* ``FLF`` — fixed links, written as English sentences.
-* ``ALF`` — additional fixed links, comma-separated ``KEY=VALUE`` pairs.
-* ``TSI`` — TOC-specific interchange times, plain CSV.
+* ``FLF`` - fixed links, written as English sentences.
+* ``ALF`` - additional fixed links, comma-separated ``KEY=VALUE`` pairs.
+* ``TSI`` - TOC-specific interchange times, plain CSV.
 
 Fixed links are how a journey gets from Euston to King's Cross on foot or by
 Underground; without them, one-to-all routing silently misses everything that

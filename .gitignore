@@ -1,4 +1,4 @@
-# Credentials — NRDP access is personal to the licensee and must never be committed.
+# Credentials - NRDP access is personal to the licensee and must never be committed.
 .env
 .env.local
 # Cached NRDP auth token. Normally lives under data/, but ignore it anywhere
@@ -6,7 +6,7 @@
 .nrdp_token.json
 **/.nrdp_token.json
 
-# Licensed feed data — not ours to redistribute. See README "Rules of use".
+# Licensed feed data - not ours to redistribute. See README "Rules of use".
 data/
 # `data/` only matches paths under a directory of that name. RAIL_DATA_DIR can
 # put a database or a downloaded feed anywhere, including the repo root, so the
@@ -17,7 +17,7 @@ data/
 RJ*.ZIP
 RJ*.zip
 
-# RSPS specification PDFs. RDG's documents, not ours to redistribute — they are
+# RSPS specification PDFs. RDG's documents, not ours to redistribute - they are
 # read to check field offsets, and cited by section number, never republished.
 specs/
 

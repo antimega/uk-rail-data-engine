@@ -6,7 +6,7 @@ route the guide permits, not any route at all.
 
 The model has three layers:
 
-* Every station maps to one or more **routeing points** — 272 of them, against
+* Every station maps to one or more **routeing points** - 272 of them, against
   2,500-odd stations. Achanalt routes via Dingwall; Alexandra Palace is a
   routeing point in its own right.
 * Between a pair of routeing points the guide lists **permitted routes**, and
@@ -23,8 +23,8 @@ chain is matched in order rather than unioned. Links are directional and the
 file carries both directions explicitly where both are valid, so they are kept
 directional too.
 
-**Easements are applied**, from RGF. 1,595 of the 2,521 are positive — they
-grant a route the maps refuse — and 926 are negative, withdrawing one the maps
+**Easements are applied**, from RGF. 1,595 of the 2,521 are positive - they
+grant a route the maps refuse - and 926 are negative, withdrawing one the maps
 allow. Where an easement matches a journey but its applicability turns on
 something a list of calling points cannot settle (the ticket, the train, the
 passenger), the verdict becomes *unknown* rather than being guessed either way.
@@ -56,18 +56,18 @@ class Easement:
 
     ``grants`` is the whole point: a positive easement permits a route the maps
     refuse, a negative one withdraws a route they allow. Not applying easements
-    is therefore not the conservative choice it looks like — it is too strict in
+    is therefore not the conservative choice it looks like - it is too strict in
     one direction and too lax in the other.
 
     An easement's applicability can also turn on things a list of calling points
     cannot settle. ``route_codes`` and ``ticket_codes`` are answerable once the
     caller knows which fare it is asking about, and ``tocs`` once it knows which
-    trains were caught; ``unsettleable`` covers the rest — the train's UID, and
+    trains were caught; ``unsettleable`` covers the rest - the train's UID, and
     the sleeper easements, which depend on who is travelling. Anything still
     open makes the verdict *unknown* rather than being guessed either way.
 
     ``tocs`` comes from **RGH**, not from RGF's own `D` records. RGF gives eight
-    easements an operator and RGH gives 942, one of which is in both — so
+    easements an operator and RGH gives 942, one of which is in both - so
     reading only RGF left the guide deciding on eight easements where the feed
     describes 624 of the ones held here.
     """
@@ -101,8 +101,8 @@ class Easement:
     def matches(self, origin: str, destination: str, path: list[str]) -> bool:
         """Does this easement speak to this journey?
 
-        Each set of locations is a set of alternatives — an easement listing six
-        origins applies to a journey from any of them — so the test is
+        Each set of locations is a set of alternatives - an easement listing six
+        origins applies to a journey from any of them - so the test is
         membership, not coverage. Exclusions are the one that must hold for all.
         """
         if self.origins and origin not in self.origins:
@@ -128,7 +128,7 @@ class Easement:
 
         True it applies, False it does not, None the question cannot be
         answered. An easement naming ticket routes applies only on those routes,
-        so knowing the fare's route both rules it in and rules it out — and the
+        so knowing the fare's route both rules it in and rules it out - and the
         same holds for the operators it names.
 
         **Not knowing the operators is not a reason to refuse**, the same guard
@@ -158,7 +158,7 @@ class Easement:
         return True
 
 
-#: A permitted route consisting of this map alone means "LONDON" — RSPS5047
+#: A permitted route consisting of this map alone means "LONDON" - RSPS5047
 #: 4.8.1.3. The map itself carries only six Thameslink links (4.6.1.1), so it
 #: cannot be walked from an arbitrary origin to an arbitrary destination; the
 #: journey is validated as two halves with a transfer between, which is what
@@ -264,7 +264,7 @@ def _load_easements(connection: duckdb.DuckDBPyConnection) -> list[Easement]:
 
         # RSPS5047 4.10.4: detail 1 is a train UID, 2 a TOC, 3 a ticket route,
         # 4 a ticket code. The UID describes a particular train, which nothing
-        # here can identify; the rest are answerable — the ticket from the fare
+        # here can identify; the rest are answerable - the ticket from the fare
         # in hand, the operators from the journey the router found.
         by_detail: dict[str, set[str]] = {}
         for entry in details or ():
@@ -275,7 +275,7 @@ def _load_easements(connection: duckdb.DuckDBPyConnection) -> list[Easement]:
             ref=ref,
             grants=klass == "1",
             # Only the train UID is now unsettleable. Operators used to be here
-            # too, on the strength of RGF's eight `D` records — but RGH names
+            # too, on the strength of RGF's eight `D` records - but RGH names
             # 942 easements against 35 operators, and the router already
             # collects the operator of every leg for RGK's own TOC conditions.
             # A question the engine can answer is not an unknown.
@@ -301,7 +301,7 @@ def _load_easements(connection: duckdb.DuckDBPyConnection) -> list[Easement]:
             #
             # **That promise does not hold here.** 83 of the 322 doubleback
             # records have no via record for the same station, so a consumer
-            # trusting the note loses that station from the easement entirely —
+            # trusting the note loses that station from the easement entirely -
             # easement 701612 permits a doubleback through Wimbledon and names
             # Wimbledon nowhere else. Recorded separately for that reason.
             doubleback=frozenset(by_modifier.get("6", ())),
@@ -320,7 +320,7 @@ def _build_route_rules(connection: duckdb.DuckDBPyConnection) -> None:
     """Flatten RGK's route conditions into (route, sense, station) triples.
 
     ``is_group`` says the CRS stands for one station of a routeing guide group
-    and the whole group is meant — so "not via Birmingham" excludes Aston and
+    and the whole group is meant - so "not via Birmingham" excludes Aston and
     Duddeston too, which is exactly the sort of thing the fares feed's own RTE
     records cannot express. Expanded here so the query is a plain join.
 
@@ -453,7 +453,7 @@ class RouteingGuide:
         the guide's world, and the New Stations file names the older station to
         use instead. Only applied where the station has no routeing point of its
         own, because the guide's own mapping is the better answer where it
-        exists — 25 of the 30 stations new enough to be in RGX already have one.
+        exists - 25 of the 30 stations new enough to be in RGX already have one.
         """
         if crs in self.station_points or crs in self.points:
             return crs
@@ -479,7 +479,7 @@ class RouteingGuide:
 
         The inverse of :meth:`permits`: instead of judging one journey, list the
         routes on offer. Each is a chain of maps, walked into the routeing
-        points it passes through — York to Penzance gives one via Birmingham and
+        points it passes through - York to Penzance gives one via Birmingham and
         Bristol, one via Manchester and Crewe, and the London route.
         """
         found: list[Routing] = []
@@ -552,8 +552,8 @@ class RouteingGuide:
     ) -> bool | None:
         """Is `path` a permitted route from `origin` to `destination`?
 
-        None means the guide has nothing to say — an unknown station, a pair it
-        does not list, or an easement whose applicability cannot be settled —
+        None means the guide has nothing to say - an unknown station, a pair it
+        does not list, or an easement whose applicability cannot be settled -
         and must not be read as a refusal.
 
         Easements are only consulted when a `date` is given, since every one of
@@ -562,7 +562,7 @@ class RouteingGuide:
         `route_code` and `ticket_code` name the fare being asked about. Most
         easements that would otherwise be left open are open only because they
         say "customers with tickets routed X", so supplying the route of the
-        fare in hand settles them — in both directions, since an easement naming
+        fare in hand settles them - in both directions, since an easement naming
         ticket routes does not apply to a ticket routed otherwise.
 
         `changes` is how many times the journey changes train. **RSPS5047 7.1.1
@@ -575,7 +575,7 @@ class RouteingGuide:
         """
         # Section 7.1 classifies the journey before the maps are reached, and
         # its first two classifications are blanket permissions. Judging every
-        # journey by the maps alone — which is what this did — is strictly
+        # journey by the maps alone - which is what this did - is strictly
         # harsher than the guide.
         blanket = self._permitted_outright(origin, destination, path, changes)
         if blanket:
@@ -596,7 +596,7 @@ class RouteingGuide:
         path: list[str],
         changes: int | None,
     ) -> bool:
-        """RSPS5047 7.1.1 and 7.1.2 — permitted with no further checks.
+        """RSPS5047 7.1.1 and 7.1.2 - permitted with no further checks.
 
         Both are stated as classifications of the journey rather than as
         properties of a route, and both end "No further checks are required":
@@ -605,7 +605,7 @@ class RouteingGuide:
         * 7.1.2/7.1.3, the shortest route by rail, or within 3 miles of it.
 
         Deliberately returns False rather than None where it cannot tell, since
-        the caller falls through to the maps and easements — this only ever adds
+        the caller falls through to the maps and easements - this only ever adds
         permissions, so being unable to answer costs nothing.
         """
         if changes == 0:
@@ -637,7 +637,7 @@ class RouteingGuide:
         nothing you did not already know about a journey the maps permit; a
         negative one withdraws permission, so it cannot make a refusal worse.
         Treating every matching conditional easement as doubt turned 1,059 of
-        York's 2,828 destinations from permitted to unknown for no reason —
+        York's 2,828 destinations from permitted to unknown for no reason -
         mostly on the strength of a TransPennine engineering diversion that only
         applies to particular ticket routes.
         """
@@ -677,7 +677,7 @@ class RouteingGuide:
         """The easements that could possibly match, by station.
 
         Every easement names at least one station under origin, destination,
-        applicable, via or doubleback — none in RGF names none — and each of
+        applicable, via or doubleback - none in RGF names none - and each of
         those sets that is non-empty has to intersect the journey for the
         easement to match. So
         an easement mentioning no station on this journey cannot apply, and
@@ -690,8 +690,8 @@ class RouteingGuide:
             for easement in self.easements:
                 # Doubleback targets count as named stations. The spec promises
                 # a matching `via` record for each, but 83 of the 322 do not
-                # have one — easement 701612 permits a doubleback through
-                # Wimbledon and names Wimbledon nowhere else — so leaving them
+                # have one - easement 701612 permits a doubleback through
+                # Wimbledon and names Wimbledon nowhere else - so leaving them
                 # out drops the easement from every journey it governs.
                 named = (easement.origins | easement.destinations
                          | easement.applicable | easement.via
@@ -712,8 +712,8 @@ class RouteingGuide:
     ) -> bool | None:
         """The verdict from the maps alone, before any easement applies."""
         # A station too new for the guide's own data routes as the station RGX
-        # names in its place. Today this changes no verdict — the five stations
-        # with no routeing point are also absent from RGX, being newer still —
+        # names in its place. Today this changes no verdict - the five stations
+        # with no routeing point are also absent from RGX, being newer still -
         # but a station opening between two routeing-feed releases lands exactly
         # in that gap, which is what the file is for.
         origin_points = self.points_for(self._for_fares(origin))

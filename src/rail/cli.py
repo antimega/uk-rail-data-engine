@@ -45,13 +45,13 @@ def fetch(
         False,
         "--supplementary",
         help="Fetch RSPS5052 reference data instead. Different source, "
-             "different licence — see docs/DATA-SOURCES.md.",
+             "different licence - see docs/DATA-SOURCES.md.",
     ),
 ) -> None:
     """Download feed ZIPs from the National Rail Data Portal.
 
     Skips the body when Last-Modified is unchanged, but still counts as feed
-    consumption — which is what keeps the NRDP account from being deleted after
+    consumption - which is what keeps the NRDP account from being deleted after
     ~30 days of inactivity.
     """
     config = load_config()
@@ -75,16 +75,16 @@ def fetch(
         try:
             result = source.fetch(target, force=force)
         except PollTooSoon as exc:
-            console.print(f"[yellow]{target.value}: skipped[/yellow] — {exc}")
+            console.print(f"[yellow]{target.value}: skipped[/yellow] - {exc}")
             continue
         except Exception as exc:  # noqa: BLE001 - surface any feed failure, keep going
-            console.print(f"[red]{target.value}: failed[/red] — {exc}")
+            console.print(f"[red]{target.value}: failed[/red] - {exc}")
             failures += 1
             continue
 
         colour = "green" if result.downloaded else "cyan"
         console.print(
-            f"[{colour}]{target.value}: {result.filename}[/{colour}] — {result.reason}"
+            f"[{colour}]{target.value}: {result.filename}[/{colour}] - {result.reason}"
         )
 
     if failures:
@@ -104,19 +104,19 @@ def _fetch_supplementary(config) -> None:
     try:
         results = fetch_supplementary(config.raw_dir)
     except Exception as exc:  # noqa: BLE001 - a third-party bucket, report and stop
-        console.print(f"[red]supplementary: failed[/red] — {exc}")
+        console.print(f"[red]supplementary: failed[/red] - {exc}")
         raise typer.Exit(1)
 
     for result in results:
         console.print(
-            f"[green]{result.filename}[/green] — {result.rows:,} records, "
+            f"[green]{result.filename}[/green] - {result.rows:,} records, "
             f"{result.size:,} bytes, modified {result.last_modified or 'unknown'}"
         )
     written = ingest_supplementary(config.raw_dir, config.parquet_dir)
     for name, rows in sorted(written.items()):
         console.print(f"  [cyan]{name}[/cyan] {rows:,} rows")
     console.print(
-        "[yellow]RSPS5052 is not a DTD feed[/yellow] — the NRDP terms do not "
+        "[yellow]RSPS5052 is not a DTD feed[/yellow] - the NRDP terms do not "
         "cover it. Check its own licensing before publishing anything derived "
         "from it."
     )
@@ -138,10 +138,10 @@ def ingest(
     for target in feeds:
         manifest = store.latest(target)
         if manifest is None:
-            console.print(f"[yellow]{target.value}: no snapshot — run `rail fetch`.[/yellow]")
+            console.print(f"[yellow]{target.value}: no snapshot - run `rail fetch`.[/yellow]")
             continue
 
-        console.print(f"[bold]{target.value}[/bold] — parsing {manifest.filename}")
+        console.print(f"[bold]{target.value}[/bold] - parsing {manifest.filename}")
         report = ingest_snapshot(
             store.path_for(manifest), manifest, config.parquet_dir, only=extensions
         )
@@ -225,7 +225,7 @@ def build(
         table.add_row("permitted_route", f"{routeing.routes:,}")
     console.print(table)
     for reason, count in fares.rejected:
-        console.print(f"  [yellow]not walk-up[/yellow] {count:,} — {reason}")
+        console.print(f"  [yellow]not walk-up[/yellow] {count:,} - {reason}")
     console.print(
         f"Running dates {timetable.horizon_start} → {timetable.horizon_end}; "
         f"[yellow]{timetable.cancelled_dates:,}[/yellow] train-days cancelled by STP."
@@ -236,7 +236,7 @@ def build(
         "select reason, count(*) n from reference_reject group by 1 order by 2 desc"
     ).fetchall()
     for reason, count in rejects:
-        console.print(f"  [yellow]excluded[/yellow] {count:,} — {reason}")
+        console.print(f"  [yellow]excluded[/yellow] {count:,} - {reason}")
     connection.close()
 
 
@@ -250,7 +250,7 @@ def stations(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     connection = duckdb.connect(str(config.db_path), read_only=True)
@@ -312,7 +312,7 @@ def journey_times(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     travel_date = dt.date.fromisoformat(date)
@@ -358,7 +358,7 @@ def journey_times(
     console.print(
         f"[bold]{origin.upper()}[/bold] on {travel_date} ({travel_date.strftime('%A')}), "
         f"{'departures ' + depart + '–' + until if profile else 'departing from ' + depart}"
-        f" — reached [green]{len(rows):,}[/green] stations"
+        f" - reached [green]{len(rows):,}[/green] stations"
     )
     table = Table("crs", "station", "elapsed", "arrive")
     for crs, name, minutes, arrival in rows[: limit or len(rows)]:
@@ -413,7 +413,7 @@ def reachable(
     """Stations reachable from an origin within a fare ceiling.
 
     By default the fare is the cheapest to that destination by any route, which
-    is what "where can I get for £20" means — you would pick a route to suit the
+    is what "where can I get for £20" means - you would pick a route to suit the
     fare. `--check-routes` instead prices the journey actually found, refusing
     fares whose route conditions it breaks.
     """
@@ -426,7 +426,7 @@ def reachable(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     travel_date = dt.date.fromisoformat(date)
@@ -466,8 +466,8 @@ def reachable(
         # the journey, and the sweep has already routed every destination.
         changes=None if ignore_restrictions else result.changes(),
         # Same reasoning for the calling points. A band naming a station the
-        # journey passes through is an ordinary time restriction — 32,206 of
-        # the 33,216 current bands name a station — and the journey is routed
+        # journey passes through is an ordinary time restriction - 32,206 of
+        # the 33,216 current bands name a station - and the journey is routed
         # either way.
         calls=None if ignore_restrictions else result.calls(),
     )
@@ -489,7 +489,7 @@ def reachable(
         # alone: most easements left open by a bare origin/destination question
         # say "customers with tickets routed X", and each fare carries its own
         # route. So walk the prices upwards and take the first the guide does
-        # not refuse — the cheapest fare is often invalid on the fastest route
+        # not refuse - the cheapest fare is often invalid on the fastest route
         # while a dearer one, priced VIA somewhere, is fine.
         fares = {}
         for crs, candidates in options.items():
@@ -502,7 +502,7 @@ def reachable(
                     changes=result.changes_to(crs),
                     # RGH ties easements to operators, and the router already
                     # walks the journey to collect them for the route
-                    # conditions — the same set, so the same call.
+                    # conditions - the same set, so the same call.
                     operators=result.operators_to(crs),
                 ) is not False:
                     fares[crs] = candidate
@@ -564,7 +564,7 @@ def reachable(
             # to". Saying which kind turns a bare count into an answer.
             "unpriced_by_kind": unpriced_kinds,
             # The journey found is not a permitted route to these at all, so
-            # no ticket makes it valid — a different itinerary might.
+            # no ticket makes it valid - a different itinerary might.
             "off_permitted_route": len(off_route & minutes_by_crs.keys()),
             # The route is fine; every fare this query saw fails on it.
             "no_valid_fare_on_this_route": len(
@@ -595,7 +595,7 @@ def reachable(
 
     console.print(
         f"[bold]{origin.upper()}[/bold] on {travel_date} "
-        f"({travel_date.strftime('%A')}) — [green]{len(rows):,}[/green] of "
+        f"({travel_date.strftime('%A')}) - [green]{len(rows):,}[/green] of "
         f"{len(minutes_by_crs):,} reachable stations cost £{max_fare:,.2f} or less"
         + (f"; {unpriced:,} had no walk-up fare"
            + (" (" + ", ".join(f"{n:,} {kind}" for kind, n in unpriced_kinds.items())
@@ -617,7 +617,7 @@ def reachable(
     ]:
         cells = [crs, network.names[network.index[crs]], f"£{pence / 100:,.2f}"]
         if plusbus:
-            cells.append(f"£{add_on / 100:,.2f}" if add_on else "—")
+            cells.append(f"£{add_on / 100:,.2f}" if add_on else "-")
         table.add_row(
             *cells,
             f"{minutes // 60}h{minutes % 60:02d}", ticket,
@@ -642,14 +642,14 @@ def reachable(
     if check_guide:
         console.print(
             "[dim]Validity here means the routeing guide permits this fare's "
-            "route on the journey found — the maps for the pair, plus any "
+            "route on the journey found - the maps for the pair, plus any "
             "easement in force on the day. Where the cheapest fare fails that, "
             "the next cheapest that passes is quoted instead.[/dim]"
         )
     if advance:
         console.print(
             "[dim]Advance prices are real and vary with distance, but the feed "
-            "carries no quota — nothing here says a given price point is on sale "
+            "carries no quota - nothing here says a given price point is on sale "
             "for a given train.[/dim]"
         )
 
@@ -706,7 +706,7 @@ def railcards(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     connection = duckdb.connect(str(config.db_path), read_only=True)
@@ -736,7 +736,7 @@ def railcards(
         f"[dim]{len(rows)} for {adults} adult(s), {children} child(ren). "
         "The list includes corporate and delegate schemes, which RSP models as "
         "railcards too. Railcard fields in this feed are known to contain "
-        "errors — spot-check anything that matters.[/dim]"
+        "errors - spot-check anything that matters.[/dim]"
     )
 
 
@@ -755,7 +755,7 @@ def validate(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     connection = duckdb.connect(str(config.db_path), read_only=True)
@@ -785,7 +785,7 @@ def validate(
         if check.category != current:
             current = check.category
             console.print(f"\n[bold]{current}[/bold]")
-        console.print(f"  {marks[check.status]:<22} {check.name} — {check.detail}")
+        console.print(f"  {marks[check.status]:<22} {check.name} - {check.detail}")
 
     failures = sum(1 for c in checks if c.failed)
     warnings = sum(1 for c in checks if c.status == "warn")
@@ -805,7 +805,7 @@ def refresh(
     ),
     horizon: int = typer.Option(90, "--horizon"),
 ) -> None:
-    """Fetch, ingest what changed, rebuild, and report — for scheduled runs."""
+    """Fetch, ingest what changed, rebuild, and report - for scheduled runs."""
     from .refresh import refresh as run_refresh
 
     config = load_config()
@@ -828,7 +828,7 @@ def refresh(
     if result.ok:
         console.print(
             "[green]refresh ok[/green]"
-            + ("" if result.changed else " — nothing had changed")
+            + ("" if result.changed else " - nothing had changed")
         )
         return
 
@@ -836,7 +836,7 @@ def refresh(
         # Every feed hit the daily poll guard, so nothing reached the portal.
         # Harmless when run by hand, but it does not renew the account.
         console.print(
-            "[yellow]nothing polled[/yellow] — the daily guard skipped every feed, "
+            "[yellow]nothing polled[/yellow] - the daily guard skipped every feed, "
             "so this run does not count towards keeping the account alive. "
             "Use --force to poll anyway."
         )
@@ -875,7 +875,7 @@ def status() -> None:
         console.print(
             f"[red]{elapsed:.0f} days since the last successful fetch.[/red] "
             f"NRDP deletes accounts after about {ACCOUNT_EXPIRY_DAYS} days of no "
-            f"consumption — roughly {remaining:.0f} days left. Run `rail refresh`."
+            f"consumption - roughly {remaining:.0f} days left. Run `rail refresh`."
         )
     else:
         console.print(
@@ -902,7 +902,7 @@ def restrictions(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     travel_date = dt.date.fromisoformat(date) if date else dt.date.today()
@@ -953,7 +953,7 @@ def restrictions(
             else "[red]not valid[/red]",
             f"{where} {_fmt(band.time_from)}-{_fmt(band.time_to)}",
             band.days,
-            "; ".join(band.dates) or "[yellow]no dates — never applies[/yellow]",
+            "; ".join(band.dates) or "[yellow]no dates - never applies[/yellow]",
         )
     console.print(table)
     console.print(
@@ -997,7 +997,7 @@ def fares(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     travel_date = dt.date.fromisoformat(date) if date else dt.date.today()
@@ -1030,7 +1030,7 @@ def fares(
         "select crs, name from station where crs in ($from, $to)",
         {"from": origin.upper(), "to": destination.upper()},
     ).fetchall())
-    # An add-on is bought at one end or the other, and may be bought at both —
+    # An add-on is bought at one end or the other, and may be bought at both -
     # unless the two share a zone, in which case neither.
     add_ons = None
     if plusbus:
@@ -1119,7 +1119,7 @@ def fares(
     console.print(
         f"[bold]{names.get(origin.upper(), origin.upper())}[/bold] to "
         f"[bold]{names.get(destination.upper(), destination.upper())}[/bold] "
-        f"on {travel_date} — {len(rows)} fares"
+        f"on {travel_date} - {len(rows)} fares"
         + (f", back on {back_on}" if back_on else "")
         + (f", discounted with {railcard.upper()}" if railcard else "")
     )
@@ -1154,16 +1154,16 @@ def fares(
     if withdrawn:
         console.print(
             f"[yellow]{withdrawn} return fare{'s' if withdrawn > 1 else ''} "
-            f"withdrawn[/yellow] — the validity does not permit coming back on "
+            f"withdrawn[/yellow] - the validity does not permit coming back on "
             f"{back_on}. Two singles may still work."
         )
-    # The return leg is not routed, so these are listed rather than applied —
+    # The return leg is not routed, so these are listed rather than applied -
     # which is what this command is for. `rail reachable` filters the outward
     # journey only, and says so.
     if back_on is not None and return_bands:
         console.print(
             f"[bold]On the way back[/bold], {back_on} "
-            f"({back_on.strftime('%A')}) — restrictions on the return leg, "
+            f"({back_on.strftime('%A')}) - restrictions on the return leg, "
             f"which nothing here checks against a time:"
         )
         for code, sentences in sorted(return_bands.items()):
@@ -1173,7 +1173,7 @@ def fares(
     if add_ons is not None:
         if add_ons["may_sell"] is False:
             console.print(
-                "[yellow]No PlusBus add-on for this pair[/yellow] — both ends "
+                "[yellow]No PlusBus add-on for this pair[/yellow] - both ends "
                 "sit in the same zone, and the product buys travel around a "
                 "place rather than between two."
             )
@@ -1188,10 +1188,10 @@ def fares(
                     f"({zone['zone_name']}): "
                     + (f"£{day['pence'] / 100:,.2f} a day" if day
                        else "no day ticket")
-                    + f" — add to any fare above."
+                    + f" - add to any fare above."
                 )
     console.print(
-        "[dim]A restriction code names the times the fare may NOT be used — "
+        "[dim]A restriction code names the times the fare may NOT be used - "
         "`rail restrictions <code>` spells one out. The route is where the "
         "ticket is valid, not the journey you would make; `rail reachable "
         "--check-routes --check-guide` tests a fare against a real itinerary."
@@ -1218,7 +1218,7 @@ def routings(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     travel_date = dt.date.fromisoformat(date) if date else dt.date.today()
@@ -1228,7 +1228,7 @@ def routings(
     names = dict(connection.execute("select crs, name from station").fetchall())
 
     # Easements that name one of these two stations outright. Deliberately not
-    # the full `matches` test, which needs a path this command does not have —
+    # the full `matches` test, which needs a path this command does not have -
     # and deliberately not counting easements that name no origin at all, since
     # those match every journey and would drown the answer.
     ends = {origin.upper(), destination.upper()}
@@ -1243,7 +1243,7 @@ def routings(
     if not found:
         console.print(
             f"[yellow]The guide lists no route from {origin.upper()} to "
-            f"{destination.upper()}.[/yellow] That is silence, not a refusal — "
+            f"{destination.upper()}.[/yellow] That is silence, not a refusal - "
             "a pair it does not list is one it has no opinion on."
         )
         raise typer.Exit(1)
@@ -1273,14 +1273,14 @@ def routings(
     console.print(
         f"[bold]{names.get(origin.upper(), origin.upper())}[/bold] to "
         f"[bold]{names.get(destination.upper(), destination.upper())}[/bold]"
-        f" — {len(found)} permitted routings"
+        f" - {len(found)} permitted routings"
         f" [dim](routeing points {', '.join(guide.points_for(origin.upper()))} → "
         f"{', '.join(guide.points_for(destination.upper()))})[/dim]"
     )
     table = Table("maps", "via")
     for routing in found:
         if routing.via_london:
-            way = ("[yellow]London[/yellow] — validated as two halves with a "
+            way = ("[yellow]London[/yellow] - validated as two halves with a "
                    "transfer between, so no single path applies")
         elif routing.walkable:
             way = " · ".join(label(p) for p in routing.points)
@@ -1299,7 +1299,7 @@ def routings(
             f"[dim]{len(relevant)} easements name one of these stations and are "
             f"in force on {travel_date}: {grants} grant a route the maps refuse, "
             f"{len(relevant) - grants} withdraw one they allow. Whether any "
-            f"applies to a given journey depends on the path and the ticket — "
+            f"applies to a given journey depends on the path and the ticket - "
             f"`rail reachable --check-guide` settles that.[/dim]"
         )
 
@@ -1318,7 +1318,7 @@ def stopover(
 ) -> None:
     """Break a journey deliberately: A to B with a stop at somewhere on the way.
 
-    Priced as **one ticket** from A to B, which is the whole point — and only
+    Priced as **one ticket** from A to B, which is the whole point - and only
     fares whose validity permits a break of journey are offered. Both halves are
     routed, and the guide is asked about the journey as a whole.
     """
@@ -1331,7 +1331,7 @@ def stopover(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     travel_date = dt.date.fromisoformat(date)
@@ -1432,12 +1432,12 @@ def stopover(
         console.print(
             "[yellow]No fare covers this.[/yellow] Either nothing is priced "
             "between these stations, or every fare that is bars a break of "
-            "journey — TVL field 12 — or fails the route on this path."
+            "journey - TVL field 12 - or fails the route on this path."
         )
     else:
         console.print(
             f"One ticket, [green]£{fare[3] / 100:,.2f}[/green] {fare[2]} "
-            f"(route {fare[5]}) — a fare whose validity permits a break of "
+            f"(route {fare[5]}) - a fare whose validity permits a break of "
             f"journey. The routeing guide says [bold]{payload['guide']}[/bold]."
         )
     console.print(
@@ -1469,7 +1469,7 @@ def plusbus(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     travel_date = dt.date.fromisoformat(date) if date else dt.date.today()
@@ -1502,7 +1502,7 @@ def plusbus(
         return
 
     console.print(
-        f"[bold]{names.get(zone['crs'], zone['crs'])}[/bold] — "
+        f"[bold]{names.get(zone['crs'], zone['crs'])}[/bold] - "
         f"{zone['zone_name']} (zone {zone['zone_nlc']})"
     )
     table = Table("ticket", "price", "code")
@@ -1523,13 +1523,13 @@ def plusbus(
             )
         else:
             console.print(
-                f"[red]No add-on for {station.upper()} to {name}[/red] — both "
+                f"[red]No add-on for {station.upper()} to {name}[/red] - both "
                 "sit in the same PlusBus zone, and the product buys travel "
                 "around a place rather than between two."
             )
     console.print(
         "[dim]PlusBus prices come from the fares feed; which pairs are excluded "
-        "comes from RSPS5052, whose licensing is separate — see "
+        "comes from RSPS5052, whose licensing is separate - see "
         "docs/DATA-SOURCES.md.[/dim]"
     )
 
@@ -1564,8 +1564,8 @@ def roundtrip(
 ) -> None:
     """Going and coming back, priced as one return and as two singles.
 
-    Everything else here prices one direction. This routes both legs — which is
-    what makes the 13,803 return-leg restriction bands evaluable at all — and
+    Everything else here prices one direction. This routes both legs - which is
+    what makes the 13,803 return-leg restriction bands evaluable at all - and
     names the cheaper of the two ways to buy it. Neither is reliably cheaper.
     """
     import duckdb
@@ -1577,7 +1577,7 @@ def roundtrip(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     a, b = origin.upper(), destination.upper()
@@ -1694,7 +1694,7 @@ def roundtrip(
     if via or return_via:
         console.print(
             "[dim]A break of journey needs a ticket that permits one, and the "
-            "two directions are separate permissions — TVL field 12 outward, 13 "
+            "two directions are separate permissions - TVL field 12 outward, 13 "
             "on the way home. 651 of the 1,379 walk-up ticket types bar a break "
             "outward and 32 of the 444 returns bar one homeward; a validity the "
             "feed says nothing about is not assumed permissive either way.[/dim]"
@@ -1703,7 +1703,7 @@ def roundtrip(
     if trip.best is None:
         console.print(
             "[yellow]Nothing priced.[/yellow] No return is valid for these "
-            "dates and no single covers each leg — try `rail fares` for the "
+            "dates and no single covers each leg - try `rail fares` for the "
             "pair to see what exists and what governs it."
         )
         raise typer.Exit(1)
@@ -1727,7 +1727,7 @@ def roundtrip(
         console.print("[dim]The two cost the same.[/dim]")
     console.print(
         "[dim]Both legs are routed, so the fares are checked against the "
-        "restrictions on each — including the return-leg bands, which nothing "
+        "restrictions on each - including the return-leg bands, which nothing "
         "else here evaluates. This prices the journeys found, not the cheapest "
         "pair of departure times.[/dim]"
     )
@@ -1746,12 +1746,12 @@ def geography(
     the feeds already require.
 
     An FOI release is a snapshot with no refresh, so it goes stale silently as
-    stations open and close — and `rail refresh` rebuilds the database, dropping
+    stations open and close - and `rail refresh` rebuilds the database, dropping
     the refinement, so this has to be re-run afterwards.
 
     MSN's own grid references are about a kilometre accurate, which is fine for
     labelling a station and useless for measuring a distance. This sharpens them
-    — but only where the two sources agree, because neither is authoritative.
+    - but only where the two sources agree, because neither is authoritative.
     """
     from pathlib import Path
 
@@ -1773,11 +1773,11 @@ def geography(
         "[yellow]Network Rail FOI disclosure, Open Government Licence v3.[/yellow]"
         "\nNot a DTD feed: acknowledge Network Rail and name the OGL in anything "
         "published from it, as well as National Rail for the feed data."
-        "\n[dim]A snapshot, not a feed — it has no refresh and goes stale as "
+        "\n[dim]A snapshot, not a feed - it has no refresh and goes stale as "
         "stations change.[/dim]"
     )
     console.print(
-        "Run [bold]rail build[/bold] to apply them — and again after any "
+        "Run [bold]rail build[/bold] to apply them - and again after any "
         "[bold]rail refresh[/bold], which rebuilds without them."
     )
 
@@ -1798,7 +1798,7 @@ def distance(
     """How far it is by rail, and as the crow flies.
 
     Rail miles come from the routeing guide's own station-link file, which is
-    what its shortest-route rules are written against — York to King's Cross is
+    what its shortest-route rules are written against - York to King's Cross is
     188.50 miles, the ECML's published figure. Straight-line distance comes from
     grid references and is **not** a routeing rule; the guide never mentions it.
 
@@ -1812,7 +1812,7 @@ def distance(
 
     config = load_config()
     if not config.db_path.exists():
-        console.print("[red]No database yet — run `rail build`.[/red]")
+        console.print("[red]No database yet - run `rail build`.[/red]")
         raise typer.Exit(1)
 
     connection = duckdb.connect(str(config.db_path), read_only=True)
@@ -1820,7 +1820,7 @@ def distance(
     if not distances:
         console.print(
             "[red]No station links loaded.[/red] The routeing feed's RGD file "
-            "carries them — run `rail build` against a routeing snapshot."
+            "carries them - run `rail build` against a routeing snapshot."
         )
         raise typer.Exit(1)
     names = dict(connection.execute("select crs, name from station").fetchall())
@@ -1853,7 +1853,7 @@ def distance(
         if rail is None:
             console.print(
                 f"[yellow]No rail path from {a} to {b}.[/yellow] The station-link "
-                "file covers rail only — bus, ferry and the Elizabeth Line "
+                "file covers rail only - bus, ferry and the Elizabeth Line "
                 "stations carry no links (RSPS5047 6.1.6.2)."
             )
             raise typer.Exit(1)
@@ -1880,10 +1880,10 @@ def distance(
             f"[bold]{names.get(a, a)}[/bold] to [bold]{names.get(b, b)}[/bold]")
         table = Table("measure", "miles", "note")
         table.add_row("shortest by rail", f"{rail:,.2f}",
-                      "RGD station links — what the guide's rules use")
+                      "RGD station links - what the guide's rules use")
         if straight is not None:
             table.add_row("straight line", f"{straight:,.2f}",
-                          f"×{rail / straight:.2f} — not a routeing rule")
+                          f"×{rail / straight:.2f} - not a routeing rule")
         if journey and journey["miles"] is not None:
             excess = journey["miles"] - rail
             table.add_row(
@@ -1893,12 +1893,12 @@ def distance(
         if journey and journey["miles"] is not None:
             verdict = distances.within_shortest_margin(a, b, journey["path"])
             console.print(
-                f"[green]Permitted outright[/green] — within the guide's "
+                f"[green]Permitted outright[/green] - within the guide's "
                 f"{SHORTEST_ROUTE_MARGIN_MILES:g}-mile margin of the shortest "
                 f"route (RSPS5047 7.1.2)."
                 if verdict else
                 "[dim]Outside the shortest-route margin, so the guide falls "
-                "through to its maps — see `rail reachable --check-guide`.[/dim]"
+                "through to its maps - see `rail reachable --check-guide`.[/dim]"
             )
         return
 
@@ -1928,18 +1928,18 @@ def distance(
         return
 
     console.print(
-        f"[bold]{names.get(a, a)}[/bold] — {len(rows):,} stations reachable by "
+        f"[bold]{names.get(a, a)}[/bold] - {len(rows):,} stations reachable by "
         f"rail" + (", least direct first" if least_direct else ", nearest first"))
     table = Table("crs", "station", "rail miles", "straight", "×")
     for crs, name, rail, straight, d in rows[: limit or len(rows)]:
         table.add_row(crs, name[:30], f"{rail:,.2f}",
-                      "—" if straight is None else f"{straight:,.2f}",
-                      "—" if d is None else f"{d:.2f}")
+                      "-" if straight is None else f"{straight:,.2f}",
+                      "-" if d is None else f"{d:.2f}")
     console.print(table)
     console.print(
         "[dim]Rail miles are RGD station links, which is what the routeing "
         "guide's shortest-route rules use. Straight-line distance is from grid "
-        "references and decides nothing — the guide never mentions it.[/dim]"
+        "references and decides nothing - the guide never mentions it.[/dim]"
     )
 
 
@@ -1948,7 +1948,7 @@ def naptan() -> None:
     """Fetch NaPTAN's rail stops, then rebuild to resolve station positions.
 
     The Department for Transport's gazetteer of public transport access nodes,
-    under the **Open Government Licence v3** — no account and no key, and unlike
+    under the **Open Government Licence v3** - no account and no key, and unlike
     the FOI grid file it is maintained, so it can be refetched.
 
     It joins on the ATCO code: rail stations sit in the `9100` namespace and the

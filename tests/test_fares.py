@@ -3,7 +3,7 @@
 Two things are being pinned down. First the lookup itself: a fare hangs off a
 *flow* between two codes, and a station is represented by its own NLC, its
 group's NLC, and every cluster it belongs to. Second the filtering, because the
-feed ships a great deal that is not an adult walk-up fare — Advance products
+feed ships a great deal that is not an adult walk-up fare - Advance products
 priced in the reservation system, flat-rate child and promotional tickets,
 family products covering three people, complimentary staff tickets, and records
 described "FOR TEST USE ONLY".
@@ -116,11 +116,11 @@ def fares(tmp_path):
                 schema=TAP_SCHEMA),
             directory / "advance_ticket.parquet")
 
-        # `LOC` carries the county code, which is a legitimate flow endpoint —
-        # RSPS5045 4.1.2 says "NLC code, county code, zone code" — and the only
+        # `LOC` carries the county code, which is a legitimate flow endpoint -
+        # RSPS5045 4.1.2 says "NLC code, county code, zone code" - and the only
         # way the Isle of Man's fare bands can be reached.
         # A station is (crs, nlc, fare_group), or (crs, nlc, fare_group,
-        # description) where the description matters — which is PlusBus, whose
+        # description) where the description matters - which is PlusBus, whose
         # zones name themselves "BATH+BUS" and must never become destinations.
         rows = stations or [("AAA", "1111", "1111"), ("BBB", "2222", "2222")]
         rows = [r if len(r) == 4 else (*r, r[0]) for r in rows]
@@ -140,7 +140,7 @@ def fares(tmp_path):
         connection = duckdb.connect()
         connection.execute("create table station_nlc (crs varchar, nlc varchar, uic varchar, fare_group varchar)")
         # `build_fares_reference` reads this, and the real one already excludes
-        # PlusBus zones — see `reference.py`. Mirror that here so a zone reaches
+        # PlusBus zones - see `reference.py`. Mirror that here so a zone reaches
         # `fare_alias` only if the county arm lets it through, which is the
         # path the fix has to close.
         for crs, nlc, group, desc in rows:
@@ -209,8 +209,8 @@ def test_a_flow_can_be_priced_by_county_band(fares):
     Isle of Man Steam Packet sets five fare bands by county, £97.30 to £187.20
     across 48 of them, because the rail leg can start anywhere.
 
-    The chain is three deep — station → its county code → the cluster holding
-    that county → the flow — and expanding only NLCs missed it entirely. Douglas
+    The chain is three deep - station → its county code → the cluster holding
+    that county → the flow - and expanding only NLCs missed it entirely. Douglas
     had no fare from anywhere, and the honest-looking answer "the Steam Packet
     is not a National Rail through-fare" was simply wrong.
     """
@@ -295,7 +295,7 @@ def test_two_tickets_at_the_same_price_pick_the_same_winner_every_time(fares):
     `_CHEAPEST_SQL` groups by `(dest_crs, fare)`, so `fare` is constant inside a
     group and cannot order anything: `min_by(ticket_code, fare)` was choosing
     arbitrarily among every ticket at that price. With parallel aggregation the
-    choice was not even stable between two runs on one database — building the
+    choice was not even stable between two runs on one database - building the
     same map origin twice produced payloads naming different tickets at
     identical prices, which made a payload rebuild fail a byte-comparison for a
     reason that had nothing to do with the data.
@@ -350,7 +350,7 @@ def test_the_no_fare_sentinel_withdraws_the_flow_price(fares):
     """99999999 is not a £999,999.99 fare.
 
     RSPS5045 4.4.3 field 12: it means no adult fare is available for the
-    ticket. The record still overrides, so the flow price goes with it — but
+    ticket. The record still overrides, so the flow price goes with it - but
     the sentinel itself must never surface as a price.
     """
     connection, directory = fares(
@@ -369,7 +369,7 @@ def test_the_no_fare_sentinel_withdraws_the_flow_price(fares):
 def test_a_composite_record_the_flow_file_already_holds_is_ignored(fares):
     """composite_indicator 'N' means the fare is already in the flow file.
 
-    Reading it the other way round — as "this is an aggregate, drop it" — would
+    Reading it the other way round - as "this is an aggregate, drop it" - would
     discard all 249,917 override records in RJFAF833, every one of which is 'Y'.
     """
     connection, directory = fares(
@@ -416,7 +416,7 @@ def test_a_plusbus_zone_is_never_a_destination(fares):
 
     They used to carry no CRS, which is what made this safe without anyone
     writing it down. The feed generation valid from 2026-06-30 gave four of them
-    one — `QAB` BATH+BUS and friends — and Bristol Temple Meads gained a £5.40
+    one - `QAB` BATH+BUS and friends - and Bristol Temple Meads gained a £5.40
     "destination" called BRISTOL TM+BUS. The zone here carries a county code
     too, because that is the arm that reads `LOC` directly and would let it back
     in on its own.
@@ -436,8 +436,8 @@ def test_a_plusbus_zone_is_never_a_destination(fares):
 
 
 def test_a_fare_requiring_a_reservation_is_not_a_walk_up_fare(fares):
-    """RSPS5045 4.6.2 field 23. `AO2 AIRPORT ADV STD` names no train anywhere —
-    not in its description, its validity or its restriction — so the reservation
+    """RSPS5045 4.6.2 field 23. `AO2 AIRPORT ADV STD` names no train anywhere -
+    not in its description, its validity or its restriction - so the reservation
     flag is the only thing in the feed that catches it. It was the cheapest
     "walk-up" to Manchester Airport from every origin tested.
     """
@@ -481,7 +481,7 @@ def test_a_reserved_fare_is_reclassified_rather_than_discarded(fares):
 
 def test_a_package_is_not_a_walk_up_fare(fares):
     """RSPS5045 4.6.2 field 29. The `8A*` series is described exactly like the
-    ordinary fare of the same name — `8AB` is "ANYTIME DAY S" at £5.10 — so no
+    ordinary fare of the same name - `8AB` is "ANYTIME DAY S" at £5.10 - so no
     description marker could ever have found it.
     """
     connection, directory = fares(
@@ -616,7 +616,7 @@ def _write_restrictions(directory, bands):
     pq.write_table(
         pa.Table.from_pylist(
             # A band is (code, from, to, sense, location) plus, optionally,
-            # min_fare_flag and out_ret — 'O' for the outward leg, 'R' for the
+            # min_fare_flag and out_ret - 'O' for the outward leg, 'R' for the
             # journey home. Sequences are distinct so each band keeps its own
             # date window rather than collapsing into one.
             [{"cf_mkr": "C", "restriction_code": c, "sequence_no": f"{i:04d}",
@@ -708,7 +708,7 @@ def test_only_a_via_band_looks_at_the_middle_of_the_journey(fares):
     Reading them as "any journey through here" instead made 1,648 fares dearer
     than any retailer sells. Restriction `LK` is why it cannot be right: band
     0018 bars departing Euston before 10:29 while band 0006 bars departing
-    Leighton Buzzard before 12:33, and one train cannot satisfy both — they are
+    Leighton Buzzard before 12:33, and one train cannot satisfy both - they are
     per-origin rules, not a way of naming trains.
     """
     world = dict(
@@ -823,7 +823,7 @@ def railcard(code, description, status, *, per_mille, category=1,
 
 def _write_descriptions(directory, validities=(), headers=()):
     """The tables `fares_between` joins out to for its explanations. Empty is
-    fine — every join is a left one, so a fare with no route or validity record
+    fine - every join is a left one, so a fare with no route or validity record
     still appears, just without the words."""
     for name, schema in (
         ("route", pa.schema([
@@ -841,7 +841,7 @@ def _write_descriptions(directory, validities=(), headers=()):
             ("break_out", pa.bool_()), ("break_in", pa.bool_()),
             ("out_description", pa.string()), ("rtn_description", pa.string()),
             ("start_date", pa.date32()), ("end_date", pa.date32())])),
-        # `change_ind` is 4.19.3 field 10 — whether a change of trains is
+        # `change_ind` is 4.19.3 field 10 - whether a change of trains is
         # allowed at all. Absent from a fixture world means "allowed", which is
         # what 803 of the 839 current restrictions say.
         ("restriction_header", pa.schema([
@@ -860,7 +860,7 @@ def _write_descriptions(directory, validities=(), headers=()):
              **(extra[0] if extra else {})}
             for code, breaks, *extra in validities
         ] if name == "ticket_validity" else [
-            # (code, description, change_ind) — whether a change of trains is
+            # (code, description, change_ind) - whether a change of trains is
             # allowed at all, which no time band can express.
             {"cf_mkr": "C", "restriction_code": code, "description": description,
              "desc_out": description, "change_ind": change_allowed}
@@ -1051,7 +1051,7 @@ def test_a_railcard_minimum_fare_lifts_a_cheap_discount(fares):
 def test_a_minimum_fare_only_applies_when_the_restriction_says_so(fares):
     """RSPS5045 4.16.1.1: minimum fares apply "when railcards are used on
     certain trains (determined by the train restriction)". Charging one all day
-    overprices every off-peak journey on a ticket that has a minimum at all —
+    overprices every off-peak journey on a ticket that has a minimum at all -
     it moved 84 of Euston's Sunday fares."""
     connection, directory = minimum_fare_world(fares, 1000, 800)
     weekend = {r[0]: r[3] for r in cheapest_from(
@@ -1157,7 +1157,7 @@ def test_advance_fares_are_used_when_asked_for(fares):
 def test_a_bundle_whose_name_does_not_say_so_needs_the_supplementary_file(fares):
     """"Multiflex" is a bundle and reads like a ticket.
 
-    Most carnets announce themselves — CARNET, FLXIPASS, DAYSAVE — and
+    Most carnets announce themselves - CARNET, FLXIPASS, DAYSAVE - and
     `NON_PUBLIC_MARKERS` catches those by name. This is the case that needs
     RSPS5052, because nothing in the description or in RSPS5045 gives it away:
     min and max passengers are both 1 and the price varies with distance.
@@ -1180,7 +1180,7 @@ def test_without_the_bundle_list_a_multiflex_looks_like_a_cheap_single(fares):
 
     900 is cheaper than 1510 and wins, which is exactly the failure the
     supplementary file exists to prevent. A carnet that *says* carnet is caught
-    by name whether or not the file has been fetched — see the test below.
+    by name whether or not the file has been fetched - see the test below.
     """
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],
@@ -1191,7 +1191,7 @@ def test_without_the_bundle_list_a_multiflex_looks_like_a_cheap_single(fares):
 
 
 def test_a_carnet_that_names_itself_needs_no_supplementary_file(fares):
-    """Euston was quoting `CO5 CARNET OFFPK 5` — five journeys — to 13 stations.
+    """Euston was quoting `CO5 CARNET OFFPK 5` - five journeys - to 13 stations.
 
     `%FLEXI%` would have been the obvious marker and would have been wrong:
     "FLEXI ADVANCE" is a real single fare, a changeable Advance. The bundles are
@@ -1260,7 +1260,7 @@ def test_inclusive_tour_rates_are_excluded_even_with_advance(fares):
 
 
 def test_the_flat_rate_advance_placeholders_stay_excluded(fares):
-    """"SALE ADVANCE" is 50p on every flow — a placeholder, not a price."""
+    """"SALE ADVANCE" is 50p on every flow - a placeholder, not a price."""
     flows = [flow(i, "1111", f"{i:04d}") for i in range(1, 41)]
     stations = [("AAA", "1111", "1111")] + [
         (f"S{i:02d}", f"{i:04d}", f"{i:04d}") for i in range(1, 41)
@@ -1298,7 +1298,7 @@ def test_a_railcard_still_discounts_an_advance_fare(fares):
 # Most fares are not "any permitted": a route may require the journey to pass
 # through a station ("VIA APPLEBY") or forbid it ("NOT VIA CHELTNHM"). Route-
 # restricted fares are usually the cheaper ones, so failing to check them errs
-# in one direction — quoting a price for a journey it is not valid on.
+# in one direction - quoting a price for a journey it is not valid on.
 
 
 def routed(flow_id, origin, destination, route, *, ns_disc=0):
@@ -1612,7 +1612,7 @@ def test_an_upgrade_naming_neither_upgrade_nor_supplement(fares):
     flat-rate test cannot see it, the validity is the ordinary "on date shown"
     so the booked-train rule does not catch it, and it declares one passenger.
     It was the cheapest standard walk-up to 44 destinations from Euston and 52
-    from Liverpool — every Avanti West Coast origin — quoting £26.50 to
+    from Liverpool - every Avanti West Coast origin - quoting £26.50 to
     Birmingham where a retailer's cheapest walk-up is £20.90.
     """
     connection, directory = fares(
@@ -1635,12 +1635,12 @@ def test_an_upgrade_naming_neither_upgrade_nor_supplement(fares):
 
 
 def test_an_age_restricted_fare_is_not_an_adult_fare(fares):
-    """The same shape as a concession — a condition the passenger must meet,
-    written as a ticket type rather than as a discount — so nothing structural
+    """The same shape as a concession - a condition the passenger must meet,
+    written as a ticket type rather than as a discount - so nothing structural
     sees it. `TRQ TrainLinkC16-18` was quoting 75p from Headbolt Lane to
     Skelmersdale Bus Link, on a single flow where the flat-rate test cannot
     judge it because a modal share over one flow is trivially 1.0. The adult
-    `TRP TrainLink C` on the same flow is £1.50 — exactly double, which is what
+    `TRP TrainLink C` on the same flow is £1.50 - exactly double, which is what
     a half fare should be.
     """
     connection, directory = fares(
@@ -1660,7 +1660,7 @@ def test_one_fare_reached_by_two_codes_is_listed_once(fares):
     """A station is named by its own NLC, its fare group and every cluster
     holding it, and a flow may exist under more than one. Birmingham New Street
     is reached from Euston as `1127` and as cluster `T120`, both carrying the
-    same ticket on the same route at the same price — one fare, printed twice.
+    same ticket on the same route at the same price - one fare, printed twice.
 
     Rows differing only in price are *not* collapsed: RSPS5045 4.2.2 ranks the
     codes nowhere, so choosing between them would invent a precedence.
@@ -1800,8 +1800,8 @@ def test_a_band_naming_no_station_still_bites(fares):
     """RSPS5045 4.19.8 field 10: three spaces means the band is not station
     specific, so it applies at whichever end its arrive/depart marker names.
 
-    Requiring a station dropped 2,010 bands, restriction 3V among them — "VALID
-    ON ANY TRAIN 0930 OR LATER M-F" — so York offered its Off-Peak Single on the
+    Requiring a station dropped 2,010 bands, restriction 3V among them - "VALID
+    ON ANY TRAIN 0930 OR LATER M-F" - so York offered its Off-Peak Single on the
     09:06, which no retailer will sell. `--depart` moved one destination from
     York before this; it moves 2,087 after.
     """
@@ -1827,7 +1827,7 @@ def test_a_band_naming_no_station_still_bites(fares):
 
 
 def test_a_toc_only_fare_is_refused_on_another_operator(fares):
-    """`T:TP` — at least one leg must be TransPennine."""
+    """`T:TP` - at least one leg must be TransPennine."""
     connection, directory = fares(
         flows=[routed(1, "1111", "2222", "00085"), routed(2, "1111", "2222", "00000")],
         fare_records=[fare(1, "SDS", 2820), fare(2, "SDS", 4490)],
@@ -1844,7 +1844,7 @@ def test_a_toc_only_fare_is_refused_on_another_operator(fares):
 
 
 def test_a_barred_operator_refuses_the_fare(fares):
-    """`X:GR` — no leg may be LNER."""
+    """`X:GR` - no leg may be LNER."""
     connection, directory = fares(
         flows=[routed(1, "1111", "2222", "00085"), routed(2, "1111", "2222", "00000")],
         fare_records=[fare(1, "SDS", 2820), fare(2, "SDS", 4490)],
@@ -1944,7 +1944,7 @@ def test_without_modes_a_mode_condition_gives_no_verdict(fares):
 
 def test_a_fare_barring_a_break_is_not_offered_for_a_broken_journey(fares):
     """TVL field 12. 41 of the 104 validity codes say no, covering 651 of the
-    walk-up ticket types — so this is not a corner case."""
+    walk-up ticket types - so this is not a corner case."""
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],
         fare_records=[fare(1, "CDS", 900), fare(1, "SDS", 1510)],
@@ -2008,7 +2008,7 @@ def test_a_banded_rule_picks_its_band_from_the_discounted_fare(fares):
         fare_records=[fare(1, "CDS", 15050)],
         tickets=[ticket("CDS", "SUPER OFFPEAK S")],
         railcards=[railcard("YNG", "16-25 RAILCARD", "003", per_mille=334)],
-        # 5p up to £99.99, then £1 — the shape of FRR rule Z0.
+        # 5p up to £99.99, then £1 - the shape of FRR rule Z0.
         rounding=((9999, 5), (99999997, 100), (99999999, 1)),
     )
     # £150.50 less 33.4% is £100.233, which lands in the £1 band, not the 5p one.
@@ -2033,7 +2033,7 @@ def test_the_same_fare_under_the_flat_five_pence_rule(fares):
 # RSPS5045 4.15.2 field 8: an area-restricted railcard "can only be used in
 # areas denoted by the Railcard Geography held in the Locations file". 87
 # railcards are so flagged. The Network Railcard covers 1,029 stations and the
-# Annual Gold Card 1,206 — genuinely different areas, and Birmingham is in the
+# Annual Gold Card 1,206 - genuinely different areas, and Birmingham is in the
 # second but not the first.
 
 
@@ -2095,7 +2095,7 @@ def test_a_railcard_with_no_area_flag_is_untouched(fares):
 
 
 def test_a_flagged_railcard_with_no_geography_is_left_alone(fares):
-    """Not knowing the area is not knowing it is empty — the same rule the TOC
+    """Not knowing the area is not knowing it is empty - the same rule the TOC
     and mode conditions follow."""
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],
@@ -2113,7 +2113,7 @@ def test_a_flagged_railcard_with_no_geography_is_left_alone(fares):
 
 def test_a_railcard_banned_on_a_route_does_not_discount_it(fares):
     """The Network Railcard carries 103 route bans, GATWICK EXP ONLY among
-    them — which is how "that operator does not accept it" is expressed."""
+    them - which is how "that operator does not accept it" is expressed."""
     connection, directory = fares(
         flows=[routed(1, "1111", "2222", "00724")],
         fare_records=[fare(1, "CDS", 1510)],
@@ -2158,7 +2158,7 @@ def test_the_railcards_own_restriction_bars_it_in_the_peak(fares):
 
 def test_a_minimum_fare_band_is_not_a_bar(fares):
     """RSPS5045 4.19.8 field 13. Only 19 of 33,216 current bands set it, and
-    one is the Network Railcard's own — spanning the whole day, so reading it
+    one is the Network Railcard's own - spanning the whole day, so reading it
     as a bar withdraws the railcard entirely."""
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],
@@ -2178,7 +2178,7 @@ def test_a_minimum_fare_band_is_not_a_bar(fares):
 
 def test_a_return_can_win_on_price_and_the_caller_is_told_which(fares):
     """`cheapest_from` has always priced returns alongside singles and a return
-    sometimes wins — 4 of the 2,760 cheapest fares from York are returns, and
+    sometimes wins - 4 of the 2,760 cheapest fares from York are returns, and
     James Cook University Hospital's £23.30 Off-Peak Day Return beats its
     £35.50 single. The price alone does not say you bought a round trip, so the
     ticket type comes back with it."""
@@ -2197,7 +2197,7 @@ def test_a_return_can_win_on_price_and_the_caller_is_told_which(fares):
 
 def test_a_return_date_withdraws_a_return_that_cannot_come_back_then(fares):
     """A Day Return is valid on the date shown, so asking to come back a week
-    later has to fall through to the single — at a higher price. Singles are
+    later has to fall through to the single - at a higher price. Singles are
     kept rather than filtered: a single is not made invalid by the question."""
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],
@@ -2262,8 +2262,8 @@ def test_a_return_leg_band_bars_a_fare_on_the_way_home(fares):
 def test_a_return_departure_band_bites_at_the_destination_not_the_origin(fares):
     """The two legs run opposite ways and the band follows the journey.
 
-    On the way home a departure band bites where the journey home *starts* —
-    the outward destination — and an arrival band bites back at the origin.
+    On the way home a departure band bites where the journey home *starts* -
+    the outward destination - and an arrival band bites back at the origin.
     Swapping them applies London's morning arrival bans to a train leaving
     London, which reads entirely plausible and is backwards. A band naming AAA
     must therefore do nothing to a return departure, and one naming BBB must.
@@ -2314,7 +2314,7 @@ def test_a_return_arrival_band_bites_back_at_the_origin(fares):
 
 def test_return_bands_are_ignored_when_the_way_back_is_not_routed(fares):
     """A sweep prices thousands of destinations and cannot route a return leg
-    for each. Not knowing the time is not a reason to refuse the fare — the
+    for each. Not knowing the time is not a reason to refuse the fare - the
     same guard the TOC conditions needed."""
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],
@@ -2367,7 +2367,7 @@ def change_barred_world(fares, *, change_allowed):
 
 
 def test_a_restriction_barring_a_change_withdraws_the_fare(fares):
-    """RSPS5045 4.19.3 field 10, and the bands cannot express it — it is a
+    """RSPS5045 4.19.3 field 10, and the bands cannot express it - it is a
     property of the whole restriction. From Euston this moves 199 destinations,
     median +£67.10: `QFR` LUMOFIXED at £10.90 was being quoted to Nantwich, on a
     journey changing at Crewe, for a fare valid only on Lumo services.

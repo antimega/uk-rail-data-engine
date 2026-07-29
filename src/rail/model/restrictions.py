@@ -1,6 +1,6 @@
 """Time restrictions on fares.
 
-A fare carries a two-character restriction code — 65% of them do — and that code
+A fare carries a two-character restriction code - 65% of them do - and that code
 names a set of *time bands during which the fare may not be used*. Both header
 types in the feed (`N` and `P`) behave that way: restriction 0W bans departing
 Euston 04:30–09:25 and 15:01–18:44, and 1C bans arriving into London termini
@@ -9,11 +9,11 @@ Euston, which is exactly the fare you cannot buy.
 
 Three things govern whether a band bites on a given day:
 
-* ``cf_mkr`` — the file carries the restrictions in force now ("C") *and* the
+* ``cf_mkr`` - the file carries the restrictions in force now ("C") *and* the
   next version ("F"), each with its own validity window in the RD records. The
   travel date decides which set to read.
-* header dates (HD) — which dates and weekdays the whole restriction applies to.
-* band dates (TD) — the same, per time band, overriding the header.
+* header dates (HD) - which dates and weekdays the whole restriction applies to.
+* band dates (TD) - the same, per time band, overriding the header.
 
 Those date ranges are **MMDD, not DDMM**. Restriction 0W runs 0104–0402,
 0407–0501, 0505–0522, 0526–0828, 0901–1223: read as MMDD the gaps are Easter,
@@ -70,12 +70,12 @@ def build_restrictions(
 
     # The header carries one thing the bands do not: whether a change of trains
     # is allowed at all (4.19.3 field 10, `CHANGE_IND`, position 139). `N` bars
-    # it — 36 of the 839 current restrictions, among them the Avanti "Valid on
+    # it - 36 of the 839 current restrictions, among them the Avanti "Valid on
     # booked service only" fares and TfW's "BOOKDTRAINONLY" Advance Flex.
     #
     # RSPS5045 4.19.6 defines an `HC` record naming stations where a change *is*
-    # allowed despite the bar. **This feed ships none** — not one HC record in
-    # RJFAF833 — so a bar here has no exceptions. If HC ever appears, refusing
+    # allowed despite the bar. **This feed ships none** - not one HC record in
+    # RJFAF833 - so a bar here has no exceptions. If HC ever appears, refusing
     # every change becomes too strict and this is the place to fix it.
     connection.execute(f"""
         create or replace table restriction_current as
@@ -84,8 +84,8 @@ def build_restrictions(
     """)
 
     # A blank time is an **open end**, not a missing band. 30 of the 66,432
-    # records leave one side empty — `FL` and `FK` four each, then `XG`, `8Z`,
-    # `OF` and `S1` — and they read as "any time up to 23:59" or "from 00:00
+    # records leave one side empty - `FL` and `FK` four each, then `XG`, `8Z`,
+    # `OF` and `S1` - and they read as "any time up to 23:59" or "from 00:00
     # onwards". Dropping them, which is what this did, silently discarded a bar
     # and made the fare look valid all day.
     #
@@ -203,7 +203,7 @@ def applicable_bands(
     ``min_fare_flag`` comes back with them and changes what a band means:
     RSPS5045 4.19.8 field 13 says `Y` leaves the fare valid but charges a
     minimum, where `N` bars it outright. Only 19 of the 33,216 current bands are
-    `Y`, but one of them is the Network Railcard's, and it spans the whole day —
+    `Y`, but one of them is the Network Railcard's, and it spans the whole day -
     read as a bar it withdraws the railcard entirely.
     """
     return connection.execute(

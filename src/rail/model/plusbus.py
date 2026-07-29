@@ -3,17 +3,17 @@
 Two feeds meet here, and neither is sufficient alone.
 
 The **prices** are ordinary flows in the fares feed, from a station's own NLC to
-a pseudo-location for its bus zone — Hucknall 1862 to `HUCKNALL+BUS` L102, a
+a pseudo-location for its bus zone - Hucknall 1862 to `HUCKNALL+BUS` L102, a
 PLUSBUS DAY at £5.40. 346 of those zone locations exist and 464 flows carry a
 PlusBus fare. They never leak into ordinary pricing because the zone locations
 carry no CRS, so `fare_alias` never names one as a destination.
 
-The **rules** are in RSPS5052, under different licensing — see
+The **rules** are in RSPS5052, under different licensing - see
 :mod:`rail.acquire.supplementary`. A PlusBus add-on is only valid for a journey
 *to or from* a zone, so it must not be sold when both ends of the rail journey
 sit in the same one: Derby and Buxton are fine, Buxton and Matlock are not.
-That list is a version history like everything else in these feeds — the file
-ships two annual generations and half of it has expired — so it is filtered on
+That list is a version history like everything else in these feeds - the file
+ships two annual generations and half of it has expired - so it is filtered on
 the travel date.
 
 **The exclusion is reversible.** A record from A to B applies from B to A, and
@@ -28,7 +28,7 @@ from pathlib import Path
 
 import duckdb
 
-#: The zone locations describe themselves this way — "DERBY+BUS".
+#: The zone locations describe themselves this way - "DERBY+BUS".
 ZONE_MARKER = "%+BUS"
 
 
@@ -98,7 +98,7 @@ def _load_rules(
     connection: duckdb.DuckDBPyConnection, supplementary_dir: Path | None
 ) -> None:
     """The RSPS5052 half. Empty tables when it has not been fetched, so the
-    queries below need no branch — and an empty exclusion list means nothing is
+    queries below need no branch - and an empty exclusion list means nothing is
     excluded, which is the honest reading of "we do not know"."""
     for name, columns in (
         ("plusbus_excluded_pair",
@@ -157,7 +157,7 @@ def may_sell_add_on(
 ) -> bool | None:
     """May a PlusBus add-on be sold for a journey between these two?
 
-    False when both ends sit in the same zone — the add-on would buy travel
+    False when both ends sit in the same zone - the add-on would buy travel
     within one zone, which the product does not do. None when neither end has a
     zone at all, which is not a refusal but an absence.
 
@@ -195,8 +195,8 @@ def add_ons_from(
     Batched deliberately: `rail reachable` prices thousands of destinations at
     once and asking per station would dominate the query.
 
-    Excludes anywhere the add-on may not be sold — the origin's own zone, and
-    every pair RSPS5052 lists — so a destination missing from the result is one
+    Excludes anywhere the add-on may not be sold - the origin's own zone, and
+    every pair RSPS5052 lists - so a destination missing from the result is one
     with no zone *or* one where the product does not apply. `PBD` is the day
     ticket, the only one that makes sense alongside a single journey.
     """

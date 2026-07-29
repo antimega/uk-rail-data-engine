@@ -1,4 +1,4 @@
-"""The station crosswalk — the one table that silently corrupts everything else.
+"""The station crosswalk - the one table that silently corrupts everything else.
 
 Fixtures reproduce the real shapes found in RJTTF904/RJFAF833: an MSN header
 line that parses as a station, Irish entries with sentinel zero coordinates,
@@ -147,7 +147,7 @@ def test_grid_references_decode_and_sentinel_zero_stays_null(built):
         "select crs, easting, northing from station order by crs desc"
     ).fetchall()
 
-    # (14596 - 10000) * 100 = 459600 — York, to within about 100 metres.
+    # (14596 - 10000) * 100 = 459600 - York, to within about 100 metres.
     assert york == ("YRK", 459600, 451700)
     # A stored zero means "unknown", not the origin of the grid.
     assert athenry == ("ATR", None, None)
@@ -209,7 +209,7 @@ def test_stations_without_coordinates_are_recorded_not_dropped(built):
 def kinds_world(*, calls):
     """Stations classified by what calls at them.
 
-    `calls` is (crs, train_status, atoc_code) — the two fields that between them
+    `calls` is (crs, train_status, atoc_code) - the two fields that between them
     say what kind of service it was and who ran it.
     """
     c = duckdb.connect()
@@ -237,7 +237,7 @@ def test_a_station_a_train_calls_at_is_a_rail_station():
 def test_a_bus_stop_and_a_ferry_pier_are_told_apart():
     """MSN mixes them in with stations and RSPS5052's boolean cannot: it says
     only "not a rail station" for a coach bay, a pier and a Metro platform
-    alike. CIF train status says which — `B`/`5` a bus, `S`/`4` a ship."""
+    alike. CIF train status says which - `B`/`5` a bus, `S`/`4` a ship."""
     kinds = kinds_world(calls=[("BUS", "B", "AW"), ("SHP", "S", "QC"),
                                ("BU5", "5", "AW"), ("SH4", "4", "QC")])
 
@@ -246,14 +246,14 @@ def test_a_bus_stop_and_a_ferry_pier_are_told_apart():
 
 def test_a_metro_station_is_not_a_rail_station():
     """Tyne & Wear Metro runs in CIF because it shares the network, not because
-    a National Rail train calls. 21 stations are reachable only that way —
+    a National Rail train calls. 21 stations are reachable only that way -
     Fellgate, Stadium of Light, St Peters, Seaburn."""
     assert kinds_world(calls=[("FEG", "P", "TW")]) == {"FEG": "metro"}
 
 
 def test_a_national_rail_train_at_a_metro_station_makes_it_rail():
-    """The feeds draw this line nowhere — the fares feed's TOC file lists all 86
-    operators alike, Tyne & Wear Metro beside GWR — so the operator list is
+    """The feeds draw this line nowhere - the fares feed's TOC file lists all 86
+    operators alike, Tyne & Wear Metro beside GWR - so the operator list is
     curated and deliberately short."""
     kinds = kinds_world(calls=[("XXX", "P", "TW"), ("XXX", "P", "NT")])
 
@@ -271,7 +271,7 @@ def test_a_train_outranks_everything_else_that_stops_there():
 
 
 def test_a_location_nothing_calls_at_is_unserved():
-    """368 of them, reachable only by fixed link if at all — which is why they
+    """368 of them, reachable only by fixed link if at all - which is why they
     show up in a sweep with no fare."""
     c = duckdb.connect()
     c.execute("create table station (crs varchar, name varchar)")

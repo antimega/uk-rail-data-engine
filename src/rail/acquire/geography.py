@@ -1,9 +1,9 @@
-"""Precise grid references for TIPLOCs — a third source, under a third licence.
+"""Precise grid references for TIPLOCs - a third source, under a third licence.
 
 **Where it comes from, and why that matters.** This is neither a DTD feed nor
 RSPS5052. It is a spreadsheet of TIPLOC eastings and northings released by
 **Network Rail in response to a Freedom of Information request**, under the
-**Open Government Licence v3** — which permits copying, publishing and adapting
+**Open Government Licence v3** - which permits copying, publishing and adapting
 provided the source is acknowledged and the OGL named. That obligation is
 *different* from the National Rail attribution the DTD feeds carry, and anything
 published from a mixture of the two owes both. Name Network Rail and the FOI
@@ -14,7 +14,7 @@ schedule, no versioning and no URL to poll, so this is imported by path and
 never fetched. Two consequences worth keeping in mind:
 
 * it **goes stale silently** as stations open, close and move, and nothing here
-  will notice — the DTD feeds refresh around it while this does not;
+  will notice - the DTD feeds refresh around it while this does not;
 * `rail refresh` rebuilds the database, which drops the refinement, so
   re-running `rail geography` afterwards is a manual step.
 
@@ -23,7 +23,7 @@ is at least visible. `data/` is git-ignored, so nothing here is redistributed by
 the repository.
 
 **Why it is worth having.** MSN's own grid references are about a kilometre
-accurate — the working notes have said so from the start, and the numbers bear it
+accurate - the working notes have said so from the start, and the numbers bear it
 out: against this file the median disagreement is 59 m, which is MSN rounding to
 the nearest 100 m. That is fine for labelling a station and useless for measuring
 a distance.
@@ -32,9 +32,9 @@ a distance.
 present in both, 31 disagree by more than a kilometre, and the disagreements are
 not all one way:
 
-* `HHY` Highbury & Islington — the spreadsheet places it 58 km away, in Kent.
+* `HHY` Highbury & Islington - the spreadsheet places it 58 km away, in Kent.
   MSN is right.
-* `PWW` Pollokshaws West — resolved by matching the *nearest* TIPLOC rather than
+* `PWW` Pollokshaws West - resolved by matching the *nearest* TIPLOC rather than
   the first, because the station also carries `BUSBYJ`, a junction 5 km off.
 
 So the merge refines rather than overrides: where the two agree within a
@@ -44,7 +44,7 @@ the other is the only check available, since there is no third.
 
 **Parsing.** xlsx is a zip of XML, so this reads it with the standard library
 rather than adding a spreadsheet dependency for one file. Gzipped or plain, both
-are accepted — the copy this was built against arrived `.xlsx.gz`.
+are accepted - the copy this was built against arrived `.xlsx.gz`.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ import pyarrow.parquet as pq
 _NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 #: MSN rounds to 100 m and the observed 90th-percentile disagreement is 156 m, so
-#: anything past a kilometre is not a difference of precision — it is the two
+#: anything past a kilometre is not a difference of precision - it is the two
 #: sources naming different places, and neither can be trusted over the other.
 AGREEMENT_METRES = 1000
 
@@ -156,7 +156,7 @@ def ingest_geography(path: Path, parquet_dir: Path) -> GeographyCounts:
         "provenance": "Network Rail, released under FOI",
         "note": "Not a DTD feed, and not a maintained publication: an FOI "
                 "disclosure is a point-in-time snapshot with no refresh. "
-                "Attribution under OGL — naming Network Rail and the OGL — is "
+                "Attribution under OGL - naming Network Rail and the OGL - is "
                 "required separately from the National Rail attribution the DTD "
                 "feeds carry.",
     }, indent=2))

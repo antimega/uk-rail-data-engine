@@ -1,7 +1,7 @@
 """Return tickets: which kind, and when you may come back.
 
 `cheapest_from` has always priced returns alongside singles, and a return
-sometimes wins — an Off-Peak Day Return can undercut two singles. What was
+sometimes wins - an Off-Peak Day Return can undercut two singles. What was
 missing was any statement of *what you had bought*: a price appeared with no
 note that it was a return, and nothing said by when you had to travel back.
 
@@ -23,8 +23,8 @@ codes rather than assumed:
 * `49` "FIVE DAY RTN" carries ``ret_days = 5``, ``ret_after_days = 4`` and, in
   prose, ``out_description = 'OUT ON WED'`` / ``rtn_description = 'RTN ON SUN'``.
   Wednesday to Sunday is four days, and it is both the earliest and the latest
-  return. That fixes **``ret_after_days`` as a plain offset** — earliest is
-  ``outward + ret_after_days`` — and confirms the inclusive reading above, since
+  return. That fixes **``ret_after_days`` as a plain offset** - earliest is
+  ``outward + ret_after_days`` - and confirms the inclusive reading above, since
   ``outward + 5 - 1`` is also Sunday. Neither rule can be moved by a day without
   breaking one of the two.
 
@@ -34,7 +34,7 @@ follows from `06`: there is no "day zero" for days, and no natural inclusive
 reading for months.
 
 **`ret_after_day` (4.7.2 field 11) is what makes a weekend return a weekend
-return**, and it is set on **three codes out of a hundred** — `58` and `59` say
+return**, and it is set on **three codes out of a hundred** - `58` and `59` say
 `SU`, `98` says `SA`. The spec's wording is that return travel is not permitted
 *until the day specified has passed*, so the earliest return is the day after
 that weekday, not the weekday itself. `98` is the old must-stay-a-Saturday-night
@@ -43,16 +43,16 @@ return from Sunday. Miss the field entirely and a Long Weekend Return looks like
 an ordinary four-day return.
 
 **The trap that turns out not to bite.** Twelve validity codes carry zero in
-every numeric field and state their period only in the description — `01` is
-"THREE DAYS", `02` "THREE MONTHS", `03` "ONE MONTH" — so reading the numbers
+every numeric field and state their period only in the description - `01` is
+"THREE DAYS", `02` "THREE MONTHS", `03` "ONE MONTH" - so reading the numbers
 alone would make those look like zero-day tickets. Checked against the current
 feed: **no walk-up return uses one of them.** They cover seasons (182 tickets on
 `00` "(USE SEASON)") and eight singles. So the prose is worth recording and is
 not worth parsing, and `unstated_period` marks the rows rather than guessing.
 
 The same caution does apply to two codes that *are* returns: `49` and `29` give
-only a bound numerically, and the actual rule — "OUT ON WED / RTN ON SUN",
-"BEFORE 1200" — lives in `out_description`/`rtn_description` and nowhere else.
+only a bound numerically, and the actual rule - "OUT ON WED / RTN ON SUN",
+"BEFORE 1200" - lives in `out_description`/`rtn_description` and nowhere else.
 Those are carried through to the caller verbatim for that reason.
 
 **What this does not do.** It answers "may I come back on this date, on this
@@ -80,7 +80,7 @@ _WEEKDAYS = {
 
 #: Descriptions that state the ticket is not valid in that direction. A single's
 #: validity record often shares a code with a return, so this is a corroborating
-#: signal rather than the deciding one — `tkt_type` decides.
+#: signal rather than the deciding one - `tkt_type` decides.
 _INVALID = "INVALID"
 
 
@@ -222,11 +222,11 @@ class ReturnWindow:
     earliest: dt.date
     latest: dt.date
     #: Set when the window comes from the outward validity because the record
-    #: gives no return period — one walk-up ticket, `OG8` "Open Golf 8 Day".
+    #: gives no return period - one walk-up ticket, `OG8` "Open Golf 8 Day".
     inferred: bool
     #: TVL field 11, the weekend rule. `SA` or `SU` where present.
     after_weekday: str | None
-    #: RSPS5045 TVL field 12. Silence is not permission — see `fares.py`.
+    #: RSPS5045 TVL field 12. Silence is not permission - see `fares.py`.
     break_permitted: bool
     #: The feed's own prose, which on `49` and `29` is the only complete
     #: statement of the rule. Carried verbatim rather than parsed.
@@ -237,8 +237,8 @@ class ReturnWindow:
         """No date satisfies both ends of the rule, so the ticket is unusable.
 
         This is the weekend rule doing its job rather than a defect. A `WKND 3
-        Days` return bought for a Wednesday must be back within three days —
-        by the Friday — and may not travel until Sunday has passed. Nothing
+        Days` return bought for a Wednesday must be back within three days -
+        by the Friday - and may not travel until Sunday has passed. Nothing
         satisfies both, which is precisely why it is a *weekend* return. Reading
         the days alone makes it look like an ordinary three-day ticket valid any
         day of the week, and clamping the window to keep it non-empty would sell
@@ -257,7 +257,7 @@ class ReturnWindow:
             self.after_weekday, self.after_weekday)
 
         if self.is_empty:
-            return (f"{kind}, but not for this outward date — must be back by "
+            return (f"{kind}, but not for this outward date - must be back by "
                     f"{self.latest:%a %-d %b} and may not travel until "
                     f"{day} has passed")
 
@@ -273,7 +273,7 @@ class ReturnWindow:
         if not self.break_permitted:
             sentence += ", no break of journey returning"
         if self.note:
-            sentence += f" — feed says {self.note!r}"
+            sentence += f" - feed says {self.note!r}"
         return sentence
 
 
@@ -285,7 +285,7 @@ def return_window(
     """When `ticket_code` permits the return leg, or None if it is not a return.
 
     None means "this is a single or a season", which is a different answer from
-    a return whose window happens to exclude the date — that comes back as a
+    a return whose window happens to exclude the date - that comes back as a
     window `covers()` rejects.
     """
     row = connection.execute(
@@ -354,7 +354,7 @@ def return_windows(
 
     Deliberately the same arithmetic as `return_window`, driven off one query
     rather than reimplemented in SQL. Expressing the rules a second time in the
-    pricing CTEs would be faster and would eventually disagree with this — and
+    pricing CTEs would be faster and would eventually disagree with this - and
     the weekday rule cannot be written there at all without a calendar join.
     There are only a few hundred return types, so the loop costs nothing.
     """

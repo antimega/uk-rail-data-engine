@@ -1,4 +1,4 @@
-"""Connection Scan Algorithm — one-to-all earliest arrival.
+"""Connection Scan Algorithm - one-to-all earliest arrival.
 
 One pass over the day's connections in departure order answers "how early can I
 be at every station", which is exactly the shape of the question being asked.
@@ -7,8 +7,8 @@ its best case is precisely the one-to-all query.
 
 Two clocks per station, and conflating them is the classic bug:
 
-* ``arrival`` — the earliest you can *be* at a station. This is the answer.
-* ``ready``  — the earliest you can *board* there, which is the arrival plus
+* ``arrival`` - the earliest you can *be* at a station. This is the answer.
+* ``ready``  - the earliest you can *board* there, which is the arrival plus
   that station's minimum change time. Staying on the same train needs no
   change, so a boarded trip bypasses it entirely.
 
@@ -35,7 +35,7 @@ WALK_MODE = LINK_MODES["WALK"]
 class Leg:
     """One part of a journey as a passenger would describe it.
 
-    A leg is a vehicle boarded or a walk taken, not a calling point — the 22
+    A leg is a vehicle boarded or a walk taken, not a calling point - the 22
     stations between York and Penzance are three legs. `operator` is None for a
     fixed link, which has no trip and therefore nobody running it.
     """
@@ -65,22 +65,22 @@ class ScanResult:
     network: Network
     #: How each station was reached: the station before it. Walking back gives
     #: the full sequence of calling points, because every connection is one hop
-    #: between consecutive public calls — which is what route conditions like
+    #: between consecutive public calls - which is what route conditions like
     #: "NOT VIA CHELTENHAM" have to be tested against.
     previous: list[int | None] = dc_field(default_factory=list)
     #: The operator of the connection that reached each station, or None where a
     #: fixed link did. Walking back alongside `previous` gives every operator the
-    #: journey used, which is what RGK's TOC conditions are tested against —
+    #: journey used, which is what RGK's TOC conditions are tested against -
     #: route 00085 is "TPE ONLY" and no list of calling points can settle it.
     arrived_by: list[str | None] = dc_field(default_factory=list)
     #: The transport mode of the connection that reached each station, numbered
-    #: as RSPS5047 4.12.3 does — 0 a train, 4 the Underground, 2 a bus. RGK
+    #: as RSPS5047 4.12.3 does - 0 a train, 4 the Underground, 2 a bus. RGK
     #: states conditions against these on 95 routes.
     arrived_mode: list[str | None] = dc_field(default_factory=list)
     #: Where each trip was boarded, by station index. Recorded when the scan
     #: first boards it, which is the only moment that knows.
     boarded_at: list[int | None] = dc_field(default_factory=list)
-    #: *When* each trip was boarded — the departure time of the connection that
+    #: *When* each trip was boarded - the departure time of the connection that
     #: first boarded it. Recorded alongside `boarded_at` for the same reason,
     #: and what turns an arrival into a journey time: `Journey.minutes` counts
     #: from the query, so York to Cardiff is 4h59 from a 09:00 query and 4h23 of
@@ -96,7 +96,7 @@ class ScanResult:
     #: portion is joined at Edinburgh by a passenger who has been aboard since
     #: Preston and never set foot on the platform.
     joined_from: list[tuple[int, int] | None] = dc_field(default_factory=list)
-    #: Trips boarded through an association rather than by interchanging — a
+    #: Trips boarded through an association rather than by interchanging - a
     #: joined portion of a train already ridden. Two schedules, one physical
     #: train, and no change of trains: counting one would refuse a "no changes"
     #: fare on exactly the through journeys the association exists to describe.
@@ -106,7 +106,7 @@ class ScanResult:
         """The journey to `crs` as (trip, stations) pairs, origin first.
 
         One walk, used by everything that asks about the journey rather than
-        the arrival — the calling points, the trains, the changes. Keeping them
+        the arrival - the calling points, the trains, the changes. Keeping them
         on separate walks is how they came to disagree: `path_to` traced the
         train while `changes_to` and `operators_to` still went station to
         station, so the sleeper to Inverness reported one change and two
@@ -195,7 +195,7 @@ class ScanResult:
         **`changed` is what a restriction band actually needs.** RSPS5045
         4.19.8 field 9 offers "arrivals at, departures from or changing at",
         and field 10 calls the location "a journey origin/destination or via
-        location" — so only the `V` marker means a station in the middle, and it
+        location" - so only the `V` marker means a station in the middle, and it
         means *changing* there, not passing through. Three `V` bands are in
         force.
 
@@ -205,8 +205,8 @@ class ScanResult:
         segments = self._segments(crs)
         calls: list[tuple[str, int, int, bool]] = []
         # Where the journey changes: the first station of every segment after
-        # the first. A joined portion is not a change — two schedules, one
-        # train — and `changes_to` already knows which those are.
+        # the first. A joined portion is not a change - two schedules, one
+        # train - and `changes_to` already knows which those are.
         joined = self.joined_trip
         boundaries: set[str] = set()
         for position, (trip, stops) in enumerate(segments):
@@ -253,7 +253,7 @@ class ScanResult:
     def changes_to(self, crs: str) -> int:
         """How many times the journey to `crs` changes train.
 
-        One per boundary between segments — every fixed link is its own, since
+        One per boundary between segments - every fixed link is its own, since
         walking between stations means leaving one train and boarding another.
         A portion joined to the train already ridden is **not** a change: two
         schedules, one physical train, which is what the association says.
@@ -277,7 +277,7 @@ class ScanResult:
         }
 
     def departure_to(self, crs: str) -> int | None:
-        """When the journey to `crs` actually starts — the first boarding.
+        """When the journey to `crs` actually starts - the first boarding.
 
         Read off the same `_segments` walk as `path_to` and `changes_to`, for
         the reason recorded throughout this file: three walks that ought to
@@ -314,8 +314,8 @@ class ScanResult:
         travelling and 4h59 from a 09:00 query because the train leaves at
         09:36, and a CLI column once labelled the second as the first.
 
-        Both are useful and they answer different questions — "how long does it
-        take" against "when can I be there" — so both are exposed and neither is
+        Both are useful and they answer different questions - "how long does it
+        take" against "when can I be there" - so both are exposed and neither is
         allowed to stand in for the other.
         """
         index = self.network.index.get(crs)
@@ -375,11 +375,11 @@ class ScanResult:
         kinds the network holds all come out the same shape, which is the point
         of doing this here rather than in each caller:
 
-        * an ordinary train — a trip, an operator, mode 0;
-        * **a timetabled bus or ferry — also just a trip.** The Solent
+        * an ordinary train - a trip, an operator, mode 0;
+        * **a timetabled bus or ferry - also just a trip.** The Solent
           hovercraft is a `QH` trip of mode 3 and the coach that connects to it
           a `QH` trip of mode 2, no different structurally from an LNER train;
-        * **a fixed link — no trip at all.** Its mode is not on a trip, because
+        * **a fixed link - no trip at all.** Its mode is not on a trip, because
           there is none: it is recorded against the station the link *arrives*
           at, so King's Cross to Paddington reads as mode 4, a tube hop, rather
           than as a train.
@@ -474,7 +474,7 @@ def earliest_arrival(network: Network, origin: str, depart_after: int) -> ScanRe
     #: For the 20 stations carrying a TSI rule, when we got there by each means:
     #: the arriving operator, or None for a fixed link or the origin itself.
     #: `ready` cannot answer this, being one number per station derived from the
-    #: earliest arrival by any means — and TSI *overrides* the station's own time
+    #: earliest arrival by any means - and TSI *overrides* the station's own time
     #: rather than competing with it, so the arriving operator has to be known.
     #: At Finsbury Park a change involving Grand Central takes 15 minutes against
     #: the station's 5, and taking the smaller would sell a connection that
@@ -493,8 +493,8 @@ def earliest_arrival(network: Network, origin: str, depart_after: int) -> ScanRe
 
         Every way of having arrived is charged its own change time: the TSI
         record for that pair of operators where one exists, the station's own
-        otherwise. Fixed links never match a TSI record, which is right — 5.12
-        is about changing between trains — and at the origin nothing is charged
+        otherwise. Fixed links never match a TSI record, which is right - 5.12
+        is about changing between trains - and at the origin nothing is charged
         because the passenger is not changing off anything.
 
         Deliberately **not** ``min(ready[station], …)``. `ready` is one number
@@ -525,8 +525,8 @@ def earliest_arrival(network: Network, origin: str, depart_after: int) -> ScanRe
         # RSPS5046 5.10.1.3 and 5.11.1.3 both say it explicitly: a fixed link's
         # transit time is *summated with* the minimum interchange times at the
         # stations at either end, not used instead of them. So the walk starts
-        # at `ready` — the arrival already increased by this station's change
-        # time — and boarding at the far end still costs that station's own.
+        # at `ready` - the arrival already increased by this station's change
+        # time - and boarding at the far end still costs that station's own.
         # Treating the link as door-to-door instead made 4 journeys in 10 from
         # York look 30 minutes quicker than they are.
         at = ready[station]
@@ -570,8 +570,8 @@ def earliest_arrival(network: Network, origin: str, depart_after: int) -> ScanRe
             # This train may be a joined portion of one we are already on, in
             # which case there is no interchange to make and the station's
             # change time does not apply. Tested *first* and independently of
-            # the ordinary check, because both can be true at once — a divide
-            # that dwells longer than the interchange allowance — and it is
+            # the ordinary check, because both can be true at once - a divide
+            # that dwells longer than the interchange allowance - and it is
             # still one physical train. Deciding by whichever test happened to
             # pass would call the sleeper's Inverness portion a change of train.
             required = assoc_needs[i]
@@ -582,7 +582,7 @@ def earliest_arrival(network: Network, origin: str, depart_after: int) -> ScanRe
                         satisfied = k
                         break
             stayed_aboard = satisfied is not None
-            # `can_board` is false at a set-down-only call — a public arrival
+            # `can_board` is false at a set-down-only call - a public arrival
             # with no public departure. The connection still exists, so anyone
             # already aboard rides through it and it stays on the path; what it
             # will not do is let somebody join here.

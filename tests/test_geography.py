@@ -1,8 +1,8 @@
 """Precise grid references, and the merge that must not trust either source.
 
 MSN's coordinates are about a kilometre accurate; the OGL TIPLOC spreadsheet is
-exact. But the spreadsheet has its own errors — it puts Highbury & Islington 58
-km away, in Kent — so the merge refines where the two agree and keeps MSN where
+exact. But the spreadsheet has its own errors - it puts Highbury & Islington 58
+km away, in Kent - so the merge refines where the two agree and keeps MSN where
 they do not. Using each to check the other is the only check available.
 """
 
@@ -54,8 +54,8 @@ def spreadsheet(rows, *, compress=False):
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as book:
-        # Real station names contain "&" — Highbury & Islington, the very case
-        # below — so the writer has to escape even though the reader unescapes.
+        # Real station names contain "&" - Highbury & Islington, the very case
+        # below - so the writer has to escape even though the reader unescapes.
         book.writestr("xl/sharedStrings.xml", STRINGS.format(
             items="".join(f"<si><t>{escape(s)}</t></si>" for s in shared)))
         book.writestr("xl/worksheets/sheet1.xml",
@@ -186,8 +186,8 @@ def test_an_agreeing_position_is_sharpened(merged):
 
 def test_two_sources_that_disagree_leave_the_position_unresolved(merged):
     """Highbury & Islington: the FOI spreadsheet places it 58 km away, in Kent,
-    and MSN is right. With only those two there is nothing to adjudicate — the
-    measured split is 16 to 14 across the real conflicts, which is a coin flip —
+    and MSN is right. With only those two there is nothing to adjudicate - the
+    measured split is 16 to 14 across the real conflicts, which is a coin flip -
     so the more precise value is taken, marked uncorroborated, and recorded.
     What matters is that the guess is visible, not which way it went."""
     connection = merged(
@@ -204,7 +204,7 @@ def test_two_sources_that_disagree_leave_the_position_unresolved(merged):
 
 def test_a_third_source_settles_it(merged):
     """Which is exactly why NaPTAN was added. It adjudicates 30 of the 31 real
-    conflicts, and backs the FOI file in 16 of them — so the earlier rule of
+    conflicts, and backs the FOI file in 16 of them - so the earlier rule of
     always keeping MSN was wrong more often than right."""
     connection = merged(
         stations=[("HHY", 531500, 184700)],
@@ -224,7 +224,7 @@ def test_a_third_source_settles_it(merged):
 def test_corroboration_picks_the_place_and_precision_picks_the_digits(merged):
     """NaPTAN rounds 393 of its 2,765 rail stops to 100 m; the FOI file rounds 1
     of 9,397. So where a second source vouches for the FOI position, its exact
-    value is the one to keep — NaPTAN's job is to say *which* position is right,
+    value is the one to keep - NaPTAN's job is to say *which* position is right,
     not to supply the final digits."""
     connection = merged(
         stations=[("YRK", 459500, 451700)],

@@ -1,7 +1,7 @@
 """Going and coming back, priced both ways.
 
 The question these answer is the one nothing else here could: *I am going on
-Tuesday and back on Thursday, what should I buy* — where the answer is a choice
+Tuesday and back on Thursday, what should I buy* - where the answer is a choice
 between one return ticket and two singles, and neither is reliably cheaper.
 
 The fares world is built by `test_fares.fares`, which is where the fixture and
@@ -24,14 +24,14 @@ RETURN_VALIDITIES = [("01", True), ("13", True, {"ret_months": 1}),
 
 #: The two directions are priced a little differently on purpose. A ticket type
 #: charging one price on every one of its flows is a flat-rate product to the
-#: classifier — that is what keeps "Kid with Adult" out of the walk-up set — so
+#: classifier - that is what keeps "Kid with Adult" out of the walk-up set - so
 #: pricing both directions identically would withdraw the single entirely.
 OUT, BACK = 1700, 1650
 
 
 def legs(*, out_depart=11 * 60, out_arrive=12 * 60,
          back_depart=17 * 60, back_arrive=18 * 60):
-    """One journey each way, already routed — which is what `Leg` means."""
+    """One journey each way, already routed - which is what `Leg` means."""
     return (
         Leg(origin="AAA", destination="BBB", date=TUESDAY,
             depart=out_depart, arrive=out_arrive, path=["AAA", "BBB"],
@@ -80,7 +80,7 @@ def test_two_singles_win_when_they_are_cheaper(fares):
 
 def test_the_cheapest_return_is_found_behind_a_cheaper_single(fares):
     """`cheapest_from` keeps only the cheapest fare per destination, which is
-    almost always a single — so asking it for a return finds nothing. York to
+    almost always a single - so asking it for a return finds nothing. York to
     King's Cross has a £130.40 Off-Peak Return sitting behind a £70.70 single,
     and the first version of this reported no return for every pair.
     """
@@ -156,7 +156,7 @@ def test_each_single_is_restricted_on_its_own_leg(fares):
                  ticket("SDS", "ANYTIME DAY S", validity="01")],
         validities=RETURN_VALIDITIES,
         # A plain outward-leg peak bar, which applies to each single's own
-        # journey — the outward one leaves AAA, the homeward one leaves BBB.
+        # journey - the outward one leaves AAA, the homeward one leaves BBB.
         bands=[("R1", 270, 569, "D", None, False, "O")],
     )
     trip = price_round_trip(
@@ -220,7 +220,7 @@ def test_a_break_on_the_way_home_needs_its_own_permission(fares):
 
 def test_the_two_directions_are_separate_permissions(fares):
     """A ticket may allow a break coming home and not going out. 109 walk-up
-    returns are the other way round — no break outward, one permitted home."""
+    returns are the other way round - no break outward, one permitted home."""
     connection, directory = breakable(fares, out_ok=False, home_ok=True)
     priced = lambda **kw: price_round_trip(
         connection, directory, *legs(), **kw).single_ticket

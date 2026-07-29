@@ -1,6 +1,6 @@
 """Return tickets: which kind, and when you may come back.
 
-The arithmetic here is not a guess — two validity codes in the real feed pin it,
+The arithmetic here is not a guess - two validity codes in the real feed pin it,
 and each has its own test below. Everything else follows from those two.
 """
 
@@ -149,7 +149,7 @@ def test_a_weekend_return_is_unusable_on_a_midweek_outward(world):
 
     Validity 59 "WKND 3 Days" says: out one day, back within three, and not
     until Sunday has passed. Leave on a Wednesday and you must be back by the
-    Friday but may not travel until the Monday — nothing satisfies both, so the
+    Friday but may not travel until the Monday - nothing satisfies both, so the
     ticket is not for that outward date. Reading the days alone makes it look
     like an ordinary three-day return valid any day of the week, and clamping
     the window so it is never empty would sell exactly that.
@@ -234,7 +234,7 @@ def test_a_return_with_no_return_period_falls_back_to_the_outward_window(world):
 
 
 def test_a_prose_note_that_only_repeats_the_description_is_dropped(world):
-    """The prose is worth surfacing when it says something the numbers do not —
+    """The prose is worth surfacing when it says something the numbers do not -
     'RTN ON SUN', 'BEFORE 1200'. Repeating the code's own name is noise."""
     connection = world(
         validities=[validity("13", "1DYOUT 1MTHRTN", ret_months=1)],
@@ -262,7 +262,7 @@ def test_returnable_on_selects_only_tickets_that_permit_the_date(world):
     assert same_day == {"CDR", "SVR"}
     # The day return cannot come back a week later; the open return can.
     assert next_week == {"SVR"}
-    # Singles are absent rather than excluded — they answer a different
+    # Singles are absent rather than excluded - they answer a different
     # question, and two of them are often the cheaper answer.
     assert "CDS" not in same_day
 

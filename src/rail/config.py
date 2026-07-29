@@ -16,8 +16,8 @@ from dotenv import load_dotenv
 def _project_root() -> Path:
     """The checkout this is running from, or the working directory.
 
-    ``parents[2]`` is right for an editable install — ``src/rail/config.py`` up
-    to the repo root — and wrong for a wheel in ``site-packages``, where it
+    ``parents[2]`` is right for an editable install - ``src/rail/config.py`` up
+    to the repo root - and wrong for a wheel in ``site-packages``, where it
     lands somewhere in the environment. Anything importing this as an ordinary
     dependency is in the second case, so the walk has to be checked rather than
     counted: look for a marker, and fall back to the working directory.

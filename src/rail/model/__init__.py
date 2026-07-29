@@ -89,7 +89,7 @@ __all__ = [
 # going through Python, so a renamed column breaks them with no import to
 # catch it and no error until a query returns nothing. Bump this whenever a
 # table or column that a consumer could reasonably read is renamed, dropped, or
-# changes meaning — adding one is not a break. A consumer that pins it fails
+# changes meaning - adding one is not a break. A consumer that pins it fails
 # loudly on a mismatch, which is the only cheap way to make a silent breakage
 # noisy.
 SCHEMA_VERSION = 1
@@ -124,7 +124,7 @@ def build_all(connection, config: Config, *, horizon_days: int = 90) -> BuildCou
 
     Nothing errored, because every one of those tables still existed. It only
     surfaced when a query wanted a column that the losing writer does not
-    produce — and by then the database had been wrong for as long as nobody had
+    produce - and by then the database had been wrong for as long as nobody had
     run `rail build` by hand.
 
     Order matters twice: `classify_locations` needs the timetable, since what a
@@ -136,7 +136,7 @@ def build_all(connection, config: Config, *, horizon_days: int = 90) -> BuildCou
     fares_dir = snapshot_parquet_dir(config, Feed.FARES)
 
     # The three optional sources. Each is absent unless its own command has been
-    # run, and each must be passed through on every build — dropping them is how
+    # run, and each must be passed through on every build - dropping them is how
     # a refresh used to silently discard the corroborated station positions.
     def _optional(name: str) -> Path | None:
         path = config.parquet_dir / name
@@ -158,8 +158,8 @@ def build_all(connection, config: Config, *, horizon_days: int = 90) -> BuildCou
     associations = build_associations(connection, timetable_dir)
     plusbus = build_plusbus(connection, fares_dir, supplementary_dir)
 
-    # The routeing guide is read from its ZIP rather than from Parquet — the
-    # ingest marks its files spec-pending and writes none — so it is skipped
+    # The routeing guide is read from its ZIP rather than from Parquet - the
+    # ingest marks its files spec-pending and writes none - so it is skipped
     # rather than failed when no snapshot has been fetched.
     store = SnapshotStore(config.raw_dir)
     manifest = store.latest(Feed.ROUTEING)
@@ -179,8 +179,8 @@ def snapshot_parquet_dir(config: Config, feed: Feed) -> Path:
     """Where the latest snapshot of `feed` was ingested to."""
     manifest = SnapshotStore(config.raw_dir).latest(feed)
     if manifest is None:
-        raise RuntimeError(f"no {feed.value} snapshot — run `rail fetch`")
+        raise RuntimeError(f"no {feed.value} snapshot - run `rail fetch`")
     path = config.parquet_dir / feed.value / Path(manifest.filename).stem
     if not path.exists():
-        raise RuntimeError(f"{feed.value} snapshot not ingested — run `rail ingest`")
+        raise RuntimeError(f"{feed.value} snapshot not ingested - run `rail ingest`")
     return path

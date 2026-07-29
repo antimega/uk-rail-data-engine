@@ -6,7 +6,7 @@ Crianlarich for Oban and Fort William; portions join at Dundee. In CIF these are
 associated train and the location where it happens.
 
 Without them a through passenger appears to change trains, paying the station's
-minimum interchange time for a move they never make — and sometimes missing the
+minimum interchange time for a move they never make - and sometimes missing the
 connection entirely, because the two portions are booked to depart within a
 minute or two of each other.
 
@@ -14,8 +14,8 @@ Associations carry their own STP indicators and resolve exactly like schedules,
 ``C > N > O > P``, so a cancelled association has to stop applying on the days it
 is cancelled.
 
-**Bound to the location, not the train.** The obvious shortcut — mark the partner
-train boardable once you have ridden its counterpart — is wrong. It holds for the
+**Bound to the location, not the train.** The obvious shortcut - mark the partner
+train boardable once you have ridden its counterpart - is wrong. It holds for the
 common shape, where a divide's associated train originates at the split and a
 join's terminates there, but roughly one association in seven has the partner
 calling at other stations too, and the shortcut would let a passenger board it
@@ -28,7 +28,7 @@ midnight", and the offset applies to the *associated* schedule's own date. All
 234 `N` records in this feed are Caledonian Sleeper divides at Edinburgh and
 Carstairs: the base leaves Euston at 21:15 and the portion is a separate
 schedule dated the next day, departing 04:28. There is no same-day overlap
-between the two at all — 13 next-day ones — so resolving them on the base date
+between the two at all - 13 next-day ones - so resolving them on the base date
 found nothing, and the link simply did not exist.
 """
 
@@ -43,8 +43,8 @@ import duckdb
 PASSENGER_CATEGORIES = ("JJ", "VV")
 
 #: RSPS5046 5.5.8.2 field 9. `S` is the ordinary case, the associated train
-#: running on the same day as the base. `N` is "over next midnight" — the
-#: associated train's schedule is dated the *following* day — and `P` "over
+#: running on the same day as the base. `N` is "over next midnight" - the
+#: associated train's schedule is dated the *following* day - and `P` "over
 #: previous midnight". All 234 of the `N` records here are Caledonian Sleeper
 #: divides at Edinburgh and Carstairs, where the portion runs on into the
 #: morning as a schedule of its own.
@@ -146,7 +146,7 @@ def build_associations(
             -- operation happens, which is routinely an operational stop: the
             -- Highland sleeper divides at Edinburgh and the Inverness portion's
             -- Edinburgh entry has no times and `is_public` false, because
-            -- nobody boards or alights — they stay aboard. Demanding a public
+            -- nobody boards or alights - they stay aboard. Demanding a public
             -- call dropped every Aberdeen and Fort William portion, so Euston
             -- to Aberdeen came out 53 minutes late with two changes against a
             -- through train.

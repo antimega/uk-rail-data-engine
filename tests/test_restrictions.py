@@ -41,8 +41,8 @@ TD_SCHEMA = pa.schema([
     ("date_from", pa.string()), ("date_to", pa.string()),
     *[(d, pa.bool_()) for d in DAYS],
 ])
-#: 4.19.3. Only `change_ind` matters to the model — whether a change of trains
-#: is allowed at all — and `describe_restriction` reads the rest.
+#: 4.19.3. Only `change_ind` matters to the model - whether a change of trains
+#: is allowed at all - and `describe_restriction` reads the rest.
 RH_SCHEMA = pa.schema([
     ("cf_mkr", pa.string()), ("restriction_code", pa.string()),
     ("description", pa.string()), ("desc_out", pa.string()),
@@ -151,7 +151,7 @@ def test_date_ranges_are_mmdd_not_ddmm(restrictions):
     """0104-0402 is 4 January to 2 April. Read as DDMM it would be nonsense.
 
     Restriction 0W in the real feed runs 0104-0402, 0407-0501, 0505-0522,
-    0526-0828, 0901-1223 — as MMDD the gaps are Easter, both May bank holidays,
+    0526-0828, 0901-1223 - as MMDD the gaps are Easter, both May bank holidays,
     the August bank holiday and Christmas, which is when peak restrictions lift.
     """
     connection = restrictions(
@@ -218,5 +218,5 @@ def test_a_band_carries_its_location_and_sense(restrictions):
     assert (code, out_ret, sense, location) == ("1C", "O", "A", "KGX")
     # Not a minimum-fare band, so it bars the fare rather than repricing it.
     assert minimum_fare is False
-    # 04:30 to 09:59 — the morning peak arrival ban into King's Cross.
+    # 04:30 to 09:59 - the morning peak arrival ban into King's Cross.
     assert (frm, to) == (270, 599)

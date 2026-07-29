@@ -1,8 +1,8 @@
 """Fares feed layouts (RSPS5045).
 
 Fares are not point-to-point. A price is found by expanding each end of the
-journey into a set of NLCs — the station, any clusters it belongs to (FSC), its
-group station — matching a *flow* between those sets (FFL), then reading the
+journey into a set of NLCs - the station, any clusters it belongs to (FSC), its
+group station - matching a *flow* between those sets (FFL), then reading the
 fare records hanging off that flow. Non-derivable fares (NDF/NFO) override the
 result. See :mod:`rail.model.fares` for the derivation itself.
 

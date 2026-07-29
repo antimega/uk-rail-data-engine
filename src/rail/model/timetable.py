@@ -38,7 +38,7 @@ PUBLIC_ACTIVITIES = ("T", "U", "D", "R")
 DEFAULT_HORIZON_DAYS = 90
 
 #: **The feed ships two schedule files and `ZTR` is the second one.** It carries
-#: the services the main CIF cannot express — Hovertravel's 223 crossings of the
+#: the services the main CIF cannot express - Hovertravel's 223 crossings of the
 #: Solent, First Group and Arriva rail-replacement coaches, Red Funnel, the
 #: Ffestiniog, and the Metropolitan line beyond Harrow. 5,309 schedules and
 #: 20,740 stops, parsed since the layouts were written and read by nothing until
@@ -46,12 +46,12 @@ DEFAULT_HORIZON_DAYS = 90
 #:
 #: **They are disjoint from the main file, checked rather than assumed.** No
 #: `train_uid` appears in both. The overlap that looked most likely was London
-#: Underground, which has 5,610 schedules in the main CIF and 1,764 here — and
+#: Underground, which has 5,610 schedules in the main CIF and 1,764 here - and
 #: they are different railways: the CIF ones are the Bakerloo and District
 #: shared sections (Willesden Junction, Kew Gardens, Queen's Park), these are the
 #: Metropolitan line (Amersham, Chalfont & Latimer, Chorleywood, Chesham).
 #:
-#: **Line numbers do collide**, because the two files are numbered separately —
+#: **Line numbers do collide**, because the two files are numbered separately -
 #: CIF runs 16,949 to 7,901,571 and ZTR 1 to 31,355. So a ZTR schedule's id is
 #: its line number plus this offset, chosen an order of magnitude above anything
 #: the main file can reach. `source` says which file a row came from, so the two
@@ -90,7 +90,7 @@ def build_timetable(
 
     # line_no is unique within the file and orders the records, so it doubles as
     # the schedule's identity without inventing a surrogate key. ZTR is numbered
-    # from its own file, hence the offset — see `ZTR_SCHEDULE_OFFSET`.
+    # from its own file, hence the offset - see `ZTR_SCHEDULE_OFFSET`.
     ztr_schedules = f"""
         union all
         select s.line_no + {ZTR_SCHEDULE_OFFSET} as schedule_id,
@@ -127,7 +127,7 @@ def build_timetable(
     """)
 
     # **`crs` is resolved here, not by every consumer.** The two files name
-    # locations differently — CIF by TIPLOC (`RYDEHOV`), ZTR by CRS (`XRD`) —
+    # locations differently - CIF by TIPLOC (`RYDEHOV`), ZTR by CRS (`XRD`) -
     # and that difference must be spent once, at the join, rather than left for
     # the network and `classify_locations` to trip over separately. A naive
     # union of the two would have matched no ZTR stop against `station_tiploc`
@@ -179,7 +179,7 @@ def build_timetable(
         from joined
     """)
 
-    # Public times are minutes after midnight and wrap on overnight services —
+    # Public times are minutes after midnight and wrap on overnight services -
     # 4.6% of schedules in RJTTF904 do. Left as-is they produce negative journey
     # times, so unwrap them into a monotonic timeline: day_offset counts how
     # many midnights the train has crossed, and *_minutes are absolute from the

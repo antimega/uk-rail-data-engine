@@ -1,13 +1,13 @@
 """Railcard discounts.
 
-The chain is indirect. A railcard (RLC) names a passenger *status* — the 16-25
+The chain is indirect. A railcard (RLC) names a passenger *status* - the 16-25
 Railcard is status 003. A ticket type carries a *discount category*. The two
 together index into DIS, which gives a percentage: status 003 against any of the
 common categories yields 334, and a child yields 500.
 
 **That percentage is per mille, not per cent.** 334 is 33.4% off, which is the
 familiar railcard third; 500 is half fare. Reading it as a percentage would
-price a £60 fare at £39.80 instead of £39.96 — close enough to look right and
+price a £60 fare at £39.80 instead of £39.96 - close enough to look right and
 wrong on every single fare.
 
 Three things then modify the discounted price:
@@ -16,7 +16,7 @@ Three things then modify the discounted price:
   that falls below the minimum is lifted back up to it.
 * **Rounding.** See ``ROUNDING_UNIT`` below.
 * **Non-standard discounts** (FNS), where a particular flow does not attract the
-  standard discount at all — 39,242 of the 326,231 records say so.
+  standard discount at all - 39,242 of the 326,231 records say so.
 
 Eligibility matters too: a railcard states how many adults and children it
 covers. Two Together requires two adults, so a solo traveller cannot use it.
@@ -38,13 +38,13 @@ PER_MILLE = 1000
 
 #: Which of FRR's 36 rule sets applies. **Nothing in the feed says.** No field
 #: in TTY, DIS or the status records carries a rule id, so the mapping the spec
-#: implies cannot be read from the data — it is established by measurement
+#: implies cannot be read from the data - it is established by measurement
 #: instead, against six fares checked with a retailer (see ROUNDING_UNIT).
 #:
 #: Only two rules reproduce all six, `01` and `M0`, and both are 5p across every
 #: band, so they are indistinguishable on this evidence and either will do. Only
 #: a *banded* rule would tell them apart, and only on a fare large enough to
-#: cross a band — which is the test worth running if more examples turn up.
+#: cross a band - which is the test worth running if more examples turn up.
 SELECTED_ROUNDING_RULE = "01"
 
 #: Fares round *down* to the nearest 5p. The feed ships 36 rounding rule sets in
@@ -70,7 +70,7 @@ ROUNDING_UNIT = 5
 #: percentage off"; see `railcard_discount` for the six others.
 PERCENTAGE_DISCOUNT = "0"
 
-#: A railcard whose status is this covers nobody — the field is unused.
+#: A railcard whose status is this covers nobody - the field is unused.
 NO_STATUS = "XXX"
 
 
@@ -115,7 +115,7 @@ def build_railcards(
     # Where an area-restricted railcard may be used. RSPS5045 4.15.2 field 8:
     # "it can only be used in areas denoted by the Railcard Geography held in
     # the Locations file". 87 railcards are so flagged and the Locations file
-    # carries 165,674 records across 88 of them — the Network Railcard has
+    # carries 165,674 records across 88 of them - the Network Railcard has
     # 15,300 and the Annual Gold Card 17,301, two genuinely different areas.
     #
     # Without this a Network Railcard discounted York to Leeds, where it is not
@@ -198,7 +198,7 @@ def build_railcards(
     #
     # RSPS5045 4.5.2 field 11 reads the opposite way round to its name: 'N'
     # means the adult fare is calculated as normal and *this record can be
-    # ignored*. The records that matter are the other three — a space (price
+    # ignored*. The records that matter are the other three - a space (price
     # via use_nlc and add the add-on), 'X' (no adult fare at all) and 'D' (no
     # discounted adult fare). Selecting 'N' collected precisely the 39,242
     # rows with nothing to say.
@@ -220,7 +220,7 @@ def build_railcards(
     """)
 
     # The bands actually applied. Nothing in the feed selects a rule, so it is
-    # selected by measurement instead — see SELECTED_ROUNDING_RULE.
+    # selected by measurement instead - see SELECTED_ROUNDING_RULE.
     connection.execute(f"""
         create or replace table rounding_band as
         select upper_limit, min(round_to) as round_to

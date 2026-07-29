@@ -1,9 +1,9 @@
-"""NaPTAN — the Department for Transport's gazetteer of public transport stops.
+"""NaPTAN - the Department for Transport's gazetteer of public transport stops.
 
 **Licensing.** Published under the **Open Government Licence v3**, Crown
 copyright, and stated as such on the service's own terms page. Copying,
 publishing and adapting are permitted provided the source is acknowledged and
-the licence named — attribute the **Department for Transport**. That is the same
+the licence named - attribute the **Department for Transport**. That is the same
 licence family as the Network Rail FOI grid file but a *different* attribution,
 and both sit alongside the National Rail attribution the DTD feeds require.
 
@@ -13,19 +13,19 @@ refetched, which is the whole reason it is worth having.
 
 ## Why it earns its place
 
-The join is `ATCOCode` — rail stations sit in the `9100` namespace and the rest
+The join is `ATCOCode` - rail stations sit in the `9100` namespace and the rest
 of the code **is the TIPLOC**: `9100ABDARE` is `ABDARE`. So NaPTAN attaches to
 the existing crosswalk with no new identifier and no fuzzy matching.
 
 It arrived to settle a question two other sources could not. MSN's grid
 references are about a kilometre accurate and the FOI spreadsheet is exact but
-frozen, and where they disagreed there was no way to tell which was right — so
+frozen, and where they disagreed there was no way to tell which was right - so
 the merge kept MSN and recorded 31 conflicts. NaPTAN adjudicates 30 of them, and
 **the conservative choice turns out to have been wrong more often than right**:
 
 ```
-backs the FOI file   16   Stansted Airport 2.8 km, Kirk Sandall 3.2 km — MSN wrong
-backs MSN            14   Highbury & Islington 58 km, Inverness 5.1 km — the file wrong
+backs the FOI file   16   Stansted Airport 2.8 km, Kirk Sandall 3.2 km - MSN wrong
+backs MSN            14   Highbury & Islington 58 km, Inverness 5.1 km - the file wrong
 neither               0
 ```
 
@@ -140,8 +140,8 @@ def fetch_naptan(
         "active_rows": counts[1],
         "licence": "Open Government Licence v3.0",
         "provenance": "Department for Transport, NaPTAN",
-        "note": "Not a DTD feed. Attribution under OGL — naming the Department "
-                "for Transport and the OGL — is required separately from the "
+        "note": "Not a DTD feed. Attribution under OGL - naming the Department "
+                "for Transport and the OGL - is required separately from the "
                 "National Rail attribution the DTD feeds carry. Only the 9100 "
                 "rail namespace is retained; the checksum is of the whole "
                 "download.",

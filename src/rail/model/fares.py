@@ -2,7 +2,7 @@
 
 A fare is not stored against a pair of stations. It is stored against a *flow*
 between two codes, and a code may be a station's own NLC, the NLC of the group
-it belongs to (Euston sits in group 1072, London Terminals), or a *cluster* — a
+it belongs to (Euston sits in group 1072, London Terminals), or a *cluster* - a
 bag of stations that share a price. Finding the fare between two stations means
 expanding each end into every code that can stand for it, matching flows between
 those sets, and then reading the fare records hanging off the winning flow.
@@ -13,7 +13,7 @@ happens per query, from one origin outwards, which is the shape the questions
 take anyway.
 
 **Advance prices are in the feed; Advance availability is not.** They are stored
-as a ladder of price-point ticket codes, real and varying with distance — York to
+as a ladder of price-point ticket codes, real and varying with distance - York to
 London runs £22.00 to £73.00 against a £70.70 walk-up Off-Peak. What the feed
 does not carry is quota: nothing says which price point is on sale for a given
 train on a given date, which lives in the reservation system. Advance fares are
@@ -21,7 +21,7 @@ therefore opt-in via `include_advance`, and the result is the best published
 price rather than a bookable one.
 
 Not every product describing itself as Advance is a fare. "SALE ADVANCE" is 50p
-on every flow — a placeholder, caught by the flat-rate test — and Inclusive Tour
+on every flow - a placeholder, caught by the flat-rate test - and Inclusive Tour
 Excursion rates are sold to operators inside a package at a nominal 5p.
 """
 
@@ -47,17 +47,17 @@ NOT_FOR_TRAVEL_GROUP = "E"
 #: place on a particular train is not a walk-up fare.
 #:
 #: The rule is `<> 'N'` rather than a list because the spec's own text for `'O'`
-#: and `'R'` is identical — "reservation required on outward journey" — which is
+#: and `'R'` is identical - "reservation required on outward journey" - which is
 #: plainly an editing slip, and guessing which one was meant to say *return*
 #: would be inventing a distinction that changes nothing. All four agree on the
 #: part that matters.
 #:
 #: **Two products corroborate it against an entirely different file.**
 #: `SF3 SUPERFARE` and `QFR LUMOFIXED` are `'B'`, and both were already
-#: reclassified as Advance by the restriction-based test below — a structural
+#: reclassified as Advance by the restriction-based test below - a structural
 #: field and a behavioural one reaching the same answer by different routes.
 #: Every ordinary walk-up is `'N'`: `SDS` ANYTIME DAY S, `CDS` OFF-PEAK DAY S,
-#: `SSS` SUPER OFFPEAK S, `GTS`, `G2S`. So is `25Q STDPREM ONBOARD`, correctly —
+#: `SSS` SUPER OFFPEAK S, `GTS`, `G2S`. So is `25Q STDPREM ONBOARD`, correctly -
 #: an on-board upgrade reserves nothing, and it is excluded on other grounds.
 #:
 #: What the field adds is what nothing else could see: the 36 `AIRPORT ADV`
@@ -66,8 +66,8 @@ NOT_FOR_TRAVEL_GROUP = "E"
 #: passed them.
 #:
 #: **`'O'` also settles `Day-Flex`, which these notes had wrong.** It was cited
-#: as the reason not to match `%FLEX%` — "a real £5.50 walk-up on Manchester
-#: local hops" — but ten codes `FE0`–`FE9` sit on the *same* 12–14 flows at ten
+#: as the reason not to match `%FLEX%` - "a real £5.50 walk-up on Manchester
+#: local hops" - but ten codes `FE0`–`FE9` sit on the *same* 12–14 flows at ten
 #: different prices (£5.50 to £15.70 on one of them), which is a quota ladder,
 #: not a fare. `%FLEX%` is still the wrong marker, for the reason given there;
 #: the product was simply misjudged.
@@ -78,15 +78,15 @@ NO_RESERVATION = "N"
 
 #: TTY field 29, `PACKAGE_MKR` (RSPS5045 4.6.2, position 108). `'N'` is not a
 #: package; `'S'` supplements, `'F'` fares and `'P'` both. A package price buys
-#: rail plus something else — parking, admission, a bus zone — so it is not a
+#: rail plus something else - parking, admission, a bus zone - so it is not a
 #: fare to somewhere, and it undercuts the one that is.
 #:
 #: **Two independent parts of the feed agree on the membership**, which is why
 #: this is trusted over the descriptions. The `TPK` package file names 45 ticket
-#: codes and `package_mkr <> 'N'` marks 45, and they are the same 45 — nothing
+#: codes and `package_mkr <> 'N'` marks 45, and they are the same 45 - nothing
 #: on either side alone. The descriptions could not have found them: `FIRST +
 #: PARKING` and `BUS & ADMIT` give themselves away, but the `8A*` series is
-#: described `ANYTIME DAY S`, `OFF-PEAK R`, `ANYTIME DAY R` — indistinguishable
+#: described `ANYTIME DAY S`, `OFF-PEAK R`, `ANYTIME DAY R` - indistinguishable
 #: from the ordinary fare of the same name, and `8AB` is priced from £5.10
 #: across 2,825 flows.
 NOT_A_PACKAGE = "N"
@@ -94,7 +94,7 @@ NOT_A_PACKAGE = "N"
 #: The feed has no flag for "this is a fare the public can buy", so the
 #: classification rests on what the products call themselves. Every marker here
 #: was added because a real product slipped through and priced a journey
-#: absurdly — the reason is recorded so the list can be argued with rather than
+#: absurdly - the reason is recorded so the list can be argued with rather than
 #: accumulated blindly. Matched case-insensitively against the description.
 NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     ("%TEST%", "test data in the feed"),
@@ -108,11 +108,11 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     ("%COMP", "complimentary, not sold"),
     ("%STAFF%", "staff travel, not sold to the public"),
     # An upgrade on a ticket you already hold is not a fare to somewhere. The
-    # description field is 15 characters, so "UPGRADE" is routinely truncated —
+    # description field is 15 characters, so "UPGRADE" is routinely truncated -
     # "WEEKEND 1ST UPG", "SEATFROG UPGR", "Std Plus Upgrde", "FESTIVAL UPGRDE".
     # Matching only the full word left 17 of them classed as walk-up fares, and
     # `rail reachable --first-class` duly quoted a £7.50 weekend upgrade as the
-    # cheapest first-class fare from York to Darlington — 172 destinations from
+    # cheapest first-class fare from York to Darlington - 172 destinations from
     # York, 222 from Euston. Standard class was untouched, which is why it went
     # unnoticed until `rail fares` listed every ticket for a pair.
     ("%UPG%", "supplement, not a fare on its own"),
@@ -125,13 +125,13 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     #
     # **Not a blanket `%SEATFROG%`**, which was the first guess and was wrong:
     # that brand also sells Secret Fares, genuine discounted journey tickets.
-    # Those are Advance products — `GA4 Seatfrog SF` sits on restriction `OA`,
-    # "LER ADVANCE ... VALID ON DATE&TRAIN SHOWN ONLY" — and the booked-train
+    # Those are Advance products - `GA4 Seatfrog SF` sits on restriction `OA`,
+    # "LER ADVANCE ... VALID ON DATE&TRAIN SHOWN ONLY" - and the booked-train
     # rule below reclassifies them correctly without any name being read. Its
     # six upgrade codes are already caught by `%UPG%`.
     ("%SEATFROG SWAP%", "train swap, not a fare on its own"),
     # And a third way of saying it, which names neither. `25Q STDPREM ONBOARD`
-    # is Avanti's on-board Standard Premium upgrade — bought from the crew once
+    # is Avanti's on-board Standard Premium upgrade - bought from the crew once
     # you already hold a ticket, subject to space, exactly as Weekend First is.
     # Its price varies with distance (153 flows, 18 prices, 80p to £48) so the
     # flat-rate test cannot see it, and its validity is the ordinary "ON DATE
@@ -150,7 +150,7 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     # but at least one claims to carry a single passenger at 5p.
     ("%FAM&FRIENDS%", "family product priced for several people"),
     ("%FAMILY%", "family product priced for several people"),
-    # And so do group products — GroupSave, party rates, school groups. All 58
+    # And so do group products - GroupSave, party rates, school groups. All 58
     # of them declare `max_passengers = 1`, which is how they slipped past the
     # family check: the price is per person *within a group*, meaningless for
     # one traveller. `SCR GROUP 05` at 80p was the cheapest fare from Glasgow
@@ -158,14 +158,14 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     ("%GROUP%", "group product, priced per person within a party"),
     ("%GRP%", "group product, priced per person within a party"),
     # Concessionary fares need the passenger to be eligible, exactly as a
-    # railcard does — but they are separate ticket types rather than a discount,
+    # railcard does - but they are separate ticket types rather than a discount,
     # so nothing else here catches them. `CCS SCR CONCESS SGL` at £1.05 became
     # the cheapest fare from Glasgow Central the moment the group products
     # above stopped winning. All 13 matches in the feed are concessions; none
     # is an ordinary fare with the word in its name.
     ("%CONC%", "concessionary fare, not an adult fare"),
-    # Age-restricted products are the same shape as a concession — a condition
-    # the passenger must meet, written as a ticket type rather than a discount —
+    # Age-restricted products are the same shape as a concession - a condition
+    # the passenger must meet, written as a ticket type rather than a discount -
     # and nothing else here sees them. Found by ranking every walk-up type by
     # how far below the next-cheapest fare on the same flow it sits, which is
     # the signature `25Q` had.
@@ -173,7 +173,7 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     # Only `TRQ` carries a fare at all: 75p Headbolt Lane to Skelmersdale Bus
     # Link, on a single flow, where the flat-rate test cannot judge it because a
     # modal share over one flow is trivially 1.0. The other nine are seasons or
-    # carry no fare, so this moves one price — but `is_walk_up` should mean what
+    # carry no fare, so this moves one price - but `is_walk_up` should mean what
     # it says whether or not a wrong answer happens to follow.
     ("%YOUTH%", "age-restricted fare, not an adult fare"),
     ("%CHILD%", "age-restricted fare, not an adult fare"),
@@ -185,7 +185,7 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     #
     # **Not a blanket `%CLUB%`, which would be the third `%FLEX%`.** That word
     # is also the Caledonian Sleeper's *accommodation*: `CLUB SOLO`, `CLUB
-    # TWIN`, `CLUB FLEXIPASS`, `SF SEAT TO CLUB` — 51 ticket types carry it and
+    # TWIN`, `CLUB FLEXIPASS`, `SF SEAT TO CLUB` - 51 ticket types carry it and
     # only seven are the age product. None of the sleeper's is a walk-up fare
     # today, so a blanket marker would move nothing and be wrong anyway; the
     # day one of them is reclassified it would start quietly excluding berths.
@@ -194,11 +194,11 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     # **A fare only sold under a company's negotiated scheme is not one the
     # public can buy**, which is the same argument that excludes group and
     # concessionary products. Every ticket type matching either word is such a
-    # scheme — checked across all 30, not just the walk-up ones — so these two
+    # scheme - checked across all 30, not just the walk-up ones - so these two
     # need no narrowing the way `%CLUB%` did.
     #
     # Worth little and worth doing: 20 types, 35 fares in the whole feed, and
-    # only two cheaper than any public walk-up on the same flow — Manchester to
+    # only two cheaper than any public walk-up on the same flow - Manchester to
     # Sheffield at £39.10 and £40.80 against a public £78.20. `C0S CORP ANYTIME
     # S` has 24 fares and never undercuts. It surfaced as the winning *name* on
     # King's Cross to Manchester, which looked like a leak and was a tie: the
@@ -208,7 +208,7 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     # A carnet's price buys a bundle of journeys, and nothing in RSPS5045 says
     # so: min and max passengers are both 1 and the price varies with distance.
     # RSPS5052's FlexiProducts names six of them; these are the rest. Euston was
-    # quoting `CO5 CARNET OFFPK 5` — £5.70 for five journeys — to 13 stations.
+    # quoting `CO5 CARNET OFFPK 5` - £5.70 for five journeys - to 13 stations.
     #
     # Deliberately not a blanket `%FLEXI%`: "FLEXI ADVANCE" is a real
     # single fare, a changeable Advance, and four ticket codes carry it. The
@@ -238,7 +238,7 @@ def _marker_reason_sql(column: str = "description") -> str:
 
 #: How a restriction says "the train you booked, not any train". Taken from the
 #: restriction header's own `desc_out`, which is free text written by the
-#: operator — so this is a list of the phrasings the feed actually uses, and it
+#: operator - so this is a list of the phrasings the feed actually uses, and it
 #: reads like one. 74 of the current codes match.
 #:
 #: Deliberately **not** matching the header's `description` on "ADVANCE": `1B`
@@ -260,7 +260,7 @@ BOOKED_TRAIN_PHRASES: tuple[str, ...] = (
 
 #: And one that says it in the restriction's *name* rather than its rule text.
 #: `FL` is called "LNER FLEX ON SET TIME" while its `desc_out` reads only "VALID
-#: ON DATE ONLY WITH FLEX. LTD CHANGE. NO RFND." — no phrasing in that sentence
+#: ON DATE ONLY WITH FLEX. LTD CHANGE. NO RFND." - no phrasing in that sentence
 #: distinguishes it from an ordinary day restriction, and matching "LTD CHANGE"
 #: or "NO RFND" would sweep up half the file. The name is where it is stated,
 #: so the name is what is read.
@@ -276,13 +276,13 @@ _BOOKED_TRAIN_SQL = " or ".join(
 #: Standard class. 1 is first; 9 appears on a handful of oddities.
 STANDARD_CLASS = 2
 
-#: TTY field 9. See `model/returns.py` — this is what decides a return, not the
+#: TTY field 9. See `model/returns.py` - this is what decides a return, not the
 #: validity record, because validity codes are shared between the two.
 RETURN_TYPE = "R"
 
 #: A ticket type whose modal price covers at least this share of its flows is a
 #: flat-rate product, not a distance-based fare. Real walk-up tickets sit below
-#: 0.06 and the flat-rate ones sit at 1.0, so anything between the two would do —
+#: 0.06 and the flat-rate ones sit at 1.0, so anything between the two would do -
 #: except at the very bottom of the sample. A type with two flows at two prices
 #: has a modal share of exactly 0.5, so a threshold of 0.5 wrongly condemns it.
 #: 0.9 keeps the genuine cases, which are all 1.0.
@@ -309,7 +309,7 @@ def _load_flexi_products(
     """Bundle sizes for flexi season and carnet tickets, from RSPS5052.
 
     A flexi-carnet prices 12 or 50 journeys as one ticket and RSPS5045 has no
-    field that says so — min and max passengers are both 1, the price varies
+    field that says so - min and max passengers are both 1, the price varies
     with distance, and the description is free text. Every walk-up test here
     passes it. This file is the only place the bundle size is stated.
 
@@ -360,7 +360,7 @@ def build_fares_reference(
     # `LOC` field `county` gives Euston `01`, and cluster `Q797` has `CC01` as a
     # member. Expanding only NLCs and their clusters missed those flows entirely.
     #
-    # Today that is **five flows, every one of them to Douglas, Isle of Man** —
+    # Today that is **five flows, every one of them to Douglas, Isle of Man** -
     # the Steam Packet's five fare bands, £97.30 to £187.20 across 48 counties,
     # which is how a rail-and-ferry fare is set when the rail leg can start
     # anywhere. Without the county code, Douglas had no fare from anywhere and
@@ -382,7 +382,7 @@ def build_fares_reference(
             from read_parquet('{(fares_dir / "location.parquet").as_posix()}')
             where crs is not null and county is not null and trim(county) <> ''
               -- This arm reads LOC directly rather than going through
-              -- `station_nlc`, so it needs the PlusBus exclusion too — the four
+              -- `station_nlc`, so it needs the PlusBus exclusion too - the four
               -- zones that gained a CRS all carry a county code as well, and
               -- would come back in through here alone.
               and coalesce(description, '') not like '{ZONE_MARKER}'
@@ -398,7 +398,7 @@ def build_fares_reference(
     """)
 
     # TVL is a version history like the rest. break_out says whether a break of
-    # journey is permitted on the outward leg — 41 of the 104 validity codes say
+    # journey is permitted on the outward leg - 41 of the 104 validity codes say
     # it is not, covering 651 of the walk-up ticket types.
     connection.execute(f"""
         create or replace table ticket_validity_current as
@@ -470,7 +470,7 @@ def build_fares_reference(
         -- entirely ordinary validities.
         --
         -- LNER's Simpler Fares trial is the case that found this. `70min Flex`
-        -- — 52 codes replacing Off-Peak and Anytime on the East Coast — carries
+        -- - 52 codes replacing Off-Peak and Anytime on the East Coast - carries
         -- validity `61` "ON DATE SHOWN" and restriction `FL`, "LNER FLEX ON SET
         -- TIME". Greater Anglia's `Seatfrog SF` is the same shape on `OA`,
         -- "LER ADVANCE". Both were being quoted as walk-up fares, and from
@@ -536,7 +536,7 @@ def build_fares_reference(
                        -- separates the real Advance ladders from the "SALE
                        -- ADVANCE" placeholders priced at a flat 50p. It cannot
                        -- judge a type with only one flow, where the modal share
-                       -- is trivially 1.0 — hence the markers below.
+                       -- is trivially 1.0 - hence the markers below.
                        or is_flat_rate
                        -- Family and group products price several people at
                        -- once, so they undercut the adult fare without being one.
@@ -556,18 +556,18 @@ def build_fares_reference(
         -- A fare valid only on the train it was booked on is not a walk-up
         -- fare, whatever it calls itself. TVL says so directly: six validity
         -- codes read "BOOKDTRAINONLY", and the types on them are Advance
-        -- products by another name — `SF3 SUPERFARE`, every `LumoFixed` and
+        -- products by another name - `SF3 SUPERFARE`, every `LumoFixed` and
         -- `FIXED SINGLE`, Avanti's Standard Premium ladders, the sleeper's Solo
         -- and Club berths. Superfare was quoting £9.00 Euston to Birmingham
         -- against a retailer's cheapest Advance of £31.00.
         --
         -- They are reclassified, not discarded: `--advance` still offers them,
-        -- with the same caveat as every Advance — the price is real and the
+        -- with the same caveat as every Advance - the price is real and the
         -- availability is not in the feed.
         -- Two ways a fare says "this train, not any train".
         --
-        -- The validity record is the honest one — six codes read
-        -- `BOOKDTRAINONLY` — and it catches Superfare, LumoFixed and the
+        -- The validity record is the honest one - six codes read
+        -- `BOOKDTRAINONLY` - and it catches Superfare, LumoFixed and the
         -- sleeper's berths.
         --
         -- **`70min Flex` says it nowhere near the validity.** LNER's Simpler
@@ -575,16 +575,16 @@ def build_fares_reference(
         -- Advance plus a semi-flexible ticket valid within 70 minutes of a
         -- booked departure, and its validity code `61` reads the entirely
         -- ordinary "ON DATE SHOWN". What gives it away is its restriction:
-        -- `FL`, described **"LNER FLEX ON SET TIME"** — "VALID ON DATE ONLY
-        -- WITH FLEX. LTD CHANGE. NO RFND." — carrying 696 bands that are
+        -- `FL`, described **"LNER FLEX ON SET TIME"** - "VALID ON DATE ONLY
+        -- WITH FLEX. LTD CHANGE. NO RFND." - carrying 696 bands that are
         -- two-minute windows at named stations, which is a list of particular
         -- trains written as times.
         --
         -- So the 52 codes are matched by name. `%MIN FLEX%` hits those four
         -- descriptions and nothing else in the feed; `%FLEX%` would still be
         -- the wrong marker, because "FLEXI ADVANCE" is a real changeable
-        -- Advance single. What this used to give as the reason — that
-        -- `Day-Flex` is a real £5.50 walk-up — was simply wrong, and
+        -- Advance single. What this used to give as the reason - that
+        -- `Day-Flex` is a real £5.50 walk-up - was simply wrong, and
         -- `NO_RESERVATION` now catches it.
         --
         -- The third way, and the only one that is a plain statement of fact
@@ -698,7 +698,7 @@ flow_fares as (
 --
 -- * composite_indicator 'Y' means *use* this record; 'N' means do not, because
 --   the fare is already in the flow file. Every record in RJFAF833 is 'Y', so
---   the filter is currently a no-op — but inverting it would silently discard
+--   the filter is currently a no-op - but inverting it would silently discard
 --   all 249,917 of them.
 -- * 99999999 is not a price. It means no adult fare is available for this
 --   ticket/railcard combination, which is exactly why the record still has to
@@ -768,7 +768,7 @@ sellable as (
       -- 12 governs the outward leg and field 13 the return, and they differ:
       -- 651 of the 1,379 walk-up ticket types bar a break outward, 32 of the
       -- 444 walk-up returns bar one on the way home. A validity the feed says
-      -- nothing about is not assumed permissive either way — silence is not
+      -- nothing about is not assumed permissive either way - silence is not
       -- permission when the question is whether you may stop off.
       and (not $break_of_journey or coalesce(v.break_out, false))
       and (not $break_returning or coalesce(v.break_in, false))
@@ -786,14 +786,14 @@ sellable as (
       -- The fares feed's RTE records, which have none of that, are the fallback
       -- for the routes RGK is silent on.
       --
-      -- 'E' — none of these may appear on the journey.
+      -- 'E' - none of these may appear on the journey.
       and not exists (
           select 1 from route_rule r
           join journey_path p
             on p.crs = c.dest_crs and p.via_crs = r.crs
           where r.route_code = c.route_code and r.entry_type = 'E'
       )
-      -- 'A' — every one of these must appear.
+      -- 'A' - every one of these must appear.
       and (
           not $check_routes
           or not exists (
@@ -805,7 +805,7 @@ sellable as (
                 )
           )
       )
-      -- 'I' — at least one of these must appear.
+      -- 'I' - at least one of these must appear.
       and (
           not $check_routes
           or not exists (
@@ -821,7 +821,7 @@ sellable as (
       )
       -- The London marker: '0' the route excludes London, '1' it must include
       -- London. '2' (may include) and '3' (does not mention it) constrain
-      -- nothing on their own — for '2' the alternative is carried as an 'I'.
+      -- nothing on their own - for '2' the alternative is carried as an 'I'.
       and (
           not $check_routes
           or not exists (
@@ -835,7 +835,7 @@ sellable as (
                 )
           )
       )
-      -- 'T' — at least one of these operators must be used, and 'X' — none of
+      -- 'T' - at least one of these operators must be used, and 'X' - none of
       -- them may be. The router now records the operator of every leg, so these
       -- are testable: route 00085 "TPE ONLY" is `T:TP` plus `X` on 25 others,
       -- and York to Newcastle was offering its £28.20 against an LNER train.
@@ -862,7 +862,7 @@ sellable as (
           join journey_operator o on o.crs = c.dest_crs and o.toc = r.toc_id
           where r.route_code = c.route_code and r.entry_type = 'X'
       )
-      -- 'L' — at least one leg must use this transport mode, and 'N' — none
+      -- 'L' - at least one leg must use this transport mode, and 'N' - none
       -- may. 95 routes say so: route 00002 requires an Underground leg. Modes
       -- are numbered as RSPS5047 4.12.3 numbers them, so a train is 0 and a
       -- fixed link carries whichever ALF or FLF gave it.
@@ -910,7 +910,7 @@ sellable as (
       )
       -- RSPS5045 4.19.3 field 10: the restriction header says whether a change
       -- of trains is allowed at all, and 36 of the 839 current restrictions say
-      -- it is not — the Avanti "Valid on booked service only" fares, TfW's
+      -- it is not - the Avanti "Valid on booked service only" fares, TfW's
       -- Advance Flex, LNER's "DIRECT LNER TRN". The bands cannot express this;
       -- it is a property of the whole restriction.
       --
@@ -935,8 +935,8 @@ sellable as (
                 -- The outward leg. RSPS5045 4.19.8 field 10: three spaces means
                 -- the band is not station specific, so it bites at whichever end
                 -- of the journey its arrive/depart marker names. Requiring a
-                -- station dropped restriction 3V entirely — "VALID ON ANY TRAIN
-                -- 0930 OR LATER M-F" — and York to Newcastle offered its £30.10
+                -- station dropped restriction 3V entirely - "VALID ON ANY TRAIN
+                -- 0930 OR LATER M-F" - and York to Newcastle offered its £30.10
                 -- Off-Peak Single on the 09:06, which no retailer will sell.
                 (b.out_ret = 'O' and (
                     (b.arr_dep_via = 'D'
@@ -959,7 +959,7 @@ sellable as (
                     -- Restriction `LK` proves it: its band 0018 bars departing
                     -- Euston before 10:29 while band 0006 bars departing
                     -- Leighton Buzzard before 12:33, and one train cannot
-                    -- satisfy both — they are per-origin rules, not a way of
+                    -- satisfy both - they are per-origin rules, not a way of
                     -- naming trains.
                     --
                     -- Three `V` bands are in force and only one is outward
@@ -969,7 +969,7 @@ sellable as (
                     -- other way made 1,648 fares dearer than any retailer sells.
                     --
                     -- `journey_call` is empty when the caller supplies no
-                    -- calling times, and then nothing here bites — the same
+                    -- calling times, and then nothing here bites - the same
                     -- guard the return leg and the TOC conditions use.
                     (b.arr_dep_via = 'V' and exists (
                         select 1 from journey_call k
@@ -1002,7 +1002,7 @@ sellable as (
 ),
 -- RSPS5045 4.5: a flow whose ns_disc_ind is 1 or 3 does not take the standard
 -- percentage. FNS says what happens instead, keyed on origin, destination,
--- route, railcard and ticket, any of which may be a wildcard — and an explicit
+-- route, railcard and ticket, any of which may be a wildcard - and an explicit
 -- record beats a wildcard one, so the match is ranked by how specific it is.
 --
 -- Only relevant while discounting: 4.5.1.1 is explicit that the file is not
@@ -1181,8 +1181,8 @@ _CHEAPEST_SQL = _PRICING_CTES + """
 -- hands the rest to a caller that has a reason to reject the cheapest.
 -- `fare` is in the GROUP BY, so it is constant within a group and cannot
 -- break a tie: `min_by(ticket_code, fare)` picks arbitrarily among every
--- ticket at that price. Two ticket types genuinely tie often — a fare is a
--- price, and several products can sell it — and with parallel aggregation
+-- ticket at that price. Two ticket types genuinely tie often - a fare is a
+-- price, and several products can sell it - and with parallel aggregation
 -- the arbitrary choice is not even stable between two runs on one database.
 -- Building the same origin twice produced payloads naming different tickets
 -- at identical prices. So the ordering key is (ticket_code, route_code),
@@ -1239,7 +1239,7 @@ def _register_journey_tables(
     }))
     # One row per (destination, calling point, when the journey was there).
     # Separate from `journey_path` because that answers "did it pass here" and
-    # this answers "at what time" — a route condition needs the first, a
+    # this answers "at what time" - a route condition needs the first, a
     # restriction band naming an intermediate station needs the second.
     timed = [(dest, via, arrive, depart, changed)
              for dest, stops in (calls or {}).items()
@@ -1314,13 +1314,13 @@ def fare_options(
     Returns (destination CRS, ticket code, description, pence, is_advance,
     route code, ticket type), ordered by destination then price. One row per
     distinct price: where several tickets cost the same the cheapest-named one
-    stands for them. The ticket type is `S`, `R` or `N` — a return can undercut
+    stands for them. The ticket type is `S`, `R` or `N` - a return can undercut
     two singles and win, so a caller quoting the price has to be able to say
     which it is.
 
     Most callers want :func:`cheapest_from`, which keeps the first of each
     group. This exists for the caller that has a reason to reject the cheapest
-    — chiefly the routeing guide, which may refuse the cheapest fare on the
+    - chiefly the routeing guide, which may refuse the cheapest fare on the
     journey actually found while permitting a dearer one.
 
     `include_advance` adds Advance price points. Their prices are real and vary
@@ -1328,8 +1328,8 @@ def fare_options(
     given price point is actually on sale for a given train. Treat the result as
     the best published price, not as a bookable one.
 
-    Pass `depart_minutes` — and, for arrival-side restrictions, `arrivals`
-    mapping destination CRS to arrival time — to exclude fares that are not
+    Pass `depart_minutes` - and, for arrival-side restrictions, `arrivals`
+    mapping destination CRS to arrival time - to exclude fares that are not
     valid at the time the journey is actually made. Without it, an Off-Peak
     fare will be quoted for a peak departure.
 
@@ -1340,10 +1340,10 @@ def fare_options(
 
     `return_on` drops return fares whose validity does not permit travelling
     back on that date. Singles are kept: a single is not made invalid by the
-    question, and two of them answer it perfectly well — often more cheaply.
+    question, and two of them answer it perfectly well - often more cheaply.
 
     `return_depart_minutes` and `return_arrival_minutes` describe the journey
-    home — when you leave the destination and when you get back. Supply both to
+    home - when you leave the destination and when you get back. Supply both to
     evaluate the return-leg restriction bands, which are 13,803 of the bands in
     force on a weekday and otherwise go unapplied. They need the way back to
     have been routed, so a one-to-all sweep leaves them out.
@@ -1399,7 +1399,7 @@ def fare_options(
 
     if return_on is None:
         return rows
-    # Computed once for the whole sweep rather than per destination — the
+    # Computed once for the whole sweep rather than per destination - the
     # window depends on the ticket and the outward date, not on where you go.
     permitted = returnable_on(connection, travel_date, return_on)
     return [row for row in rows if row[6] != RETURN_TYPE or row[1] in permitted]
@@ -1425,19 +1425,19 @@ def cheapest_from(
 
 #: Every fare between one pair, with the records that say when it may be used.
 #: Same pricing as `fare_options`, without the grouping and joined out to the
-#: descriptive tables — the route's own words, the restriction's, the validity
+#: descriptive tables - the route's own words, the restriction's, the validity
 #: period, and whether a railcard touched the price.
 _FARES_BETWEEN_SQL = _PRICING_CTES + """
 -- `distinct`, because a station is named by several codes and a flow may exist
 -- under more than one of them. Birmingham New Street is reached from Euston as
 -- its own NLC `1127` and as cluster `T120`, and both flows carry `25Q` on route
--- 00474 at £26.50 — one fare, listed twice, which is what `rail fares` was
+-- 00474 at £26.50 - one fare, listed twice, which is what `rail fares` was
 -- printing. Every column below is a property of the ticket, the route or the
 -- restriction, so identical rows are identical fares.
 --
 -- Rows differing only in *price* are deliberately kept. Aston's own NLC prices
 -- a Super Off-Peak Single at £62.60 and cluster `Q451` at £67.00, and RSPS5045
--- 4.2.2 ranks the two nowhere — it says only that a location's fares "may be
+-- 4.2.2 ranks the two nowhere - it says only that a location's fares "may be
 -- set using the Cluster NLC instead of this NLC". Collapsing them would be
 -- inventing a precedence the feed does not state. `cheapest_from` takes the
 -- lower, which is the fare a passenger would be sold; this command lists what
@@ -1504,7 +1504,7 @@ def fares_between(
 
     `ticket_class` of None returns both classes.
 
-    Every row carries a ``return_window`` — None for a single, otherwise the
+    Every row carries a ``return_window`` - None for a single, otherwise the
     dates the return leg may be travelled. `return_on` additionally drops
     returns that cannot come back on that date; singles are kept, because a
     single is not made invalid by the question, and two of them are a perfectly

@@ -1,6 +1,6 @@
 """OS grid references to latitude and longitude.
 
-The whole stack stores positions as OS National Grid metres, which is right —
+The whole stack stores positions as OS National Grid metres, which is right -
 the grid is a planar projection of Britain and distances in it are metres. A web
 map wants WGS84. Getting the conversion wrong by a hundred metres puts a station
 in the next street, and nothing downstream would notice.
@@ -62,7 +62,7 @@ def naptan(tmp_path):
 
 def test_the_true_origin_lands_where_the_projection_defines_it():
     """The OS National Grid's true origin is 49°N 2°W at easting 400000,
-    northing −100000. Converting it back must return that point — on the *Airy*
+    northing −100000. Converting it back must return that point - on the *Airy*
     ellipsoid, which after the shift to WGS84 sits about 130 m away. That the
     answer is not exactly 49, −2 is the datum shift being applied, not an error.
     """
@@ -73,7 +73,7 @@ def test_the_true_origin_lands_where_the_projection_defines_it():
 
 def test_stations_land_in_the_right_part_of_the_country():
     """A coarse guard that would catch axes swapped, a sign flipped or the
-    projection constants mistyped — each of which produces a confident answer in
+    projection constants mistyped - each of which produces a confident answer in
     the wrong place."""
     york = grid_to_latlon(459512, 451648)
     kings_cross = grid_to_latlon(530265, 183152)
@@ -91,7 +91,7 @@ def test_stations_land_in_the_right_part_of_the_country():
 def test_naptans_two_readings_of_one_place_agree():
     """NaPTAN gives an easting/northing *and* a latitude/longitude for each
     stop, so converting the first and comparing with the second measures this
-    module alone — one source, one position, two representations.
+    module alone - one source, one position, two representations.
 
     Measured on the real feed: 2,754 stops, median 0.19 m. Twenty centimetres is
     NaPTAN's own coordinate rounding.
@@ -115,7 +115,7 @@ def test_the_datum_shift_is_not_optional(naptan, monkeypatch):
     from WGS84 here, so omitting the Helmert step is not a rounding error.
 
     Measured on the real feed, dropping it moves the median from 0.19 m to
-    **113 m** — which is what this test pins, because a transform that silently
+    **113 m** - which is what this test pins, because a transform that silently
     stopped shifting would still return plausible coordinates.
     """
     # York, King's Cross and Penzance, with WGS84 readings taken from NaPTAN.
@@ -134,7 +134,7 @@ def test_the_datum_shift_is_not_optional(naptan, monkeypatch):
 
 def test_no_naptan_is_an_absence_rather_than_a_failure(tmp_path):
     """NaPTAN is optional and `rail refresh` rebuilds without it, so an
-    unfetched source must report nothing to check — never a conversion error."""
+    unfetched source must report nothing to check - never a conversion error."""
     assert compare_with_naptan(None).stops == 0
     assert compare_with_naptan(tmp_path / "nothing-here").stops == 0
     assert not compare_with_naptan(None)
@@ -142,7 +142,7 @@ def test_no_naptan_is_an_absence_rather_than_a_failure(tmp_path):
 
 def test_a_stop_disagreeing_with_itself_is_reported():
     """Two stops in the real feed carry a grid reference and a latitude that are
-    not the same place — `HORD` by 104 m. That is NaPTAN disagreeing with
+    not the same place - `HORD` by 104 m. That is NaPTAN disagreeing with
     itself, which no arithmetic here can fix, so it is surfaced rather than
     absorbed into the median."""
     # Via the config, not a relative path: the data directory is shared
@@ -171,7 +171,7 @@ def test_separation_is_metres():
 
 
 def test_separation_narrows_with_latitude():
-    """A degree of longitude is shorter the further north you go — at 54°N it is
+    """A degree of longitude is shorter the further north you go - at 54°N it is
     about cos(54) of its width at the equator. Getting this wrong would overstate
     every east-west disagreement in Scotland."""
     north = separation_metres(LatLon(58.0, -1.0), LatLon(58.0, 0.0))

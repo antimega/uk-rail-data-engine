@@ -5,7 +5,7 @@ type. LO (origin), LI (intermediate) and LT (terminating) stops have different
 layouts but land in one ``stop_time`` table, distinguished by ``record_type``.
 
 Public times (HHMM) and working times (HHMMH) are both present and are *not*
-interchangeable — working times include passing points and are not what a
+interchangeable - working times include passing points and are not what a
 passenger experiences. Journey-time analysis must use the public times.
 """
 

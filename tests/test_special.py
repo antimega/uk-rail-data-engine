@@ -1,4 +1,4 @@
-"""Fixed links and interchange times — the three non-fixed-width files."""
+"""Fixed links and interchange times - the three non-fixed-width files."""
 
 from __future__ import annotations
 

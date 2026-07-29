@@ -13,7 +13,7 @@ Three shapes matter:
 * **The fares LOC file is versioned, not current.** London Euston appears many
   times with different validity windows. Only the record valid on the day being
   priced may be used.
-* **Some reference rows are not stations at all** — an MSN header line, Irish
+* **Some reference rows are not stations at all** - an MSN header line, Irish
   CIE entries with no coordinates, and TIPLOCs that are timing points rather
   than places a passenger can board.
 
@@ -53,7 +53,7 @@ def _add_rail_station_flag(
 ) -> None:
     """Mark which CRS codes RSPS5052 says are GB rail stations.
 
-    MSN carries bus and ferry interchange points alongside stations — they are
+    MSN carries bus and ferry interchange points alongside stations - they are
     legitimate DTD data, reachable only by fixed link, and there is no field in
     MSN that tells them apart. This list does.
 
@@ -61,7 +61,7 @@ def _add_rail_station_flag(
     affect journey planning or ticket selection, so it is a column to label
     output with, never a filter on the network: a journey may perfectly well
     route *through* a bus interchange. Null, not false, when the file is
-    absent — "not fetched" and "not a station" are different answers.
+    absent - "not fetched" and "not a station" are different answers.
     """
     connection.execute("alter table station add column is_rail_station boolean")
     listing = (
@@ -193,8 +193,8 @@ def build_reference(
               -- A PlusBus zone is not a place you can travel to. They used to
               -- carry no CRS at all, which is what the notes recorded as the
               -- reason they could never leak; the feed generation valid from
-              -- 2026-06-30 gave four of them one — `QAB` BATH+BUS, `QAA`
-              -- WESTON-S-M+BUS, `QAC` BRISTOLPWY+BUS, `QAD` BRISTOL TM+BUS —
+              -- 2026-06-30 gave four of them one - `QAB` BATH+BUS, `QAA`
+              -- WESTON-S-M+BUS, `QAC` BRISTOLPWY+BUS, `QAD` BRISTOL TM+BUS -
               -- and Bristol Temple Meads promptly gained a £5.40 "destination"
               -- called BRISTOL TM+BUS. The zone marker is the same one
               -- `rail plusbus` matches on.
@@ -253,10 +253,10 @@ def _refine_grid_references(
 ) -> None:
     """Resolve a station's position from up to three independent sources.
 
-    * **MSN**, from the timetable feed — about a kilometre accurate.
-    * The **Network Rail FOI spreadsheet** — exact, but frozen and with errors
+    * **MSN**, from the timetable feed - about a kilometre accurate.
+    * The **Network Rail FOI spreadsheet** - exact, but frozen and with errors
       of its own: it places Highbury & Islington 58 km away, in Kent.
-    * **NaPTAN**, from DfT — exact and maintained.
+    * **NaPTAN**, from DfT - exact and maintained.
 
     **Corroboration, not hierarchy.** No source is trusted on its own say-so; a
     position is taken when a second source agrees with it within a kilometre.
@@ -264,12 +264,12 @@ def _refine_grid_references(
     a median of 33 m over 2,488 stations and never by more than a kilometre, so
     where they agree either will do and the question is only which to prefer for
     precision. Where MSN and the FOI file *disagreed*, the earlier two-source
-    merge kept MSN — and NaPTAN shows that was wrong in 16 of the 30 cases it
+    merge kept MSN - and NaPTAN shows that was wrong in 16 of the 30 cases it
     can settle, Stansted Airport and Kirk Sandall among them.
 
     **Corroboration decides which position is right; precision decides which
     copy of it to keep.** Among corroborated candidates the FOI file wins, then
-    NaPTAN, then MSN — because NaPTAN rounds 393 of its 2,765 rail stops to
+    NaPTAN, then MSN - because NaPTAN rounds 393 of its 2,765 rail stops to
     100 m where the FOI file rounds 1 of 9,397. So NaPTAN's job is to adjudicate
     and to cover what the FOI file misses, not to supply the final digits.
 
@@ -389,7 +389,7 @@ def _refine_grid_references(
 #: the fares feed's TOC file lists all 86 operators alike, Tyne & Wear Metro
 #: beside GWR. Each entry earns its place by evidence, and the list is short.
 NON_NATIONAL_RAIL_OPERATORS: dict[str, str] = {
-    # 21 stations reachable only by Metro — Fellgate, Stadium of Light, St
+    # 21 stations reachable only by Metro - Fellgate, Stadium of Light, St
     # Peters, Seaburn. They are in CIF because Metro shares the network, not
     # because a National Rail train calls.
     "TW": "Tyne & Wear Metro",
@@ -412,7 +412,7 @@ def classify_locations(connection: duckdb.DuckDBPyConnection) -> dict[str, int]:
     """Say what each location *is*, from what actually calls there.
 
     MSN carries bus stops, ferry terminals and Metro stations alongside National
-    Rail stations, and RSPS5052's list answers only "is this a rail station" —
+    Rail stations, and RSPS5052's list answers only "is this a rail station" -
     one boolean, which made a Metrolink stop, a coach bay and a ferry pier
     indistinguishable. The timetable answers it better, because it says what
     kind of service calls and who runs it.
@@ -420,8 +420,8 @@ def classify_locations(connection: duckdb.DuckDBPyConnection) -> dict[str, int]:
     Requires `train_schedule` and `schedule_stop`, so it runs after the
     timetable is built rather than with the rest of the reference layer.
 
-    **It agrees with RSPS5052 on every station RSPS5052 calls a rail station** —
-    all 2,579 — which is the check worth having, since the two are derived from
+    **It agrees with RSPS5052 on every station RSPS5052 calls a rail station** -
+    all 2,579 - which is the check worth having, since the two are derived from
     different files by different means. It then adds **30 more**: stations too
     new for the supplementary list, among them the whole Northumberland Line
     (Ashington, Bedlington, Blyth Bebside, Newsham, Seaton Delaval), Cambridge
@@ -435,7 +435,7 @@ def classify_locations(connection: duckdb.DuckDBPyConnection) -> dict[str, int]:
 
     RSPS5052 §7.1.2 forbids its own station list from affecting journey planning
     or ticket selection. This classification is derived from the timetable
-    instead, so that restriction does not reach it — but the same discipline is
+    instead, so that restriction does not reach it - but the same discipline is
     kept anyway: `kind` labels output and filters nothing.
     """
     excluded = ", ".join(f"'{code}'" for code in NON_NATIONAL_RAIL_OPERATORS)

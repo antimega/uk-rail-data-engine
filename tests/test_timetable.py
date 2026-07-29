@@ -1,4 +1,4 @@
-"""STP overlay resolution — the most error-prone step in the pipeline.
+"""STP overlay resolution - the most error-prone step in the pipeline.
 
 CIF gives a base schedule and then amends it. Several records can cover the same
 date and the winner is decided by priority C > N > O > P, where a cancellation
@@ -90,7 +90,7 @@ def build(tmp_path):
                            directory / "z_stop_time.parquet")
         connection = duckdb.connect()
         # `build_timetable` resolves each stop's CRS as it goes, so it needs the
-        # crosswalk `build_reference` writes — which the real pipeline builds
+        # crosswalk `build_reference` writes - which the real pipeline builds
         # first. Here the fixture's locations are their own CRS plus "TIP", so
         # the mapping is mechanical.
         connection.execute("create table station_tiploc (crs varchar, tiploc varchar)")
@@ -237,7 +237,7 @@ def test_overnight_times_are_unwrapped_past_midnight(build):
 
 
 def test_a_stop_straddling_midnight_carries_forward(build):
-    """Arrive 23:59, leave 00:05 — later stops are on the next day too."""
+    """Arrive 23:59, leave 00:05 - later stops are on the next day too."""
     connection, _ = build(
         [schedule(1, "A00001", "P", START, START)],
         [stop(2, "LO", "AAA", depart=1430),
@@ -279,7 +279,7 @@ def test_non_passenger_services_are_flagged_not_deleted(build):
     ).fetchall())
 
     assert flags == {"A00001": True, "F00002": False}
-    # Still resolved into running dates — filtering is the caller's choice.
+    # Still resolved into running dates - filtering is the caller's choice.
     assert dates_for(connection, "F00002") == [START]
 
 
@@ -309,8 +309,8 @@ def test_ztr_schedules_are_loaded_alongside_the_main_file(build):
 
 
 def test_a_ztr_schedule_id_cannot_collide_with_a_cif_one():
-    """The two files are numbered separately — the real ones overlap, CIF
-    running 16,949 to 7,901,571 and ZTR 1 to 31,355 — so a ZTR line number is
+    """The two files are numbered separately - the real ones overlap, CIF
+    running 16,949 to 7,901,571 and ZTR 1 to 31,355 - so a ZTR line number is
     offset out of reach rather than trusted to be distinct."""
     from rail.model.timetable import ZTR_SCHEDULE_OFFSET
 
@@ -320,7 +320,7 @@ def test_a_ztr_schedule_id_cannot_collide_with_a_cif_one():
 def test_the_two_files_name_locations_differently_and_both_resolve(build):
     """**The trap this was always going to spring.** `stop_time.location` is a
     TIPLOC and `z_stop_time.location` is a CRS, so a union of the two matches
-    only half against `station_tiploc` — and the half that misses is dropped
+    only half against `station_tiploc` - and the half that misses is dropped
     silently rather than failing. `crs` is resolved once, at build, for both."""
     connection, _ = build(
         [schedule(1, "A00001", "P", START, START + dt.timedelta(days=6))],

@@ -1,7 +1,7 @@
 """Snapshot ZIP → Parquet.
 
 Members are streamed straight out of the ZIP, so a 1 GB MCA never lands on disk
-uncompressed. Output goes to ``parquet/<feed>/<snapshot>/<table>.parquet`` —
+uncompressed. Output goes to ``parquet/<feed>/<snapshot>/<table>.parquet`` -
 one directory per snapshot, so several feed vintages sit side by side and any
 result can be traced back to the exact input that produced it.
 """

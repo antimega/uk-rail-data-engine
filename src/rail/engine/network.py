@@ -2,7 +2,7 @@
 
 A *connection* is one train travelling between two consecutive public calls.
 The Connection Scan Algorithm needs them as flat arrays sorted by departure
-time, so everything is loaded into plain Python lists — list indexing beats
+time, so everything is loaded into plain Python lists - list indexing beats
 numpy scalar indexing inside a tight sequential loop, and the scan is
 inherently sequential.
 
@@ -10,7 +10,7 @@ Transfers come from three places:
 
 * the station's own minimum change time (MSN),
 * TOC-specific interchange times where an operator needs longer (TSI),
-* fixed links between *different* stations — the Underground hop from Euston to
+* fixed links between *different* stations - the Underground hop from Euston to
   King's Cross, or a walk between neighbouring stations (FLF and ALF).
 
 Without fixed links, one-to-all routing silently misses every journey that has
@@ -34,7 +34,7 @@ DEFAULT_CHANGE_MINUTES = 5
 ALL_DAY = (0, 24 * 60)
 
 #: RSPS5047 4.12.3 field 6 numbers the transport modes, and RGK states route
-#: conditions against them — 95 routes do, e.g. "must include an Underground
+#: conditions against them - 95 routes do, e.g. "must include an Underground
 #: leg". ALF and FLF name the same modes in words, so this is the join between
 #: them. A train is mode 0.
 TRAIN_MODE = "0"
@@ -44,7 +44,7 @@ LINK_MODES = {
 }
 
 #: Not every service in the timetable is a train. CIF train status B and 5 are
-#: buses, S and 4 are ships — the Wightlink catamaran from Portsmouth Harbour to
+#: buses, S and 4 are ships - the Wightlink catamaran from Portsmouth Harbour to
 #: Ryde Pier Head is a scheduled service, not a fixed link, and calling it a
 #: train made every Isle of Wight fare fail its "must include a ferry" condition
 #: for the wrong reason. 9,447 bus and 1,269 ship schedules run in this feed.
@@ -97,8 +97,8 @@ class Network:
 
     #: When each trip reaches and leaves each of those stops, parallel to
     #: `trip_stops`. Needed because a restriction band may name a station the
-    #: journey merely passes through — 32,206 of the 33,216 current bands name
-    #: one — and it is judged on the time *this* journey was there, which a
+    #: journey merely passes through - 32,206 of the 33,216 current bands name
+    #: one - and it is judged on the time *this* journey was there, which a
     #: station's own earliest arrival does not give.
     trip_arrival: list[list[int]] = dc_field(default_factory=list)
     trip_departure: list[list[int]] = dc_field(default_factory=list)
@@ -106,7 +106,7 @@ class Network:
     #: RSPS5046 5.12: the minimum interchange time when changing *between two
     #: particular operators* at a station, which overrides the station's own.
     #: Keyed (station index, arriving TOC, departing TOC). 35 records over 20
-    #: stations, and **directional** — 5.12.1.2 says so in as many words: "SE >
+    #: stations, and **directional** - 5.12.1.2 says so in as many words: "SE >
     #: SN does not automatically equate to SN > SE". No day, date or time
     #: qualification either (5.12.1.3): every record applies 24/7.
     toc_change: dict[tuple[int, str, str], int] = dc_field(default_factory=dict)
@@ -176,8 +176,8 @@ select schedule_id,
        -- departure. Requiring the departure severs the train there, so the
        -- northbound sleeper lost Stirling, Dunblane, Gleneagles, Perth,
        -- Dunkeld, Pitlochry, Blair Atholl, Dalwhinnie and Newtonmore from its
-       -- calling points. The arrival time was still right — a trip is boarded
-       -- once and every connection of it relaxes — but the *path* silently
+       -- calling points. The arrival time was still right - a trip is boarded
+       -- once and every connection of it relaxes - but the *path* silently
        -- bridged the gap, and paths are what the route conditions and the
        -- routeing guide are judged on.
        coalesce(departure_minutes, arrival_minutes) as dep,
@@ -186,7 +186,7 @@ select schedule_id,
        departure_minutes is not null as boardable,
        -- A public call may carry a departure and no arrival: 10,144 mid-journey
        -- stops across 7,492 schedules do. Requiring the arrival severed the
-       -- train there and made everything beyond it unreachable on that service —
+       -- train there and made everything beyond it unreachable on that service -
        -- the 12:03 Paddington to Penzance became two trains because Exeter St
        -- Davids has no public arrival time, so York to Penzance came out 42
        -- minutes late. The departure is a sound upper bound on being there: the
@@ -211,7 +211,7 @@ def load_network(
     rows = connection.execute(_CONNECTION_SQL, {"date": date}).fetchall()
     if not rows:
         raise RuntimeError(
-            f"no services on {date} — is it inside the built horizon? "
+            f"no services on {date} - is it inside the built horizon? "
             "See `rail build --horizon`."
         )
 
@@ -283,7 +283,7 @@ def load_network(
     trip_stops: list[list[int]] = [[] for _ in range(len(trip_ids))]
     # The clock at each of those stops: when the train reaches it and when it
     # leaves. A restriction band naming a station mid-journey is judged against
-    # *these* times, and they cannot be recovered afterwards — a station's own
+    # *these* times, and they cannot be recovered afterwards - a station's own
     # earliest arrival is whenever the first train gets there, which on a
     # through journey is often not the moment this one went by.
     trip_arrival: list[list[int]] = [[] for _ in range(len(trip_ids))]
@@ -291,7 +291,7 @@ def load_network(
     trip_toc: list[str | None] = [None] * len(trip_ids)
     trip_mode: list[str] = [TRAIN_MODE] * len(trip_ids)
     # One pass. The connection array is sorted by departure and a train only
-    # moves forward, so a trip's own connections are met in order — which means
+    # moves forward, so a trip's own connections are met in order - which means
     # the stop last appended is always the one this connection leaves.
     for position, trip_index in enumerate(trip):
         stops = trip_stops[trip_index]
@@ -350,7 +350,7 @@ def _load_toc_interchange(
 ) -> dict[tuple[int, str, str], int]:
     """TSI: the change time between two named operators at one station.
 
-    RSPS5046 5.12.1.1 — "This data overrides the minimum interchange time at a
+    RSPS5046 5.12.1.1 - "This data overrides the minimum interchange time at a
     station for a journey when changing from one TOC to another." It overrides
     rather than competes, which is the part that matters: at Finsbury Park a
     change involving Grand Central takes 15 minutes against the station's own 5,
@@ -423,8 +423,8 @@ def _load_associations(
          base_shift, assoc_offset) in rows:
         base = trip_ids.get((base_schedule, base_shift))
         assoc = trip_ids.get((assoc_schedule, base_shift + 1440 * assoc_offset))
-        # Two stations, not one. A split at an operational stop — the Highland
-        # sleeper divides at Edinburgh, where nobody boards or alights — means
+        # Two stations, not one. A split at an operational stop - the Highland
+        # sleeper divides at Edinburgh, where nobody boards or alights - means
         # the passenger must already be aboard by the base's last public call
         # before it (Preston), and carries on from the portion's first public
         # call after it (Edinburgh). Where the split is itself a public call,
@@ -474,27 +474,27 @@ def _load_footpaths(
         return links
 
     # ALF covers a subset of FLF's pairs but carries day validity and opening
-    # hours, so it is authoritative where it applies — otherwise a tube link
+    # hours, so it is authoritative where it applies - otherwise a tube link
     # would be offered at 03:00. FLF fills in the pairs ALF does not mention.
     #
     # **Links run both ways.** RSPS5046 5.10.2.3 writes an FLF record as "WALK
     # BETWEEN AHV AND NCM IN 10 MINUTES" and 5.11.1.1 describes ALF as "links
     # *between* two stations… and the method and time of travel *between*". The
     # data settles it beyond argument: of 1,149 ALF pairs and 1,224 FLF pairs,
-    # **not one carries a reverse record** — the files state each link once and
+    # **not one carries a reverse record** - the files state each link once and
     # expect it read in both directions. Taking them as one-way used half of
     # every fixed link, and Victoria to Abbey Wood went by rail via Blackfriars
     # in 65 minutes because the tube to Whitechapel is listed only the other way
     # round.
     #
     # This is the opposite of the routeing guide's map links, which *are*
-    # directional and do carry the reverse wherever it is valid — there,
+    # directional and do carry the reverse wherever it is valid - there,
     # unioning them invents permissions. Two files, two conventions, and the
     # data says which is which.
     #
     # **Every ALF row for a pair is kept, not just the quickest.** 970 of the
     # 1,149 pairs carry more than one row, and they are usually the same link at
-    # different times of day — Charing Cross to Victoria is a 17-minute transfer
+    # different times of day - Charing Cross to Victoria is a 17-minute transfer
     # before 07:00 and a 7-minute tube after it. Keeping only the quickest threw
     # away the windows that covered the rest of the day, so the link simply did
     # not exist at 03:00. The scan checks each window itself, so several rows per
@@ -506,7 +506,7 @@ def _load_footpaths(
     alf = (timetable_dir / "additional_fixed_link.parquet")
     if alf.exists():
         weekday = _WEEKDAY_COLUMNS[date.weekday()]
-        # F= and U= bound a link to a date range — engineering-work
+        # F= and U= bound a link to a date range - engineering-work
         # replacements, event shuttles. 229 links carry one and 107 of those
         # apply on a single day, so ignoring them offers a one-day bus every
         # day of the year. The dates arrive as the feed writes them, dd/mm/yyyy.
@@ -530,7 +530,7 @@ def _load_footpaths(
             here, there = station_id(origin), station_id(destination)
             # RSPS5046 5.11.1.2: where more than one link joins a pair on a
             # given day and time, "the choice of which link should be used in a
-            # journey is determined by the Priority Field" — and 5.11.2 says
+            # journey is determined by the Priority Field" - and 5.11.2 says
             # 1 to 7 "with 1 being lowest priority", so the *highest* wins. Only
             # 3 pairs in this feed carry more than one value, and there the
             # durations happen to match; what changes is the mode, which RGK's

@@ -1,8 +1,8 @@
 """Going and coming back, priced both ways.
 
 Everything else here prices one direction. That is the right shape for "where
-can I get for £20", but it cannot answer the ordinary question — *I am going on
-Tuesday and back on Thursday, what should I buy* — because the answer is a
+can I get for £20", but it cannot answer the ordinary question - *I am going on
+Tuesday and back on Thursday, what should I buy* - because the answer is a
 choice between two products:
 
 * a **return fare**, one ticket covering both legs, whose validity has to permit
@@ -16,20 +16,20 @@ winner.
 
 **The return leg has to be routed for either arm to be right.** 13,803 of the
 restriction bands in force on a weekday carry `out_ret = 'R'`, and until now
-none was ever evaluated — there was no time to test them against. Routing B→A
+none was ever evaluated - there was no time to test them against. Routing B→A
 on the return date supplies both: when you leave the destination and when you
 get back.
 
 **The two legs run opposite ways, and the bands follow the journey, not the
 ticket.** On the way home a *departure* band bites where the journey home
-starts — the outward destination — and an *arrival* band bites back at the
+starts - the outward destination - and an *arrival* band bites back at the
 origin. Swapping those silently applies London's morning arrival bans to a
 train leaving London, which is a restriction that reads plausible and is
 backwards. That mapping lives in the pricing SQL, tested directly.
 
 **What this does not do.** It prices one outward journey and one return
 journey, both the earliest after the times given. It is not a search for the
-cheapest pair of departure times — an Advance ladder would make that a
+cheapest pair of departure times - an Advance ladder would make that a
 different and much larger question. And it says nothing about seat
 availability, which is not in the feed at all.
 """
@@ -71,7 +71,7 @@ class Quote:
 
     kind: str                       #: 'return' or 'two singles'
     pence: int
-    #: (ticket code, description, pence, route code) per ticket bought — one
+    #: (ticket code, description, pence, route code) per ticket bought - one
     #: for a return, two for a pair of singles.
     tickets: list[tuple[str, str, int, str | None]]
 
@@ -119,14 +119,14 @@ def price_round_trip(
 ) -> RoundTrip:
     """Price `out` and `back` as one return ticket and as two singles.
 
-    Both legs must already be routed — see `Leg`. The restrictions on each are
+    Both legs must already be routed - see `Leg`. The restrictions on each are
     evaluated against that leg's own times, which is the whole reason the router
     has to run twice.
     """
     common = dict(ticket_class=ticket_class, railcard=railcard,
                   include_advance=include_advance)
     # TVL fields 12 and 13. A return ticket has to permit a break on whichever
-    # leg is broken, and the two are separate permissions — `break_in` is the
+    # leg is broken, and the two are separate permissions - `break_in` is the
     # one nothing could enforce until a return leg was routed through a chosen
     # stop, which is what `--return-via` does.
     breaks = {"break_of_journey": break_out, "break_returning": break_in}
@@ -182,7 +182,7 @@ def price_round_trip(
             modes={leg.destination: leg.modes} if check_routes else None,
             changes={leg.destination: leg.changes},
             # Each single covers one leg, so it needs only that leg's
-            # permission — and it needs it *outward*, since a single has no
+            # permission - and it needs it *outward*, since a single has no
             # return side whichever direction it is travelling.
             break_of_journey=(break_out if leg is out else break_in),
             **common,

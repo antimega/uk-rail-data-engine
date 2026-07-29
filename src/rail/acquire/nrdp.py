@@ -155,7 +155,7 @@ class NRDPSource(FeedSource):
             for attempt in (1, 2):
                 with client.stream("GET", url, headers={"X-Auth-Token": token}) as response:
                     if response.status_code == 401 and attempt == 1:
-                        # Rejected despite the local expiry check — the portal
+                        # Rejected despite the local expiry check - the portal
                         # may have invalidated it. Reauthenticate and retry once.
                         response.read()
                         token = self.authenticate(force=True)

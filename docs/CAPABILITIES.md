@@ -4,7 +4,7 @@
 
 The data is supplied "as is" by its publishers. Everything below is derived from
 it, and nothing here may imply official status or endorsement. Where a figure
-matters — a fare you intend to buy, a connection you intend to make — check it
+matters - a fare you intend to buy, a connection you intend to make - check it
 with a retailer. Several sections below exist precisely because a retailer check
 found this engine wrong.
 
@@ -23,7 +23,7 @@ a real journey planner or retailer on specific journeys.
 A Connection Scan over two consecutive days. One scan answers every destination
 in Britain at once, in tens of milliseconds, so sweeping departures across a day
 and keeping the best journey per station is cheap. `--profile` does that sweep,
-which is the fair way to compare a Sunday against a weekday — a single departure
+which is the fair way to compare a Sunday against a weekday - a single departure
 time flatters whichever day happens to suit it.
 
 **Everywhere reachable within a budget.**
@@ -53,7 +53,7 @@ only one that can evaluate return-leg restrictions at all.
 **Breaking a journey.**
 `rail stopover --from YRK --to KGX --via DON --date 2026-08-04 --dwell 90`
 Priced as one ticket, which is the point. Only fares whose validity permits a
-break of journey are offered — and a validity that says nothing is *not* treated
+break of journey are offered - and a validity that says nothing is *not* treated
 as permission.
 
 **Distance, in both senses.**
@@ -66,19 +66,19 @@ until you notice they are measuring different things.
 
 **Routeing-guide permission, with easements.**
 `rail reachable --check-guide`, `rail routings --from YRK --to PNZ`
-Returns permitted, not permitted, or **no opinion** — and the third must never
+Returns permitted, not permitted, or **no opinion** - and the third must never
 be read as a refusal. Published exceptions are applied, in both directions:
 there are more that *grant* a route than withdraw one, so ignoring them was
 never the conservative choice it looked like.
 
-**PlusBus.** `rail plusbus YRK --with LDS` — including the rule that an add-on
+**PlusBus.** `rail plusbus YRK --with LDS` - including the rule that an add-on
 cannot be sold when both ends sit in the same zone.
 
-**What actually calls at a location.** `rail stations` — the feeds include bus
+**What actually calls at a location.** `rail stations` - the feeds include bus
 interchanges, ferry piers and metro stops alongside national rail stations, and
 the timetable can tell them apart better than any supplied flag.
 
-**Data quality.** `rail validate` — 70 checks, exit code 1 on any failure. The
+**Data quality.** `rail validate` - 70 checks, exit code 1 on any failure. The
 ones that matter most are the ones that would catch a drifted parse: every stop
 location resolving to a known code, every fare to a known ticket type, no
 journey running backwards in time, a weekday busier than a Sunday.
@@ -91,18 +91,18 @@ Right in mechanism, limited by what the feed carries. Each of these will give
 you an answer; read the caveat before trusting it.
 
 **Advance fares** (`--advance`). The prices are real and vary sensibly with
-distance. What the feed lacks is **quota** — which price point is on sale for a
+distance. What the feed lacks is **quota** - which price point is on sale for a
 given train on a given date. The relevant field is empty throughout. So these
 are the best *published* price, not a bookable one, and that is why they are
 opt-in rather than on by default.
 
-**Railcards.** The discount chain is fully implemented — percentage, minimum
+**Railcards.** The discount chain is fully implemented - percentage, minimum
 fares, geography, operator and product bans, non-standard discount add-ons. Two
 limits. The feed's **minimum-fare coverage is thin**: 12 railcards have any, and
 for the 16-25 every listed ticket code is a Travelcard, so an ordinary single
 takes no minimum and can come out below a retailer's quote. And the **rounding
 rule had to be chosen by measurement**, because nothing in the feed says which
-of its 36 rule sets applies — see
+of its 36 rule sets applies - see
 [INTERPRETING-THE-FEEDS.md](INTERPRETING-THE-FEEDS.md).
 
 **Which fares count as ordinary walk-up fares.** There is no single flag for
@@ -125,7 +125,7 @@ the link graph has no link between them.
 **The routeing guide is stricter than the real one.** The guide judges the two
 ends of a journey by more permissive local rules than the middle; this judges
 the whole path by the map rules. It can therefore only turn a permission into a
-refusal, never the reverse — the safe direction, and the reason it has not
+refusal, never the reverse - the safe direction, and the reason it has not
 produced a wrong fare. A refusal means "not obviously permitted", not
 "forbidden".
 
@@ -135,7 +135,7 @@ the moment you asked, so it includes waiting for the train. York to Cardiff is
 "when can I be there" and the wrong one for "how long is the journey".
 
 **An evening query answers with next-morning arrivals** rather than
-"unreachable", because the network loads two consecutive days — which is
+"unreachable", because the network loads two consecutive days - which is
 necessary for sleepers, whose portions are dated the following day. The results
 are marked, but the effect is real: a late-evening query reaches most of Britain
 by breakfast.
@@ -149,20 +149,20 @@ Not limitations of this code. The information is not in the feeds.
 - **Seat availability and reservations.** Nothing.
 - **Which Advance bucket is on sale.** The prices are there; the quota is not.
 - **Live running, delays, cancellations on the day, disruption.** These are
-  future timetables. Short-term plan changes *are* applied — cancellations and
-  overlays resolve properly — but that is the published plan changing, not
+  future timetables. Short-term plan changes *are* applied - cancellations and
+  overlays resolve properly - but that is the published plan changing, not
   today's railway.
 - **Split ticketing.** Deliberately out of scope: it is a search over
   itineraries and ticket combinations, a different problem from pricing one
   journey.
-- **Ticket calendars** — when a ticket is on sale at all, as opposed to when it
+- **Ticket calendars** - when a ticket is on sale at all, as opposed to when it
   may be used. Parsed, not evaluated, covering 114 walk-up ticket codes.
 - **The operator qualifier on a restriction band.** Parsed and not applied. It
   looks like a large correction and it may well be one, but the single case
   tested against a retailer turned out to be barred for an unrelated reason, so
   two errors were cancelling. It needs real quotes before it can be trusted.
 - **One of the routeing guide's doubleback rules**, which states its conditions
-  as fare comparisons — the guide would have to ask the fares engine a question
+  as fare comparisons - the guide would have to ask the fares engine a question
   while the fares engine is asking the guide one.
 - **Anything about a station that no feed states.** Two Underground stations are
   classified here as national rail stations because national rail services call
@@ -182,6 +182,6 @@ In order of usefulness:
 3. **`rail validate`** catches a drifted parse rather than a modelling mistake,
    but it catches that decisively.
 4. **Compare against a retailer**, with the date, the departure time and the
-   flags written down. A figure quoted without them is not reproducible — the
+   flags written down. A figure quoted without them is not reproducible - the
    build horizon rolls forward, so the reachable set genuinely changes over
    time, and an undated figure will eventually accuse working code.

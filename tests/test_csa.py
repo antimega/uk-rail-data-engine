@@ -168,7 +168,7 @@ def test_a_link_is_charged_the_interchange_time_at_both_ends():
     """RSPS5046 5.10.1.3, stated again at 5.11.1.3.
 
     A fixed link's transit time is summated with the minimum interchange times
-    at the stations at either end — not used instead of them. Treating a link
+    at the stations at either end - not used instead of them. Treating a link
     as door-to-door made two journeys in five out of York look up to three
     hours quicker than they are.
     """
@@ -261,8 +261,8 @@ def test_journey_minutes_are_measured_from_the_requested_departure():
 
 
 def test_journey_time_excludes_the_wait_for_the_first_train():
-    """Two different questions — "how long does it take" and "when can I be
-    there" — and conflating them is how a CLI column came to report one as the
+    """Two different questions - "how long does it take" and "when can I be
+    there" - and conflating them is how a CLI column came to report one as the
     other. On the real feed, York to Cardiff is 4h23 of travelling and 4h59
     from a 09:00 query, the train leaving at 09:36.
     """
@@ -276,7 +276,7 @@ def test_journey_time_excludes_the_wait_for_the_first_train():
 
 
 def test_journey_time_spans_a_change_of_trains():
-    """It is the whole journey, waits in the middle included — only the wait
+    """It is the whole journey, waits in the middle included - only the wait
     *before* it starts is excluded."""
     net = network(
         [("A", "B", 600, 630, 0), ("B", "C", 700, 730, 1)],
@@ -289,8 +289,8 @@ def test_journey_time_spans_a_change_of_trains():
 
 
 def test_a_journey_beginning_with_a_walk_starts_when_the_query_does():
-    """Nothing is charged at the origin — RSPS5046's interchange rules are
-    about changing between trains — so a fixed link off the front can be taken
+    """Nothing is charged at the origin - RSPS5046's interchange rules are
+    about changing between trains - so a fixed link off the front can be taken
     the moment the query starts and there is no boarding time to report."""
     net = network(
         [("B", "C", 700, 730, 0)], stations=["A", "B", "C"],
@@ -321,14 +321,14 @@ def test_unknown_origin_is_an_error():
 #
 # Two schedules can be one physical train: a portion joins at Southampton, or
 # divides at Crianlarich. A passenger staying aboard makes no interchange, so
-# the station's minimum change time must not apply — and in the real feed those
+# the station's minimum change time must not apply - and in the real feed those
 # portions are often booked four minutes apart against a five-minute allowance.
 
 
 def test_a_tight_join_is_missed_without_the_association():
     net = network(
         [("A", "JUNC", 600, 660, 0),   # portion arrives 660
-         ("JUNC", "B", 664, 700, 1)],  # main train leaves 664 — four minutes
+         ("JUNC", "B", 664, 700, 1)],  # main train leaves 664 - four minutes
         stations=["A", "JUNC", "B"],
         change={"JUNC": 5},
     )
@@ -416,7 +416,7 @@ def test_a_call_with_no_public_arrival_does_not_sever_the_train():
     10,144 mid-journey stops across 7,492 schedules do, and requiring the
     arrival cut the train in two there. The 12:03 Paddington to Penzance became
     two separate trains because Exeter St Davids has no public arrival time, so
-    York to Penzance came out 42 minutes late — the fastest journey ended at
+    York to Penzance came out 42 minutes late - the fastest journey ended at
     Exeter and had to wait for another service.
     """
     net = network(
@@ -584,8 +584,8 @@ def footpaths(tmp_path, *, alf=(), flf=(), stations=("AAA", "BBB")):
 def test_every_time_window_for_a_pair_is_kept(tmp_path):
     """970 of the 1,149 ALF pairs carry more than one row, and they are usually
     the same link at different times of day. Keeping only the quickest threw the
-    other windows away, so Cannon Street to Waterloo — 22 minutes by day, 24 at
-    night — simply had no link at 03:00."""
+    other windows away, so Cannon Street to Waterloo - 22 minutes by day, 24 at
+    night - simply had no link at 03:00."""
     links = footpaths(tmp_path, alf=[
         ("AAA", "BBB", 22, 420, 1140, 4, "TUBE"),
         ("AAA", "BBB", 24, 1, 419, 4, "TRANSFER"),
@@ -597,7 +597,7 @@ def test_every_time_window_for_a_pair_is_kept(tmp_path):
 
 def test_the_highest_priority_link_wins(tmp_path):
     """RSPS5046 5.11.1.2: where more than one link joins a pair on a given day
-    and time, the Priority field chooses — and 5.11.2 says 1 to 7 "with 1 being
+    and time, the Priority field chooses - and 5.11.2 says 1 to 7 "with 1 being
     lowest priority", so the highest wins rather than the quickest. Only three
     pairs in the feed carry more than one value."""
     links = footpaths(tmp_path, alf=[
@@ -609,7 +609,7 @@ def test_the_highest_priority_link_wins(tmp_path):
 
 
 def test_priority_beats_a_quicker_link(tmp_path):
-    """The spec says the priority decides, not the duration — which is the whole
+    """The spec says the priority decides, not the duration - which is the whole
     point of the field, and the thing that was being ignored."""
     links = footpaths(tmp_path, alf=[
         ("AAA", "BBB", 2, 1, 1439, 1, "TUBE"),
@@ -624,7 +624,7 @@ def test_a_link_runs_both_ways(tmp_path):
     MINUTES", and the data settles it beyond argument: of 1,149 ALF pairs and
     1,224 FLF pairs, **not one carries a reverse record**. The files state each
     link once and expect it read both ways. Taking them as one-way used half of
-    every fixed link — Victoria to Abbey Wood went by rail via Blackfriars in 65
+    every fixed link - Victoria to Abbey Wood went by rail via Blackfriars in 65
     minutes, because the tube to Whitechapel is listed only the other way round.
     """
     links = footpaths(tmp_path, alf=[("AAA", "BBB", 9, 420, 1140, 4, "TUBE")])
@@ -635,7 +635,7 @@ def test_a_link_runs_both_ways(tmp_path):
 
 def test_flf_only_fills_pairs_alf_does_not_mention(tmp_path):
     """ALF carries day validity and opening hours, so it is authoritative where
-    it applies — otherwise a tube link gets offered at 03:00. And because a link
+    it applies - otherwise a tube link gets offered at 03:00. And because a link
     runs both ways, an ALF record covers the reverse too."""
     links = footpaths(
         tmp_path,
@@ -692,7 +692,7 @@ def test_a_shorter_toc_record_makes_a_connection_the_station_would_refuse():
 def test_a_longer_toc_record_refuses_a_connection_the_station_would_allow():
     """The case that decides the implementation. Finsbury Park is 5 minutes
     generally and **15** for anything involving Grand Central, so a record that
-    merely competed with the station's own time — `min(default, record)` — would
+    merely competed with the station's own time - `min(default, record)` - would
     sell a connection that cannot be made."""
     world = interchange_world(gap=8, toc_change={("B", "AA", "BB"): 15})
 
@@ -761,7 +761,7 @@ def test_the_quickest_way_in_wins_when_several_are_possible():
 def test_the_same_schedule_on_two_days_is_two_trains():
     """The router loads two days at a time, shifting the second by 1440 minutes,
     so a schedule appearing on both is two physical trains. Sharing a trip index
-    would let a passenger "stay aboard" from tonight's service onto tomorrow's —
+    would let a passenger "stay aboard" from tonight's service onto tomorrow's -
     boarding at 23:00 and arriving somewhere the same train reaches at 08:00 the
     next morning without ever getting off."""
     net = network(
@@ -771,7 +771,7 @@ def test_the_same_schedule_on_two_days_is_two_trains():
     )
     result = earliest_arrival(net, "A", 1300)
 
-    # Reachable, but only by waiting at B — the two are not one train.
+    # Reachable, but only by waiting at B - the two are not one train.
     assert arrivals(result)["C"] == 1400 + 1440
     assert result.changes_to("C") == 1
 
@@ -822,7 +822,7 @@ def test_the_origin_is_its_own_path():
 def test_the_operator_comes_from_the_train_not_the_station():
     """The counterpart of tracing the path by train. A station's own
     `arrived_by` names whichever service reached it soonest, which on a through
-    journey is often not the train the passenger is on — Euston to Inverness
+    journey is often not the train the passenger is on - Euston to Inverness
     reported the sleeper *and* LNER, and zero changes, because Kingussie's own
     best arrival is an LNER service the passenger never boarded."""
     net = network(
@@ -841,7 +841,7 @@ def test_a_set_down_stop_stays_on_the_path_but_cannot_be_boarded():
     """A public call with an arrival and no departure is set-down only: you may
     alight, not join. Requiring a departure severed the train there, so the
     sleeper lost Stirling, Dunblane, Gleneagles, Perth, Dunkeld, Pitlochry,
-    Blair Atholl, Dalwhinnie and Newtonmore from its calling points — 19,589
+    Blair Atholl, Dalwhinnie and Newtonmore from its calling points - 19,589
     such calls across 8,659 schedules, nearly twice the mirror case. The
     arrival was still right, because a trip is boarded once and every
     connection of it relaxes; the *path* was what went wrong, and paths are

@@ -151,7 +151,7 @@ def test_a_london_transfer_is_only_allowed_at_permitted_stations():
         cross_london=[],  # neither terminal permits the transfer
     )
     # With nothing listed for the pair and no transfer available, the guide has
-    # no opinion — which must not be read as a refusal.
+    # no opinion - which must not be read as a refusal.
     assert g.permits("YRK", "PNZ", ["YRK", "KGX", "PAD", "PNZ"]) is None
 
 
@@ -159,7 +159,7 @@ def test_a_london_transfer_is_only_allowed_at_permitted_stations():
 #
 # The published exceptions. A positive easement grants a route the maps refuse;
 # a negative one withdraws a route they allow. Not applying them is not the
-# conservative choice it looks like — it errs both ways.
+# conservative choice it looks like - it errs both ways.
 
 import datetime as dt
 
@@ -188,7 +188,7 @@ def refusing_guide(**kwargs):
     """A guide that refuses AAA to BBB via CCC or EEE on the maps alone.
 
     Both are nodes but neither is on map M1, so a journey calling at either is
-    off the permitted route. A station that is not a node at all — DDD — would
+    off the permitted route. A station that is not a node at all - DDD - would
     simply be ignored, and the maps would permit the journey.
     """
     return guide(
@@ -292,7 +292,7 @@ def test_a_negative_easement_beats_a_positive_one():
 
 
 def test_a_conditional_easement_leaves_the_verdict_unknown():
-    """Its condition is the ticket, the train or the traveller — none of which a
+    """Its condition is the ticket, the train or the traveller - none of which a
     list of calling points can settle. Applying it would be a guess; ignoring it
     would let a published exception silently do nothing."""
     g = refusing_guide()
@@ -305,7 +305,7 @@ def test_a_conditional_easement_leaves_the_verdict_unknown():
 def test_an_easement_tied_to_an_operator_is_judged_on_the_trains_caught():
     """**RGH is where the operator conditions live**, and it was read by
     nothing. RGF's own `D` records give eight easements an operator; RGH gives
-    942, one of which is in both — so the guide was deciding on eight easements
+    942, one of which is in both - so the guide was deciding on eight easements
     where the feed describes 624 of the ones held here, and applying the other
     616 to every journey regardless of who ran the trains.
 
@@ -328,7 +328,7 @@ def test_an_easement_tied_to_an_operator_is_judged_on_the_trains_caught():
 
 def test_not_knowing_the_operators_leaves_an_operator_easement_open():
     """The same guard RGK's TOC conditions needed. A caller with a path and no
-    trains would otherwise have every RGH easement silently withdrawn from it —
+    trains would otherwise have every RGH easement silently withdrawn from it -
     which for a positive easement means a refusal nobody asked for."""
     g = refusing_guide()
     g.easements = [easement("1", grants=True, tocs=["TP"],
@@ -483,7 +483,7 @@ def test_a_through_train_is_permitted_outright():
     location on the journey, then the journey is on a through train and is
     permitted. No further checks are required."
 
-    This was not implemented, so every journey was judged by the maps alone —
+    This was not implemented, so every journey was judged by the maps alone -
     which is strictly harsher than the guide. From Manchester it settles 85
     destinations the maps had no opinion on.
     """
@@ -510,7 +510,7 @@ def test_the_shortest_route_is_permitted_outright():
     # Five miles by the direct line, and the journey takes it.
     assert g.permits("AAA", "BBB", ["AAA", "MID", "BBB"], changes=2) is True
     # Forty miles the long way round is well outside the margin, so the maps
-    # decide — and here they say nothing.
+    # decide - and here they say nothing.
     assert g.permits("AAA", "BBB", ["AAA", "LNG", "BBB"], changes=2) is None
 
 
@@ -524,7 +524,7 @@ def test_without_station_links_the_shortest_route_rule_never_fires():
 
 def test_the_blanket_permissions_never_turn_a_permission_into_a_refusal():
     """Section 7.1 only ever adds permissions, so being unable to answer it
-    costs nothing — and a journey the maps permit stays permitted."""
+    costs nothing - and a journey the maps permit stays permitted."""
     links = [("AAA", "LNG", 50.0), ("LNG", "BBB", 50.0)]
     g = guide(
         points=["AAA", "BBB"],
@@ -541,7 +541,7 @@ def test_the_blanket_permissions_never_turn_a_permission_into_a_refusal():
 
 def test_a_new_station_routes_as_the_station_rgx_names():
     """RSPS5047 4.14: a station built since NFM64 has no fares of its own in the
-    guide's world, and the New Stations file names the older station to use —
+    guide's world, and the New Stations file names the older station to use -
     `LUT,LTN` means Luton Airport Parkway checks against Luton."""
     g = guide(points=["LUT", "BBB"], routes={("LUT", "BBB"): [("M1",)]},
               links={"M1": [("LUT", "BBB")]})
@@ -557,7 +557,7 @@ def test_a_new_station_routes_as_the_station_rgx_names():
 
 def test_the_guides_own_mapping_beats_the_equivalence():
     """25 of the 30 stations new enough to be in RGX already have a routeing
-    point, and that is the better answer where it exists — the equivalence is
+    point, and that is the better answer where it exists - the equivalence is
     the fallback, not the rule."""
     g = guide(points=["AAA", "LUT"], station_points={"LTN": ["AAA"]})
     g.equivalent_station = {"LTN": "LUT"}
@@ -581,7 +581,7 @@ def test_a_doubleback_target_counts_as_a_station_the_easement_names():
     **That promise does not hold in this feed**: 83 of the 322 doubleback
     records have no via record for the same station. Easement 701612 permits a
     doubleback through Wimbledon and names Wimbledon nowhere else, so trusting
-    the note drops the easement from every journey it governs — the index is
+    the note drops the easement from every journey it governs - the index is
     built from the stations an easement names, and it would name none of them.
     """
     g = refusing_guide()

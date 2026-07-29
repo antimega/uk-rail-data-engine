@@ -11,25 +11,25 @@ separate switch rather than another value of ``--feed``.
 name contains dots, so it cannot be addressed virtual-host style under Amazon's
 wildcard certificate, and path-style addressing is refused with a permanent
 redirect. Nothing here is authenticated and every file is public reference data,
-so the exposure is that a middlebox could serve you a wrong station list —
+so the exposure is that a middlebox could serve you a wrong station list -
 which is what the recorded SHA-256 is for.
 
 Two files are used, both chosen for a specific job:
 
-* ``RailStations`` — which CRS codes are GB rail stations. MSN mixes in bus and
+* ``RailStations`` - which CRS codes are GB rail stations. MSN mixes in bus and
   ferry interchange points (`HELSTON BUS`, `ASHURST BALD FACED STAG`) that are
   legitimate data but not stations. 530 of our 3,109 are not on this list.
   Note §7.1.2: the data is informational and **must not** affect journey
   planning or ticket selection, so it lands as a flag on `station` and is used
   to label output, never to prune the network.
-* ``FlexiProducts`` — bundle sizes for flexi season and carnet tickets. A
+* ``FlexiProducts`` - bundle sizes for flexi season and carnet tickets. A
   carnet prices 12 or 50 journeys as one ticket, and nothing in RSPS5045 says
   so: min and max passengers are both 1, so every walk-up filter passes it.
-* ``PlusbusExcludedStationPairs`` — pairs an add-on may not be sold for, both
+* ``PlusbusExcludedStationPairs`` - pairs an add-on may not be sold for, both
   ends being in one zone. Like everything else in these feeds it is a version
   history: the file carries two annual generations and half of it has expired,
   so it must be filtered on the travel date.
-* ``PlusBusWebPages`` — the scheme page per zone, which is where the map and
+* ``PlusBusWebPages`` - the scheme page per zone, which is where the map and
   the list of operators actually live.
 """
 
@@ -55,7 +55,7 @@ BASE_URL = "http://datafeeds.rdg.s3.amazonaws.com/RSPS5052/"
 RAIL_STATIONS = "RailStations02-00.csv"
 FLEXI_PRODUCTS = "FlexiProducts02-01.csv"
 #: Station pairs a PlusBus add-on may not be sold for, because both ends sit in
-#: the same zone — Buxton and Matlock, not Derby and Buxton. Reversible: a
+#: the same zone - Buxton and Matlock, not Derby and Buxton. Reversible: a
 #: record from A to B applies from B to A.
 PLUSBUS_EXCLUDED = "PlusbusExcludedStationPairs02-00.csv"
 PLUSBUS_PAGES = "PlusBusWebPages01-00.csv"

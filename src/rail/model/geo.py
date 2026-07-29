@@ -1,6 +1,6 @@
 """OS grid references to latitude and longitude.
 
-Every station in this project is positioned in **OS National Grid metres** —
+Every station in this project is positioned in **OS National Grid metres** -
 `station.easting` and `station.northing`, resolved by corroboration across MSN,
 the Network Rail FOI file and NaPTAN. That is the right storage: the grid is a
 planar projection of Great Britain, distances in it are metres, and
@@ -9,18 +9,18 @@ planar projection of Great Britain, distances in it are metres, and
 A web map wants latitude and longitude. So this converts, and the conversion is
 in two parts because the grid is not merely a different unit:
 
-1. **Transverse Mercator, inverted** — undo the projection to get latitude and
+1. **Transverse Mercator, inverted** - undo the projection to get latitude and
    longitude on the **Airy 1830** ellipsoid, the shape OSGB36 is defined against.
-2. **Helmert transformation** — shift from OSGB36 to **WGS84**, which is what a
+2. **Helmert transformation** - shift from OSGB36 to **WGS84**, which is what a
    web map means by latitude and longitude. Airy 1830 is a nineteenth-century
    best fit to Britain alone and sits about 100 m from WGS84 here, so skipping
-   this step is not a rounding error — it is a visible offset, roughly a street.
+   this step is not a rounding error - it is a visible offset, roughly a street.
 
 ## How accurate, and how we know
 
 The claim is measured rather than asserted, and **NaPTAN is what makes that
 possible**: it publishes an easting and northing *and* a latitude and longitude
-for the same 2,754 stops — two representations of one position, from one source.
+for the same 2,754 stops - two representations of one position, from one source.
 Converting its grid reference and comparing against its own lat/lon isolates
 this arithmetic from every other disagreement in the stack:
 
@@ -30,7 +30,7 @@ conversion error, 2,754 NaPTAN stops, its own grid against its own lat/lon
 ```
 
 Twenty centimetres, which is NaPTAN's own coordinate rounding rather than
-anything here. Dropping the Helmert step moves the median to **113 m** — so the
+anything here. Dropping the Helmert step moves the median to **113 m** - so the
 datum shift is doing exactly what it should, and that comparison is the test
 that would catch it being inverted.
 
@@ -39,7 +39,7 @@ comparison reads ~31 m median and up to 900 m, and none of it is conversion
 error: it is the long-recorded disagreement between the FOI file and NaPTAN,
 whose median the working notes already give as 33 m. York converts 102 m from
 NaPTAN's reading because the FOI file puts it on the platform at 459512, 451648
-and NaPTAN rounds to 459600, 451700 — a difference this module is measuring, not
+and NaPTAN rounds to 459600, 451700 - a difference this module is measuring, not
 making. Confusing the two makes an exact transform look like a broken one.
 
 OSTN15, the official transformation, is a 1 km shift grid accurate to a
@@ -93,14 +93,14 @@ _WGS84_B = 6356752.3142
 
 #: The measured median conversion error is 0.19 m, and dropping the datum shift
 #: takes it to 113 m. A metre therefore sits two orders of magnitude clear of the
-#: real answer and two below any plausible breakage — it is a tripwire, not a
+#: real answer and two below any plausible breakage - it is a tripwire, not a
 #: tolerance, and the only thing that could cross it is the transform itself
 #: going wrong.
 CONVERSION_MEDIAN_LIMIT_METRES = 1.0
 
 #: Individual stops where NaPTAN's own grid reference and its own latitude and
-#: longitude disagree by more than this are reported. Two do today — `HORD` by
-#: 104 m and `SWNACFC` by 12 m — and both are NaPTAN disagreeing with itself,
+#: longitude disagree by more than this are reported. Two do today - `HORD` by
+#: 104 m and `SWNACFC` by 12 m - and both are NaPTAN disagreeing with itself,
 #: which no arithmetic here can fix.
 NAPTAN_SELF_AGREEMENT_METRES = 5.0
 
@@ -131,7 +131,7 @@ def _cartesian_to_ellipsoid(x: float, y: float, z: float,
                             a: float, b: float) -> tuple[float, float]:
     """Geocentric x, y, z back to geodetic latitude and longitude.
 
-    Iterative because latitude appears on both sides. Four passes is ample —
+    Iterative because latitude appears on both sides. Four passes is ample -
     it converges to well under a millimetre in three.
     """
     e2 = (a * a - b * b) / (a * a)
@@ -166,7 +166,7 @@ def grid_to_latlon(easting: float, northing: float) -> LatLon:
     WGS84. Accurate to about 5 m across Great Britain.
 
     **Only valid for Great Britain.** The Irish stations MSN carries are in
-    neither this grid nor the Irish one — see the working notes — and feeding
+    neither this grid nor the Irish one - see the working notes - and feeding
     them here produces a confident answer in the wrong country. Callers filter
     before converting; nothing about the arithmetic can detect it.
     """
@@ -252,8 +252,8 @@ def compare_with_naptan(naptan_dir=None) -> ConversionCheck:
     any difference is the transform and nothing else.
 
     That isolation is the point. Comparing against the *station's resolved*
-    position instead measures the FOI file against NaPTAN — a real and already
-    documented ~33 m disagreement — and would report an exact conversion as a
+    position instead measures the FOI file against NaPTAN - a real and already
+    documented ~33 m disagreement - and would report an exact conversion as a
     30-metre error. See the module docstring.
 
     Returns an empty check when NaPTAN has not been fetched; absence is not a

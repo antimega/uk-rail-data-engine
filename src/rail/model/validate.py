@@ -8,9 +8,9 @@ resolution has broken, and nothing else in the pipeline would say so.
 
 Checks come in three severities:
 
-* ``fail`` — something is wrong and results cannot be trusted.
-* ``warn`` — outside the expected band; worth a look, not necessarily broken.
-* ``ok``   — as expected.
+* ``fail`` - something is wrong and results cannot be trusted.
+* ``warn`` - outside the expected band; worth a look, not necessarily broken.
+* ``ok``   - as expected.
 
 Bands are deliberately loose. They exist to catch a pipeline that has broken,
 not to fail every time a train operator adds a service.
@@ -76,7 +76,7 @@ def run_checks(
 
     # **The second schedule file, and the way it fails is silent.** `ZTR` names
     # locations by CRS where the main file uses TIPLOCs, so a resolution that
-    # drifts does not error — it produces stops with no station, which are then
+    # drifts does not error - it produces stops with no station, which are then
     # filtered out, and the hovercraft, Red Funnel and the Metropolitan line
     # beyond Harrow simply stop existing. Nobody would notice: they were absent
     # for the whole life of the project before anyone asked.
@@ -146,7 +146,7 @@ def run_checks(
     # trailing zeroes and quote 3333, which is the form the fares feed carries.
     # The timetable's TI records carry the full six. So for any station the two
     # feeds describe, the fares NLC should be the first four digits of the
-    # timetable's NALCO — derived independently, from different files, by
+    # timetable's NALCO - derived independently, from different files, by
     # different systems.
     #
     # Bus stops, Metrolink stops, airports and ferry terminals are excluded:
@@ -182,13 +182,13 @@ def run_checks(
         add("integrity", "fares NLC matches the timetable's own location number",
             _band(agreeing / compared, 0.9, 1.0),
             f"{agreeing:,} of {compared:,} agree; non-rail locations are not "
-            "excluded — run `rail fetch --supplementary` to tighten this")
+            "excluded - run `rail fetch --supplementary` to tighten this")
 
     # Three separate bugs have come from the same cause: the description field
     # is 15 characters, so the word the classifier matches on arrives truncated.
     # "UPGRADE" became "UPG" and 17 supplements were priced as first-class
     # fares; "CARNET OFFPK 5" was quoted as a single. This asserts the outcome
-    # rather than the rule — no walk-up fare should describe itself with a stem
+    # rather than the rule - no walk-up fare should describe itself with a stem
     # that means a bundle or a supplement.
     # Every stem here earns its place from a product that slipped through and
     # priced a journey absurdly. The last three came from hand-checking Euston
@@ -266,7 +266,7 @@ def run_checks(
 
     # A PlusBus zone is an add-on to a journey, not a place you can travel to.
     # The original note recorded that they carry no CRS and so could never be
-    # named as a destination — true when written, and the feed generation valid
+    # named as a destination - true when written, and the feed generation valid
     # from 2026-06-30 gave four of them one, at which point Bristol Temple Meads
     # gained a £5.40 "destination" called BRISTOL TM+BUS. The exclusion is now
     # explicit in `station_nlc` and in `fare_alias`; this asserts the outcome,
@@ -341,7 +341,7 @@ def run_checks(
         f"{barred:,} bar it, {allowed:,} allow it ({share:.1%})")
 
     # RSPS5045 4.19.6 lets an HC record name stations where a change is allowed
-    # despite the bar. This feed ships none, so a bar has no exceptions — if any
+    # despite the bar. This feed ships none, so a bar has no exceptions - if any
     # appear, refusing every change becomes too strict.
     exceptions = 0
     if (fares_dir / "restriction_header_change.parquet").exists():
@@ -355,7 +355,7 @@ def run_checks(
 
     # Positions come from up to three independent sources and are taken only
     # when a second corroborates. A rise in uncorroborated positions means a
-    # source has gone missing or drifted — the FOI grid file in particular is a
+    # source has gone missing or drifted - the FOI grid file in particular is a
     # frozen snapshot that `rail refresh` drops.
     corroborated, positioned = connection.execute("""
         select count(*) filter (where grid_source not like '%uncorroborated%'),
@@ -378,7 +378,7 @@ def run_checks(
     # Everything here stores positions as OS grid metres; the map draws latitude
     # and longitude. NaPTAN publishes both for the same stop, so converting its
     # grid reference and comparing with its own lat/lon measures the transform
-    # and nothing else — one source, one position, two representations.
+    # and nothing else - one source, one position, two representations.
     #
     # The band is a tripwire rather than a tolerance: the real figure is 0.19 m,
     # and the failure this catches is the datum shift silently going missing,
@@ -393,7 +393,7 @@ def run_checks(
     conversion = compare_with_naptan(naptan_dir)
     if not conversion:
         add("integrity", "grid references convert to latitude and longitude",
-            "warn", "NaPTAN not fetched — run `rail naptan` to check the transform")
+            "warn", "NaPTAN not fetched - run `rail naptan` to check the transform")
     else:
         add("integrity", "grid references convert to latitude and longitude",
             "ok" if conversion.median_metres < CONVERSION_MEDIAN_LIMIT_METRES
@@ -406,12 +406,12 @@ def run_checks(
         add("suspicious", "NaPTAN stops whose own grid and lat/lon disagree",
             "ok" if len(conversion.outliers) <= 10 else "warn",
             f"{len(conversion.outliers)} past {NAPTAN_SELF_AGREEMENT_METRES:.0f} m"
-            + (f" — worst {conversion.outliers[0][0]} at "
+            + (f" - worst {conversion.outliers[0][0]} at "
                f"{conversion.outliers[0][1]:.0f} m" if conversion.outliers else ""))
 
     # Two independent answers to "is this a rail station": RSPS5052's list, and
     # what actually calls there. They are derived from different files by
-    # different means, so agreement is worth asserting — and disagreement in one
+    # different means, so agreement is worth asserting - and disagreement in one
     # direction only is the expected shape, since a new station reaches the
     # timetable before it reaches the supplementary list.
     contradicted, extra = connection.execute("""
@@ -420,7 +420,7 @@ def run_checks(
         from station where is_rail_station is not null
     """).fetchone()
     # RGX independently names the stations built since NFM64, so it can vouch
-    # for most of the extras — and its silence is informative too: Wimbledon
+    # for most of the extras - and its silence is informative too: Wimbledon
     # Park and East Putney are absent from it, which fits their being
     # Underground stations rather than new ones.
     vouched = connection.execute("""
@@ -482,10 +482,10 @@ def run_checks(
     """)
     add("integrity", "each TIPLOC maps to one station",
         "ok" if tiploc_dupes == 0 else "fail",
-        f"{tiploc_dupes:,} ambiguous — duplicates corrupt the connection set")
+        f"{tiploc_dupes:,} ambiguous - duplicates corrupt the connection set")
 
     # Two independent grouping systems that answer different questions and are
-    # not expected to agree — see "Two grouping systems" in
+    # not expected to agree - see "Two grouping systems" in
     # docs/INTERPRETING-THE-FEEDS.md. What must hold
     # is that neither is ambiguous and their code spaces stay apart: a fares
     # group is a 4-character NLC, a routeing group is Gnn, and a code leaking
@@ -530,7 +530,7 @@ def run_checks(
     """)
     add("timetable", "journeys move forwards in time",
         "ok" if backwards == 0 else "fail",
-        f"{backwards:,} schedules go backwards — check the overnight unwrapping")
+        f"{backwards:,} schedules go backwards - check the overnight unwrapping")
 
     cancelled_with_stops = scalar("""
         select count(*) from train_schedule s
@@ -569,7 +569,7 @@ def run_checks(
     ).fetchone()[0] else 0
     add("timetable", "trains joined or split",
         _band(joined, 1, 200_000) if joined else "warn",
-        f"{joined:,} links" if joined else "none — associations not built")
+        f"{joined:,} links" if joined else "none - associations not built")
 
     # RSPS5046 5.4.12: a location may occur up to nine times on one schedule,
     # distinguished by a suffix, and 5.5.8.1 fields 11-12 let an association
@@ -579,7 +579,7 @@ def run_checks(
     #
     # **It is safe today, and by luck rather than by design.** All 53 suffixed
     # records are the sleeper at Edinburgh, whose two calls are adjacent with
-    # the first non-public — and the unlock/board station is the nearest
+    # the first non-public - and the unlock/board station is the nearest
     # *public* call, so both candidates resolve to the same answer. Two public
     # calls at one TIPLOC would not, and would cross-product the links. This
     # watches for that rather than carrying the suffix through the build for a
@@ -628,7 +628,7 @@ def run_checks(
     # The band moved down when booked-train-only fares were reclassified as
     # Advance: 1,379 walk-up types became 1,020, which is 30%. Then again when
     # the feed's own `RESERVATION_REQUIRED` and `PACKAGE_MKR` flags were read,
-    # taking 951 to 850 — 25%. It is a floor against the classification quietly
+    # taking 951 to 850 - 25%. It is a floor against the classification quietly
     # collapsing, not a target, and every step down so far has been a batch of
     # products that were never walk-up fares. Expect to lower it again; what
     # would be alarming is a *jump*, which no single exclusion has ever caused.
@@ -673,7 +673,7 @@ def run_checks(
     """)
     add("fares", "no sub-pound Advance fares",
         "ok" if implausible == 0 else "warn",
-        f"{implausible:,} ticket types priced under £1 — check ITX and placeholders")
+        f"{implausible:,} ticket types priced under £1 - check ITX and placeholders")
 
     cheapest_advance = scalar(f"""
         select min(f.fare) from read_parquet('{path(fares_dir, "fare")}') f
@@ -725,6 +725,6 @@ def run_checks(
         where end_date = date '2999-12-31'
     """)
     add("suspicious", "flows with the open-ended date sentinel", "ok",
-        f"{open_ended:,} — expected, 31122999 means no end date")
+        f"{open_ended:,} - expected, 31122999 means no end date")
 
     return checks

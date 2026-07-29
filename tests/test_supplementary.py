@@ -3,7 +3,7 @@
 Four files, each doing a job the DTD feeds cannot: which CRS codes are actually
 GB rail stations, which ticket codes price a bundle of journeys rather than one,
 which station pairs a PlusBus add-on may not be sold for, and where each zone's
-scheme page lives. All are optional — the build has to work without them, and
+scheme page lives. All are optional - the build has to work without them, and
 has to say "unknown" rather than "no" when they are missing.
 """
 

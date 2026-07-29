@@ -1,19 +1,19 @@
 """How far it is, by rail and as the crow flies.
 
 Two different distances from two different sources, and conflating them would be
-a mistake — they answer different questions and one of them is a *rule*.
+a mistake - they answer different questions and one of them is a *rule*.
 
 **Rail miles (RGD, RSPS5047 4.9).** A station-link is "a section of line between
 two adjacent stations over which there is a passenger service", with its distance
 in miles to two decimals. 5,874 of them, every one carrying a reverse record, and
-none disagreeing with its reverse — so the graph is undirected in practice even
+none disagreeing with its reverse - so the graph is undirected in practice even
 though it is stored both ways. This is not a convenience: **the routeing guide's
 own rules are written against it**, and without it two whole sections of the
 guide cannot be evaluated at all.
 
 **Crow-flies (`station.easting`/`northing`).** Straight-line distance from OS
-grid references. Useful for asking questions of the data — how far is this really,
-what is the least direct journey on the network — and **useless as a routeing
+grid references. Useful for asking questions of the data - how far is this really,
+what is the least direct journey on the network - and **useless as a routeing
 rule**, because the guide never mentions it. Kept firmly separate for that
 reason. MSN's own grid references are only about a kilometre accurate, so the
 supplementary TIPLOC file is what makes this worth computing; see
@@ -24,15 +24,15 @@ supplementary TIPLOC file is what makes this worth computing; see
 RSPS5047 section 7.1 classifies a journey *before* any map is consulted, and the
 first two classifications are blanket permissions:
 
-* **7.1.1** — "If there is no change of train at any intermediate location on
+* **7.1.1** - "If there is no change of train at any intermediate location on
   the journey, then the journey is on a through train and is permitted. **No
   further checks are required.**"
-* **7.1.2/7.1.3** — "The journey is permitted if it is the shortest distance
+* **7.1.2/7.1.3** - "The journey is permitted if it is the shortest distance
   between the origin and destination, or is within a specified margin of the
   length of the shortest route… Currently the allowed margin is **3 miles**. No
   further checks are required."
 
-Neither was implemented, so every journey was being judged by the maps alone —
+Neither was implemented, so every journey was being judged by the maps alone -
 which is strictly harsher than the guide. Both short-circuits are cheap, and the
 second is the reason RGD had to be parsed.
 
@@ -43,8 +43,8 @@ points skip most of them: York to Newcastle calls at Darlington, not at every
 station between. So the length of an actual journey is taken as the sum of the
 shortest rail distance between each consecutive pair of calling points.
 
-That is an approximation in one direction only — a train could in principle take
-a longer way round between two calls than the shortest line — so it can make a
+That is an approximation in one direction only - a train could in principle take
+a longer way round between two calls than the shortest line - so it can make a
 journey look shorter than it is, never longer. Since the rule it feeds is a
 *permission* within a 3-mile margin, the error is on the permissive side, and
 `journey_miles` returns None the moment any leg cannot be measured rather than
@@ -60,7 +60,7 @@ from dataclasses import dataclass, field
 import duckdb
 
 #: RSPS5047 7.1.3, and stated there as a current value rather than a constant of
-#: nature — "Currently the allowed margin is 3 miles."
+#: nature - "Currently the allowed margin is 3 miles."
 SHORTEST_ROUTE_MARGIN_MILES = 3.0
 
 #: Metres per mile, for turning OS grid distances into the guide's units. Only
@@ -144,9 +144,9 @@ class Distances:
 
         The calling points skip most adjacent stations, so each consecutive pair
         is measured by its own shortest rail distance and the legs are summed.
-        None where any leg cannot be measured — a bus or ferry leg, or one of the
+        None where any leg cannot be measured - a bus or ferry leg, or one of the
         Elizabeth Line stations RSPS5047 6.1.6.2 says carry no station links at
-        all — because a total missing a leg would understate the journey and the
+        all - because a total missing a leg would understate the journey and the
         rule it feeds is a permission.
         """
         if len(path) < 2:
@@ -171,8 +171,8 @@ class Distances:
         """RSPS5047 7.1.2: is this journey the shortest route, or near enough?
 
         True permits the journey outright with no further checks. None means the
-        question cannot be answered — an unmeasurable leg, or a pair with no rail
-        path — and must not be read as a refusal.
+        question cannot be answered - an unmeasurable leg, or a pair with no rail
+        path - and must not be read as a refusal.
 
         7.2.4.2 is applied too: a journey calling at the same place twice cannot
         satisfy the shortest-route condition however short it is.
@@ -194,7 +194,7 @@ class Distances:
         """Straight-line distance between two stations, or None if unplaced.
 
         OS grid references are planar metres, so this is plain Pythagoras rather
-        than a great-circle formula — over Great Britain the projection error is
+        than a great-circle formula - over Great Britain the projection error is
         far smaller than the question deserves.
 
         **Not a routeing rule.** The guide never mentions straight-line distance;

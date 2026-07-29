@@ -2,7 +2,7 @@
 
 Associations carry their own STP indicators and resolve exactly like schedules,
 C > N > O > P, so a cancelled association has to stop applying on the days it is
-cancelled — otherwise the router keeps a passenger aboard a portion that is not
+cancelled - otherwise the router keeps a passenger aboard a portion that is not
 there.
 """
 
@@ -113,7 +113,7 @@ def test_an_overlay_beats_the_permanent_record(built):
 def test_a_next_day_association_resolves_on_the_following_day(built):
     """RSPS5046 5.5.8.2 field 9: `N` is "over next midnight", and the offset is
     on the *associated* schedule. All 234 in this feed are Caledonian Sleeper
-    divides — the base leaves Euston at 21:15 and the portion is a separate
+    divides - the base leaves Euston at 21:15 and the portion is a separate
     schedule dated the next day, departing 04:28, with no same-day overlap at
     all. Resolving them on the base date found nothing, so the link did not
     exist and Euston at 21:00 could not reach Fort William."""
@@ -166,8 +166,8 @@ def test_a_split_at_an_operational_stop_still_makes_a_link(built):
     dropped every Aberdeen and Fort William portion, and Euston to Aberdeen came
     out 53 minutes late with two changes against a through train.
 
-    The link resolves to the base's last public call *before* the split — for
-    the sleeper that is Preston — and the portion's first public call after it,
+    The link resolves to the base's last public call *before* the split - for
+    the sleeper that is Preston - and the portion's first public call after it,
     because the Aberdeen portion leaves Edinburgh before the Inverness portion
     reaches its own next public call at Stirling.
     """

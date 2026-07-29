@@ -5,7 +5,7 @@ Two things make this more than a convenience wrapper.
 **The account expires.** NRDP deletes accounts after roughly 30 days without
 feed consumption, and a deleted account has to be re-registered by hand. A
 fortnightly schedule leaves comfortable margin, but only while it is actually
-running — two consecutive silent failures put the gap at a month. So every run
+running - two consecutive silent failures put the gap at a month. So every run
 records its outcome, and ``rail status`` reports how long it has been since the
 last successful fetch and starts warning well before the deadline.
 
@@ -77,7 +77,7 @@ def _record(config: Config, result: RefreshResult) -> None:
     payload = {
         "last_run": result.started_at,
         # A poll that reached the portal counts as consumption even when nothing
-        # was downloaded — that is what keeps the account alive.
+        # was downloaded - that is what keeps the account alive.
         "last_success": (
             result.finished_at if result.ok else previous.get("last_success")
         ),
@@ -122,13 +122,13 @@ def refresh(
             result.fetched[feed.value] = f"skipped: {exc}"
             log(f"{feed.value}: {exc}")
             continue
-        except Exception as exc:  # noqa: BLE001 — one bad feed must not stop the rest
+        except Exception as exc:  # noqa: BLE001 - one bad feed must not stop the rest
             result.errors.append(f"{feed.value} fetch: {exc}")
-            log(f"{feed.value}: FAILED — {exc}")
+            log(f"{feed.value}: FAILED - {exc}")
             continue
 
         result.fetched[feed.value] = fetched.reason
-        log(f"{feed.value}: {fetched.filename} — {fetched.reason}")
+        log(f"{feed.value}: {fetched.filename} - {fetched.reason}")
         if not fetched.downloaded:
             continue
 
@@ -141,7 +141,7 @@ def refresh(
             log(f"{feed.value}: ingested {report.total_rows:,} rows")
         except Exception as exc:  # noqa: BLE001
             result.errors.append(f"{feed.value} ingest: {exc}")
-            log(f"{feed.value}: ingest FAILED — {exc}")
+            log(f"{feed.value}: ingest FAILED - {exc}")
 
     if result.ingested or rebuild_anyway:
         try:
@@ -155,7 +155,7 @@ def refresh(
             log("rebuilt the database")
         except Exception as exc:  # noqa: BLE001
             result.errors.append(f"build: {exc}")
-            log(f"build FAILED — {exc}")
+            log(f"build FAILED - {exc}")
     else:
         log("nothing changed; database left alone")
 

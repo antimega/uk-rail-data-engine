@@ -23,7 +23,7 @@
   If the Mac is asleep at the scheduled time, launchd runs the job shortly
   after it next wakes.
 
-  Create data/logs/ before the first run — launchd will not create it, and a
+  Create data/logs/ before the first run - launchd will not create it, and a
   missing directory makes the job fail with no output saying why.
 -->
 <plist version="1.0">

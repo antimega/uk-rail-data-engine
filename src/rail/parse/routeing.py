@@ -66,20 +66,20 @@ MAP_LINK = pa.schema([
 ])
 #: RSPS5047 4.9: a section of line between two *adjacent* stations over which
 #: there is a passenger service, with its distance in miles to two decimals.
-#: Every record has a reverse — checked, all 5,874 do, and none disagrees on the
-#: distance — so the graph is undirected in practice despite being stored twice.
+#: Every record has a reverse - checked, all 5,874 do, and none disagrees on the
+#: distance - so the graph is undirected in practice despite being stored twice.
 STATION_LINK = pa.schema([
     ("from_crs", pa.string()), ("to_crs", pa.string()),
     ("miles", pa.float64()),
 ])
 #: RSPS5047 4.14. A station created since NFM64, and the older station whose
 #: fares stand in for it "when obtaining fares for Routeing Guide Fare
-#: checking" — `LUT,LTN` means Luton Airport Parkway uses Luton's.
+#: checking" - `LUT,LTN` means Luton Airport Parkway uses Luton's.
 NEW_STATION = pa.schema([
     ("crs", pa.string()), ("equivalent_crs", pa.string()),
     ("start_date", pa.date32()), ("end_date", pa.date32()),
 ])
-#: RSPS5047 4.15, the routeing feed's own CRS/NLC cross-reference — a third
+#: RSPS5047 4.15, the routeing feed's own CRS/NLC cross-reference - a third
 #: opinion on the crosswalk the whole stack is joined on.
 LOCATION_XREF = pa.schema([
     ("nlc", pa.string()), ("fare_group", pa.string()), ("crs", pa.string()),
@@ -113,7 +113,7 @@ EASEMENT_DETAIL = pa.schema([
     #: 1 train UID, 2 TOC, 3 ticket route, 4 ticket code.
     ("detail_ref", pa.string()), ("detail_code", pa.string()),
 ])
-#: RGH, "easement TOC" — one row per easement per operator it is tied to.
+#: RGH, "easement TOC" - one row per easement per operator it is tied to.
 #:
 #: This is where the operator conditions actually live. RGF's own `D` records
 #: carry a `detail_ref = '2'` for the same thing and there are **eight** of
@@ -164,14 +164,14 @@ def read_routeing(zip_path: Path) -> dict[str, pa.Table]:
         with archive.open(members["RGP"]) as fh:
             points = [{"crs": r[0]} for r in read_records(fh) if r[0]]
 
-        # Links run between *nodes* — routeing points and interchange points —
+        # Links run between *nodes* - routeing points and interchange points -
         # so path reduction has to use this list, not the routeing points alone.
         with archive.open(members["RGN"]) as fh:
             nodes = [{"crs": r[0]} for r in read_records(fh) if r[0]]
 
         # RSPS5047 4.9. This is what the guide's own shortest-route rules are
-        # written against (7.2.4), and without it sections 7.1.2 and 7.1.3 —
-        # "permitted if it is the shortest distance, or within 3 miles of it" —
+        # written against (7.2.4), and without it sections 7.1.2 and 7.1.3 -
+        # "permitted if it is the shortest distance, or within 3 miles of it" -
         # cannot be evaluated at all.
         with archive.open(members["RGD"]) as fh:
             for record in read_records(fh):
@@ -213,7 +213,7 @@ def read_routeing(zip_path: Path) -> dict[str, pa.Table]:
         # Fields 2-5 are up to four routeing points; field 6 is the station
         # group, which is NOT a routeing point reference. Per RSPS5047 4.2.1.2 a
         # station with none listed is itself a routeing point, or belongs to a
-        # group which is one — so the group stands in for it.
+        # group which is one - so the group stands in for it.
         with archive.open(members["RGS"]) as fh:
             for record in read_records(fh):
                 if not record or not record[0]:
@@ -292,7 +292,7 @@ def read_routeing(zip_path: Path) -> dict[str, pa.Table]:
                         "detail_code": record[3],
                     })
                 # 'X' exception records: none in this export, and they qualify
-                # an easement by train or TOC — neither of which a list of
+                # an easement by train or TOC - neither of which a list of
                 # calling points can be judged against anyway.
 
         # RGH ties easements to operators, and is the file RGF's own `D`
@@ -308,7 +308,7 @@ def read_routeing(zip_path: Path) -> dict[str, pa.Table]:
 
         # RGK says what a fare's route code actually requires. The fares feed's
         # own RTE records carry only include/exclude per location; this carries
-        # the distinctions that make the condition enforceable — ALL-of versus
+        # the distinctions that make the condition enforceable - ALL-of versus
         # ANY-of, a marker saying a CRS stands for its whole routeing group, and
         # London as a marker rather than a list of terminals to guess at.
         with archive.open(members["RGK"]) as fh:

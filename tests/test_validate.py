@@ -2,7 +2,7 @@
 
 A check that never fails is decoration, so each test here breaks one thing and
 asserts the report notices. The fixture builds the smallest database the checks
-can run against — which makes it a smoke test for the model layer's shape too.
+can run against - which makes it a smoke test for the model layer's shape too.
 """
 
 from __future__ import annotations
@@ -196,7 +196,7 @@ def world(tmp_path):
 
         # Three real NaPTAN rows, each carrying that source's own grid reference
         # *and* its own latitude and longitude. The conversion check measures one
-        # against the other, so real values keep it honest — deriving the lat/lon
+        # against the other, so real values keep it honest - deriving the lat/lon
         # with the transform under test would make it pass however broken it was.
         naptan = tmp_path / "naptan"
         naptan.mkdir(exist_ok=True)
@@ -240,7 +240,7 @@ def test_the_two_feeds_agree_on_a_station_location_number(world):
     """An independent test of the crosswalk, which is joined on CRS alone.
 
     A full NLC is six digits and booking offices quote the first four, so the
-    fares feed's 1111 and the timetable's 111100 are the same place — derived
+    fares feed's 1111 and the timetable's 111100 are the same place - derived
     from different files by different systems. Getting the crosswalk wrong
     corrupts everything downstream in silence, and nothing else here would
     notice.
@@ -356,7 +356,7 @@ def test_an_inverted_change_indicator_is_caught(world):
 
 def test_uncorroborated_positions_are_watched(world):
     """Positions come from up to three sources and are taken only when a second
-    agrees. A rise here means a source went missing — the FOI grid file is a
+    agrees. A rise here means a source went missing - the FOI grid file is a
     frozen snapshot that `rail refresh` drops."""
     checks = run_checks(*world())
 
@@ -418,7 +418,7 @@ def test_one_booked_train_flow_among_many_is_not_enough(world):
 def test_a_broken_grid_conversion_fails(world, monkeypatch):
     """The map draws latitude and longitude; everything else stores OS grid
     metres. The failure worth catching is the datum shift going missing, because
-    Airy 1830 sits about 100 m from WGS84 over Britain — so the coordinates stay
+    Airy 1830 sits about 100 m from WGS84 over Britain - so the coordinates stay
     entirely plausible and every station moves a street.
 
     Measured on the real feed the median is 0.19 m with the shift and 113 m
@@ -436,8 +436,8 @@ def test_a_broken_grid_conversion_fails(world, monkeypatch):
 
 def test_no_naptan_leaves_the_conversion_unchecked(world):
     """`rail refresh` rebuilds without NaPTAN, so this is a real recurring
-    state. The transform itself is unaffected — it is pure arithmetic pinned by
-    its own tests — but it can no longer be checked against anything, and saying
+    state. The transform itself is unaffected - it is pure arithmetic pinned by
+    its own tests - but it can no longer be checked against anything, and saying
     so is the point of `grid_source` and of this report."""
     connection, timetable, fares, _ = world()
 
@@ -458,7 +458,7 @@ def test_the_two_answers_to_what_a_station_is_are_compared(world):
 
 
 def test_a_rail_station_the_timetable_calls_a_bus_stop_fails(world):
-    """Disagreement in one direction is expected — a new station reaches the
+    """Disagreement in one direction is expected - a new station reaches the
     timetable before the supplementary list. This is the other direction, which
     would mean the classification or the crosswalk has drifted."""
     connection, timetable, fares, naptan = world()
