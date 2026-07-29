@@ -1179,18 +1179,26 @@ _CHEAPEST_SQL = _PRICING_CTES + """
 -- One row per distinct price a destination can be reached at, cheapest
 -- first. `cheapest_from` keeps the first of each group; `fare_options`
 -- hands the rest to a caller that has a reason to reject the cheapest.
+-- `fare` is in the GROUP BY, so it is constant within a group and cannot
+-- break a tie: `min_by(ticket_code, fare)` picks arbitrarily among every
+-- ticket at that price. Two ticket types genuinely tie often — a fare is a
+-- price, and several products can sell it — and with parallel aggregation
+-- the arbitrary choice is not even stable between two runs on one database.
+-- Building the same origin twice produced payloads naming different tickets
+-- at identical prices. So the ordering key is (ticket_code, route_code),
+-- which is deterministic and picks the same winner every time.
 select dest_crs,
-       min_by(ticket_code, fare) as ticket_code,
-       min_by(description, fare) as description,
+       min_by(ticket_code, (ticket_code, route_code)) as ticket_code,
+       min_by(description, (ticket_code, route_code)) as description,
        fare,
-       min_by(is_advance_fare, fare) as is_advance,
+       min_by(is_advance_fare, (ticket_code, route_code)) as is_advance,
        -- The route the fare is priced on, which is what settles an easement
        -- whose condition is "customers with tickets routed X".
-       min_by(route_code, fare) as route_code,
+       min_by(route_code, (ticket_code, route_code)) as route_code,
        -- TTY field 9: 'S' single, 'R' return, 'N' season. A return sometimes
        -- undercuts two singles and wins here, so the caller has to be able to
        -- say what it quoted.
-       min_by(tkt_type, fare) as tkt_type
+       min_by(tkt_type, (ticket_code, route_code)) as tkt_type
 from discounted
 where dest_crs <> $origin and fare is not null
 group by dest_crs, fare

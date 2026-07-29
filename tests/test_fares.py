@@ -288,6 +288,36 @@ def test_the_cheapest_ticket_wins(fares):
     assert prices(connection, directory) == {"BBB": 990}
 
 
+def test_two_tickets_at_the_same_price_pick_the_same_winner_every_time(fares):
+    """A price can be sold by more than one product, and the tie has to break
+    the same way twice.
+
+    `_CHEAPEST_SQL` groups by `(dest_crs, fare)`, so `fare` is constant inside a
+    group and cannot order anything: `min_by(ticket_code, fare)` was choosing
+    arbitrarily among every ticket at that price. With parallel aggregation the
+    choice was not even stable between two runs on one database — building the
+    same map origin twice produced payloads naming different tickets at
+    identical prices, which made a payload rebuild fail a byte-comparison for a
+    reason that had nothing to do with the data.
+
+    Only the displayed ticket moved; the price was always right. The ordering
+    key is `(ticket_code, route_code)` now, so the alphabetically first ticket
+    wins and does so repeatably.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 990), fare(1, "CDS", 990)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("CDS", "OFF-PEAK DAY S")],
+    )
+
+    winners = {
+        tuple(row[1] for row in cheapest_from(connection, directory, "AAA", TRAVEL))
+        for _ in range(8)
+    }
+
+    assert winners == {("CDS",)}, f"tie broke inconsistently: {winners}"
+
+
 # --- non-derivable fares -----------------------------------------------------
 
 
