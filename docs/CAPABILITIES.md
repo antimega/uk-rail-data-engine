@@ -129,10 +129,17 @@ refusal, never the reverse - the safe direction, and the reason it has not
 produced a wrong fare. A refusal means "not obviously permitted", not
 "forbidden".
 
-**Journey duration is not what `Journey.minutes` reports.** That is time from
-the moment you asked, so it includes waiting for the train. York to Cardiff is
-4h23 of travelling and 4h59 from a 09:00 query. It is the right measure for
-"when can I be there" and the wrong one for "how long is the journey".
+**Two clocks, and you have to pick the right one.** `Journey.minutes` counts
+from the moment you asked, so it includes waiting for the first train.
+`ScanResult.journey_minutes_to()` counts from the first boarding, which is the
+number a timetable would show. York to Cardiff is 4h23 by the second and 4h59
+by the first, because the train leaves at 09:36.
+
+Both are exposed and neither stands in for the other, but only the first
+reaches the command line, where the column is labelled `elapsed` for that
+reason. If you want the journey time, call `journey_minutes_to()`. **Time
+actually spent moving, as against waiting at interchanges, is not computed** -
+York to Cardiff is 4h01 moving and 22 minutes standing on platforms.
 
 **An evening query answers with next-morning arrivals** rather than
 "unreachable", because the network loads two consecutive days - which is
