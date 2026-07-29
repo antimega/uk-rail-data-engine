@@ -876,3 +876,53 @@ def test_the_journey_the_calling_points_and_the_changes_agree():
     assert result.trips_to("D") == [0, 1]
     assert result.changes_to("D") == 1
     assert result.operators_to("D") == {"CS", "SR"}
+
+
+# --- profiling a window ------------------------------------------------------
+
+
+def test_a_window_is_minimised_over_journey_time_not_elapsed():
+    """`best_over_window` sweeps departures and keeps the best per station, and
+    "best" has to mean the shortest *journey*.
+
+    `Journey.minutes` counts from each sampled departure, so it is the journey
+    plus however long you waited for it. Minimising that can never see below the
+    wait - at a station served rarely, every sample in the window contains a long
+    one, so the reported figure stays stuck at wait-plus-journey however finely
+    the window is swept.
+
+    Here one train leaves at 10:00 and takes an hour. Sampling on the hour from
+    09:00, the smallest elapsed time is 120 minutes (waiting 09:00 to 10:00, then
+    travelling) and the journey is 60. The window must report 60.
+
+    Measured on the real feed from York over 09:00-20:00, minimising elapsed
+    overstated the journey to every one of 2,729 stations, by a median of 6
+    minutes and up to 42.
+    """
+    from rail.engine import best_over_window
+
+    net = network([("A", "B", 600, 660, 0)], stations=["A", "B"])
+
+    best = best_over_window(net, "A", first_departure=540, last_departure=660,
+                            step=60)
+
+    assert best == {"B": 60}, "the window reported elapsed time, not the journey"
+
+
+def test_a_window_keeps_the_shortest_journey_not_the_earliest_arrival():
+    """Two trains: a slow early one and a fast later one. The earliest arrival
+    is the slow train, but the shortest journey is the fast one, and profiling
+    asks how well connected the pair is rather than when you could first be
+    there."""
+    from rail.engine import best_over_window
+
+    net = network(
+        [("A", "B", 540, 720, 0),      # 09:00, three hours
+         ("A", "B", 780, 840, 1)],     # 13:00, one hour
+        stations=["A", "B"],
+    )
+
+    best = best_over_window(net, "A", first_departure=540, last_departure=840,
+                            step=60)
+
+    assert best == {"B": 60}

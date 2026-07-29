@@ -320,19 +320,24 @@ def journey_times(
     timetable_dir = snapshot_parquet_dir(config, Feed.TIMETABLE)
     network = load_network(connection, travel_date, timetable_dir=timetable_dir)
 
+    # (crs, name, journey, arrival, elapsed). Under `--profile` the arrival and
+    # the elapsed time are both None on purpose: each belongs to one departure,
+    # and the window is an answer across many of them.
     if profile:
         minutes_by_crs = best_over_window(
             network, origin.upper(),
             first_departure=_hhmm(depart), last_departure=_hhmm(until), step=step,
         )
         rows = sorted(
-            ((crs, network.names[network.index[crs]], minutes, None)
+            ((crs, network.names[network.index[crs]], minutes, None, None)
              for crs, minutes in minutes_by_crs.items()),
             key=lambda row: row[2],
         )
     else:
         result = earliest_arrival(network, origin.upper(), _hhmm(depart))
-        rows = [(j.crs, j.name, j.minutes, j.arrival) for j in result.reached()]
+        rows = [(j.crs, j.name, result.journey_minutes_to(j.crs), j.arrival,
+                 j.minutes)
+                for j in result.reached()]
 
     connection.close()
 
@@ -346,9 +351,15 @@ def journey_times(
                 "dayname": travel_date.strftime("%A"),
                 "reached": len(rows),
                 "stations": [
-                    {"crs": crs, "name": name, "minutes": minutes,
+                    # `journey` is the travelling time and `elapsed` counts from
+                    # the query. `minutes` is kept as an alias of `elapsed` so a
+                    # consumer written against the old shape still reads.
+                    {"crs": crs, "name": name,
+                     "journey": journey,
+                     "elapsed": elapsed,
+                     "minutes": elapsed,
                      "arrival": _fmt(arrival) if arrival is not None else None}
-                    for crs, name, minutes, arrival in rows
+                    for crs, name, journey, arrival, elapsed in rows
                 ],
             },
             indent=2,
@@ -360,13 +371,19 @@ def journey_times(
         f"{'departures ' + depart + '–' + until if profile else 'departing from ' + depart}"
         f" - reached [green]{len(rows):,}[/green] stations"
     )
-    table = Table("crs", "station", "elapsed", "arrive")
-    for crs, name, minutes, arrival in rows[: limit or len(rows)]:
-        table.add_row(
-            crs, name, f"{minutes // 60}h{minutes % 60:02d}",
-            _fmt(arrival) if arrival is not None else "-",
-        )
+    hm = lambda n: "-" if n is None else f"{n // 60}h{n % 60:02d}"
+    # Journey time leads because it is the number a timetable would show.
+    # `elapsed` includes the wait for the first train, so the two differ by
+    # however long you stood on the platform - which is worth seeing, not hiding.
+    table = Table("crs", "station", "journey", "arrive", "elapsed")
+    for crs, name, journey, arrival, elapsed in rows[: limit or len(rows)]:
+        table.add_row(crs, name, hm(journey),
+                      _fmt(arrival) if arrival is not None else "-", hm(elapsed))
     console.print(table)
+    if profile:
+        console.print("[dim]Journey time is the shortest across the window. "
+                      "There is no single arrival or elapsed time for a "
+                      "sweep.[/dim]")
 
 
 @app.command()
@@ -446,6 +463,12 @@ def reachable(
     result = earliest_arrival(network, origin.upper(), depart_minutes)
     journeys = result.reached()
     minutes_by_crs = {j.crs: j.minutes for j in journeys}
+    # The travelling time, as against `minutes`, which counts from `--depart`
+    # and so includes waiting for the first train. Looked up by CRS at render
+    # rather than threaded through the fare rows, which are already wide.
+    journey_by_crs = {
+        j.crs: result.journey_minutes_to(j.crs) for j in journeys
+    }
     arrivals = {j.crs: j.arrival for j in journeys}
     journey_paths = result.paths()
 
@@ -586,6 +609,9 @@ def reachable(
                  # two singles and win, so the price alone does not say what
                  # was quoted. `rail fares` spells out the return window.
                  "ticket_type": tkt_type,
+                 # `minutes` counts from --depart; `journey` is the travelling
+                 # time. `minutes` keeps its meaning so existing consumers read.
+                 "journey": journey_by_crs.get(crs),
                  }
                 for crs, ticket, pence, minutes, is_advance, beaten, add_on,
                     tkt_type in rows
@@ -608,7 +634,8 @@ def reachable(
            "valid on the route found"
            if no_valid_fare & minutes_by_crs.keys() else "")
     )
-    columns = ["crs", "station", "fare", "elapsed", "ticket", "type", "validity"]
+    columns = ["crs", "station", "fare", "journey", "elapsed", "ticket", "type",
+               "validity"]
     if plusbus:
         columns.insert(3, "of which bus")
     table = Table(*columns)
@@ -618,8 +645,11 @@ def reachable(
         cells = [crs, network.names[network.index[crs]], f"£{pence / 100:,.2f}"]
         if plusbus:
             cells.append(f"£{add_on / 100:,.2f}" if add_on else "-")
+        travelling = journey_by_crs.get(crs)
         table.add_row(
             *cells,
+            "-" if travelling is None
+            else f"{travelling // 60}h{travelling % 60:02d}",
             f"{minutes // 60}h{minutes % 60:02d}", ticket,
             ("[yellow]advance[/yellow]" if is_advance else "walk-up")
             # A return sometimes undercuts two singles and wins here. Saying so

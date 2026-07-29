@@ -649,11 +649,29 @@ def best_over_window(
     A single departure time answers "if I leave at 09:00"; sweeping the window
     answers "how well connected is this pair across the day", which is the more
     useful comparison between a Sunday and a weekday.
+
+    **The minimum is over journey time, not over `Journey.minutes`.** Both are
+    "the best" in some sense and only one of them is a journey: `minutes` counts
+    from each sampled departure, so it is the journey *plus* however long you
+    waited for it, and minimising it can never see below the wait. At a station
+    served twice a day, every sample in the window includes a long wait, so the
+    answer stayed stuck at wait-plus-journey however finely the window was swept.
+
+    Measured from York over 09:00-20:00 in half-hour steps, minimising `minutes`
+    instead overstated the journey to **every one of 2,729 stations** - a median
+    of 6 minutes and up to 42. Egginton read 1h29 against an actual 0h47.
+
+    Returns journey minutes per station, so the window has no arrival time to
+    report: the arrival belongs to one departure and this answers across many.
     """
     best: dict[str, int] = {}
     for depart in range(first_departure, last_departure + 1, step):
-        for journey in earliest_arrival(network, origin, depart).reached():
+        result = earliest_arrival(network, origin, depart)
+        for journey in result.reached():
+            minutes = result.journey_minutes_to(journey.crs)
+            if minutes is None:
+                continue
             current = best.get(journey.crs)
-            if current is None or journey.minutes < current:
-                best[journey.crs] = journey.minutes
+            if current is None or minutes < current:
+                best[journey.crs] = minutes
     return best

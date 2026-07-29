@@ -135,11 +135,16 @@ from the moment you asked, so it includes waiting for the first train.
 number a timetable would show. York to Cardiff is 4h23 by the second and 4h59
 by the first, because the train leaves at 09:36.
 
-Both are exposed and neither stands in for the other, but only the first
-reaches the command line, where the column is labelled `elapsed` for that
-reason. If you want the journey time, call `journey_minutes_to()`. **Time
-actually spent moving, as against waiting at interchanges, is not computed** -
-York to Cardiff is 4h01 moving and 22 minutes standing on platforms.
+`rail journey-times` and `rail reachable` show both, in columns named
+`journey` and `elapsed`, so the difference is visible rather than something you
+have to know about. York to Poppleton is a five-minute journey and nineteen
+minutes elapsed, which is a fourteen-minute wait on the platform at York.
+
+`--profile` reports the **journey** only, and must: it sweeps many departures
+and there is no single wait, arrival or elapsed time across a window.
+
+Not computed: time actually moving as against waiting at an intermediate
+change. The journey time includes both.
 
 **An evening query answers with next-morning arrivals** rather than
 "unreachable", because the network loads two consecutive days - which is
