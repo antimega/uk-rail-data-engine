@@ -224,5 +224,12 @@ reading of a field name turns out to be the wrong one.
 
 ## Licence
 
-MIT - see [LICENSE](LICENSE). The licence covers the software only. The data it
-downloads is licensed to you directly by its publishers, on the terms above.
+MIT - see [LICENSE](LICENSE).
+
+**It covers the software in this repository and nothing else.** It does not cover
+the data the software downloads. The Rail Delivery Group's DTD feeds are licensed
+to you directly by National Rail Enquiries, on terms you accept when you register
+for an account; the two Open Government Licence sources carry their own
+conditions. Publishing anything derived from any of them requires the
+attributions set out in [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md). None of
+that data is contained here.
