@@ -40,3 +40,6 @@ build/
 
 # Local editor/tooling settings
 .claude/
+
+# Local doc-review tool. Reviews this repo; is not part of it.
+docreview/
