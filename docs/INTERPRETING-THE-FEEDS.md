@@ -137,9 +137,6 @@ inside the second band. If these named *trains*, the two would contradict each
 other — one train, allowed at one station and barred at the next. As per-origin
 rules they are perfectly consistent.
 
-The lesson is about the measurement, not the rule: 32,206 was a real number
-answering a question nobody had asked.
-
 **Doubleback locations are indexed, despite a note saying they need not be.**
 (RSPS5047 4.10.3.) The specification defines a location modifier naming where a
 doubleback is permitted, and adds a note promising that a matching "via" record
@@ -294,11 +291,9 @@ Three files in the routeing feed are around 200 bytes each and contain only a
 header. The specification (RSPS5047 4.17–4.19) says outright that they are no
 longer used. They are not parsed, and that is not an oversight.
 
-One file in the same feed was never opened for a long time, and that *was* an
-oversight worth recording. It ties easements to operators — 993 rows, 624 of
-them for easements actually held. The engine believed it had this information
-from a different file, which supplied it for exactly 8 easements. So more than
-600 published exceptions were being applied to every journey regardless of who
-ran the trains. Finding it required sweeping every file in every download against
-what the code actually reads, which is a check worth repeating after any feed
-version change.
+**A file being small is not evidence that it is empty, and a file being unread
+is not evidence that it is redundant.** One file in the same feed went unparsed
+for a long time and turned out to carry 993 rows that materially changed a
+verdict. It was found by listing every member of every download and diffing that
+against what the code actually opens — a check worth repeating whenever a feed
+version changes, because nothing else will tell you.

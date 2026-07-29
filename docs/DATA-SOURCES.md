@@ -1,8 +1,8 @@
-# Data sources, licences, and the attribution you owe
+# Data sources, licences, and the attribution you must use
 
 Four sources feed this engine. They arrive by different routes, under different
 licences, and **only the first is required**. If you publish anything derived
-from a mixture, you owe every attribution in that mixture.
+from a mixture, you must carry every attribution in that mixture.
 
 None of this data is contained in this repository. `data/` is git-ignored, and
 the MIT licence on the software covers the software alone.
@@ -26,7 +26,7 @@ Register at <https://opendata.nationalrail.co.uk> for an account.
 **What you may do.** Copy, publish and distribute the data; adapt its *format*
 but not amend its content; use it commercially.
 
-**What you owe.**
+**What you must do.**
 
 - **Acknowledge National Rail Enquiries as the source**, wherever the data or
   anything derived from it is published. Not only bulk republication — a chart,
@@ -62,11 +62,11 @@ mean one new implementation and no downstream change.
 
 ## 2. RSPS5052 supplementary reference data
 
-A public S3 bucket, no authentication, **not a DTD feed** — so the terms above
-do not cover it. Check RSPS5052's own licensing before publishing anything
-derived from it. That is why it sits behind a separate `--supplementary` switch
-rather than being another feed name, and why the CLI prints a warning every
-time.
+A public S3 bucket, no authentication, and **not a DTD feed** — so it is not
+obtained under the terms above and should not be assumed to be covered by them.
+Check RSPS5052's own licensing before publishing anything derived from it. That
+is why it sits behind a separate `--supplementary` switch rather than being
+another feed name, and why the CLI prints a warning every time.
 
 Two files are used: a list of which location codes are genuinely GB rail
 stations, and a list of ticket products that bundle several journeys into one
@@ -98,10 +98,17 @@ the source and name the OGL**. Attribute **Network Rail**. That obligation is
 timetable and positioned by this file owes both.
 
 **An FOI release is a point-in-time snapshot, not a feed**: no schedule, no
-version, nothing to poll. It goes stale as stations open and move, it cannot be
-refetched automatically, and `rail refresh` rebuilds without it. Re-run `rail
-geography` afterwards, and check `station.grid_source` to see which positions
-came from where.
+version, nothing to poll. That is why `rail geography` takes a path rather than
+downloading anything — you supply the spreadsheet. It goes stale as stations open
+and move, and `rail refresh` rebuilds without it, so re-run `rail geography`
+afterwards and check `station.grid_source` to see which positions came from
+where.
+
+**Where to find it, and the wider picture.** See the
+[openraildata wiki](https://wiki.openraildata.com/index.php/Identifying_Locations) for more information — it collects the ways GB rail
+locations are identified, and where the public releases live. It is a
+community-maintained wiki rather than an industry feed, so treat it as a pointer
+and a cross-check, not as a source to ingest.
 
 ---
 
@@ -128,22 +135,18 @@ bus, tram and ferry locations.
 ## What must *not* be republished
 
 The RSPS specifications themselves. They are Rail Settlement Plan's copyrighted
-documents, one of them marked commercial-in-confidence, and they are not covered
-by any of the licences above.
+documents and are not covered by any of the licences above.
 
 The distinction that matters, and it is a sharp one:
 
 - **The feed data may be published.** The NRE terms say so directly. Short
   verbatim strings from the feeds appear throughout this codebase in comments
-  and tests — ticket descriptions, restriction wordings — and they are fine.
-  Each is evidence for why a rule exists.
+  and tests — ticket descriptions, restriction wordings — each one evidence for
+  why a rule exists.
 - **The specification prose may not.** Nothing in this repository quotes it.
   Where a reading needs justifying, the documentation describes the decision in
   its own words and cites the section number, so anyone holding a licensed copy
   can check the claim without it being reproduced here.
-
-If you extend this, keep that line. It is easy to hold: cite the section, say
-what you concluded, and never paste.
 
 ---
 

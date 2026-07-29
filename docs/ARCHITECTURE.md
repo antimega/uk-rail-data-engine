@@ -1,6 +1,6 @@
 # Architecture
 
-Written for someone about to read the source. It gives the shape before the
+Written for someone about to read the source code. It gives the shape before the
 detail, and spends most of its length on the four places where the obvious
 design is wrong.
 
@@ -19,7 +19,10 @@ query    the CLI, or your own SQL
 ```
 
 **`acquire/`** talks to the portal (`nrdp.py`) behind a `FeedSource` interface
-(`source.py`), so a migration to a different portal is one new implementation.
+(`source.py`). That indirection is not speculative: the operator has said it
+intends to retire this portal for a different one, so the interface is what
+keeps that change to a single new implementation.
+
 `snapshots.py` is an immutable store: a download is written once under its own
 name, never overwritten, with a manifest recording its SHA-256 and the time it
 arrived. Two other acquirers — `geography.py` and `naptan.py` — handle the
@@ -154,7 +157,7 @@ Keeping them separate is exactly how they came to disagree: a journey that was
 one train throughout once reported a change and two operators.
 
 **That is not cosmetic.** The operators feed route conditions — some fares are
-valid only on a named operator's trains — so a stray one buys the wrong ticket.
+valid only on a named operator's trains — so a stray one gives the wrong ticket.
 
 ### A fixed link runs both ways
 

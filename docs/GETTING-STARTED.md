@@ -15,12 +15,14 @@ Register at <https://opendata.nationalrail.co.uk>. It is free. You are agreeing
 to the [NRE Developer Terms & Conditions
 v3.0](https://opendata.nationalrail.co.uk/terms) — read
 [DATA-SOURCES.md](DATA-SOURCES.md) for what they oblige you to do, because the
-obligations bite the moment you publish anything.
+obligations apply the moment you publish anything.
 
 Two of them matter from the first command:
 
 - **Your credentials are personal and cannot be assigned.** They go in `.env`,
-  which is git-ignored, and nowhere else.
+  and nowhere else. `.gitignore` ships in the repository and lists it, so a
+  fresh clone ignores `.env` before you have created it — there is no window in
+  which it could be committed by accident.
 - **Poll no more than once a day.** `rail fetch` enforces this itself, so you
   cannot breach it by accident, but do not work around the guard.
 
@@ -115,23 +117,30 @@ uv run rail status           # snapshot ages, and the account margin
 is a few seconds of HTTP and nothing else. Fares change a few times a year and
 the timetable rarely.
 
-**Schedule it, for two reasons.** The obvious one is currency. The other is that
-**the portal deletes accounts after roughly 30 days without consumption**, and a
+**Schedule it, for two reasons.** The obvious one is keeping the data current.
+The other is that **the portal deletes accounts after roughly 30 days without
+consumption**, and a
 poll counts as consumption even when no bytes come back. A fortnightly refresh
 is comfortably inside that, and `rail status` reports the remaining margin.
 
-`deploy/refresh.plist.template` is a macOS launchd agent that runs `rail refresh
-&& rail validate` on the 1st and 15th. Substitute your own paths:
+Anything that can run a command on a schedule will do it. The command is:
 
 ```bash
-sed -e "s|__PROJECT_ROOT__|$PWD|g" -e "s|__LABEL__|com.example.rail.refresh|g" \
-    deploy/refresh.plist.template > ~/Library/LaunchAgents/com.example.rail.refresh.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.rail.refresh.plist
-mkdir -p data/logs
+rail refresh && rail validate
 ```
 
-Calendar dates rather than a rolling interval, because a calendar schedule
-re-anchors itself after a reboot where an interval restarts its clock.
+On macOS, `deploy/refresh.plist.template` is a **launchd** agent set up to run
+that on the 1st and 15th; its own header comments say what to substitute and how
+to install it. On Linux a **systemd timer** or a **cron** entry is the
+equivalent, and on a server you already operate, whatever runs your other
+scheduled work is the right answer. Two things are worth carrying over whichever
+you use:
+
+- **Prefer calendar dates to a rolling interval.** A calendar schedule
+  re-anchors itself after a reboot, where an interval restarts its clock — so a
+  machine that sleeps often can drift a long way past 30 days.
+- **Create the log directory first.** Most schedulers will not create it, and a
+  missing directory fails the job with nothing written to say why.
 
 **What counts as a successful run** is the subtle part: reaching the portal is
 what renews the account, so a run that downloads nothing is still a success. A
@@ -142,8 +151,8 @@ portal. `rail status` distinguishes them and turns red at 21 days.
 
 ## 5. The optional sources
 
-Neither is needed to answer a question; both improve the answers. Both carry
-their own licence — see [DATA-SOURCES.md](DATA-SOURCES.md).
+None of these is needed to answer a question; each improves the answers. All
+three carry their own licence — see [DATA-SOURCES.md](DATA-SOURCES.md).
 
 ```bash
 uv run rail fetch --supplementary    # RSPS5052 reference data
@@ -157,8 +166,14 @@ kilometre accurate and occasionally much worse. With the two Open Government
 Licence sources, a position is accepted when a second source agrees within a
 kilometre — and that resolves the disagreements rather than picking a favourite.
 
-**They are manual, and `rail refresh` rebuilds without them**, so re-run
-`geography` and `naptan` after a refresh. `station.grid_source` names the winning
+**`geography` is the one that cannot fetch itself.** It takes a path because an
+FOI release is a one-off publication with no URL to poll — you download the
+spreadsheet yourself. See the [openraildata wiki](https://wiki.openraildata.com/index.php/Identifying_Locations) for more information
+on where GB location data is published. `--supplementary` and `naptan` fetch
+their own data.
+
+**`rail refresh` rebuilds without any of them**, so re-run `geography` and
+`naptan` after a refresh. `station.grid_source` names the winning
 source for every station, so staleness is visible rather than silent, and `rail
 validate` watches the corroborated share for exactly that reason.
 
@@ -210,9 +225,11 @@ previous download.
 and an unchanged feed is skipped on `Last-Modified`. `rail status` shows the
 ages.
 
-**A date outside the horizon returns nothing** rather than an error, because an
-empty result is a legitimate answer to "what runs on that day". `rail status`
-shows the range the snapshots cover.
+**A date outside the horizon is an error, and says so** — `no services on
+2027-06-01 — is it inside the built horizon?`. It is not silently empty, because
+an empty result and an unbuilt date look identical and mean quite different
+things. `rail status` shows the range the snapshots cover; `rail build
+--horizon N` extends it.
 
 **A fare looks wrong.** Start with `rail fares --from A --to B`, which shows the
 route, restriction and validity governing each price. Then the `fare_reject`
