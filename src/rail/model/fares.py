@@ -116,6 +116,19 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     # York, 222 from Euston. Standard class was untouched, which is why it went
     # unnoticed until `rail fares` listed every ticket for a pair.
     ("%UPG%", "supplement, not a fare on its own"),
+    # The same truncation one character further along. `NS1 SN-GEX 1ST S UP` is
+    # a Gatwick Express first-class upgrade whose description ran out of room
+    # before `UPG`, so the marker above cannot see it - and its sibling
+    # `SN2 SN-GEX SGL UPG` keeps one more letter and is caught. It carries two
+    # fares, both **£0.00**, so as a walk-up fare it won every comparison it
+    # entered: a zero price is the cheapest price there is.
+    #
+    # A suffix rather than `%UP%`, which would match half the feed. It also
+    # catches `DH1`/`WCC` "ON THE UP", which are not upgrades and are already
+    # excluded on other grounds, so the reason recorded against them is wrong
+    # while the outcome is right. `rail validate` guards the outcome that
+    # matters - no zero-priced walk-up fare - rather than this rule.
+    ("% UP", "supplement, not a fare on its own"),
     # Same category, said the other way round. `AFW` "1ST SUPPLEMENT" was £5-£10
     # on ten flows and classed as a walk-up fare; the validate check below
     # caught it within a minute of being written.
