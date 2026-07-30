@@ -212,6 +212,42 @@ Parquet is queryable without the database at all -
 the real contract: a renamed column breaks SQL with no import to catch it, and
 no error until a query quietly returns nothing.
 
+### Disk space
+
+**About 800 MB for a working install**, measured rather than estimated:
+
+| | |
+|---|---|
+| `.venv` (DuckDB, PyArrow, numpy, httpx) | 209 MB |
+| source, tests, docs | under 3 MB |
+| `data/raw` - one generation of feed ZIPs | 113 MB |
+| `data/parquet` - the same generation, parsed | 85 MB |
+| `data/rail.duckdb` | 382 MB |
+| NaPTAN, the FOI grid file, RSPS5052 | under 1 MB |
+
+Per generation the feeds are: timetable 68 MB zipped and 50 MB as Parquet, fares
+44 MB and 35 MB, routeing 1.5 MB and nothing - its files are read straight from
+the ZIP rather than converted.
+
+**It grows by roughly 200 MB whenever a feed generation changes**, because the
+snapshot store is immutable: a download is written once, never overwritten, so
+any figure stays traceable to the exact bytes it came from. The database is
+replaced rather than added to, so only `raw/` and `parquet/` accumulate. Nothing
+prunes them, and old snapshots are safe to delete once you no longer need to
+reproduce a figure from one.
+
+Budget for that on the timetable as well as the fares. Fares change a few times a
+year, and the timetable is usually described as changing rarely - but two
+timetable generations landed within a week while this was being written.
+
+**`--horizon` is a smaller lever than it looks.** It scales `service_date`, which
+is 2.2M rows of the 9.3M in the database; the bulk is `schedule_stop`, which is
+whatever the feed contains regardless. Dropping from 90 days to 30 removes about
+16% of the rows, so expect to save tens of megabytes rather than hundreds.
+
+During `ingest`, add roughly the uncompressed size of one feed on top,
+transiently.
+
 ## Known limits
 
 Stated up front because most cannot be engineered away. The figures are from the
