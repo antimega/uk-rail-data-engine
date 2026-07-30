@@ -90,6 +90,84 @@ uv run rail fetch && uv run rail ingest && uv run rail build
 full walkthrough, including how to register, is in
 [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
 
+## The commands
+
+Twenty of them. `--json` on any of the query commands gives machine-readable
+output; `--help` on any command gives its full options.
+
+Stations are CRS codes throughout - `rail stations york` finds them. Dates are
+`YYYY-MM-DD` and must fall inside the horizon you built, which `rail status`
+reports.
+
+### Getting and keeping the data
+
+| command | what it does |
+|---|---|
+| `rail fetch` | Download the feed ZIPs. `--feed timetable\|fares\|routeing\|all`, `--force` to override the once-daily guard, `--supplementary` for the separately-licensed RSPS5052 reference data. |
+| `rail ingest` | Fixed-width records → Parquet. `--feed` to narrow it, `--only` for one file. |
+| `rail build` | Parquet → `rail.duckdb`. `--horizon N` sets how many days of running dates to materialise (default 90). |
+| `rail refresh` | All three, rebuilding only when something was downloaded. Written for scheduled runs. `--force`, `--rebuild`, `--horizon`. |
+| `rail status` | Snapshot ages, the dates the timetable covers, and how close the portal account is to expiring. |
+| `rail snapshots` | Every stored snapshot, with its checksum and when it arrived. |
+| `rail validate` | 70 data-quality checks. Exit code 1 on any failure, so it works in a pipeline. `--json`. |
+
+Two optional position sources, each under its own licence:
+
+| command | what it does |
+|---|---|
+| `rail geography <path>` | Import Network Rail's FOI grid references. Takes a **path**, because an FOI release has no URL to poll. |
+| `rail naptan` | Fetch DfT NaPTAN. Downloads itself. |
+
+Both need a `rail build` afterwards to apply, and `rail refresh` rebuilds
+without them - so re-run them after a refresh. `station.grid_source` names the
+winning source per station, which is how staleness stays visible.
+
+### Asking about journeys
+
+| command | what it does |
+|---|---|
+| `rail journey-times --from --date` | One origin to every station in Britain. `--depart`, or `--profile` to sweep the day (`--until`, `--step`). Reports `journey` and `elapsed` separately - see below. |
+| `rail distance --from [--to]` | Rail miles from the routeing guide's link graph, and straight-line distance from grid references. `--least-direct` ranks by the ratio of the two. |
+| `rail stations [search]` | Look up CRS, NLC, TIPLOCs, fare group and interchange time. |
+
+### Asking about fares
+
+| command | what it does |
+|---|---|
+| `rail reachable --from --date --max-fare` | Every destination within a budget. `--railcard`, `--advance`, `--first-class`, `--plusbus`, `--return-on`, `--depart`, `--ignore-restrictions`, and the two route checks below. |
+| `rail fares --from --to` | Every fare for a pair with the route, restriction and validity governing each. Deliberately *not* filtered by time. |
+| `rail roundtrip --from --to --date --return-on` | Prices a return against two singles and names the cheaper. The only command that routes the journey home, so the only one that can evaluate return-leg restrictions. |
+| `rail stopover --from --to --via --date` | A deliberate break of journey, priced as one ticket. `--dwell` is time you actually get. |
+| `rail plusbus <station> [--with]` | The bus add-on around a station, including whether one may be sold at all. |
+| `rail railcards [search]` | Which railcards a party of a given shape can use. `--adults`, `--children`, `--all`. |
+
+### Asking why a fare is what it is
+
+| command | what it does |
+|---|---|
+| `rail restrictions <code>` | Spells a restriction code out in English. Every band is a **bar**, not a permission. |
+| `rail routings --from --to` | Every routing the National Routeing Guide permits, and the easements that grant or withdraw one. |
+
+`rail reachable` has two checks worth knowing apart, both opt-in because each
+narrows the question:
+
+- **`--check-routes`** applies the fare's own route conditions to the journey
+  actually found. Without it, "where can I get for £20" permits picking a route
+  to suit the fare, which is the right default for that question.
+- **`--check-guide`** asks the routeing guide whether it permits the winning
+  fare's route, and steps up the price list to the cheapest fare it does permit
+  rather than dropping the destination.
+
+### Two clocks, and why both are shown
+
+`journey` is the travelling time, from the first boarding. `elapsed` counts from
+`--depart`, so it includes waiting for the first train. York to Poppleton is a
+five-minute journey and nineteen minutes elapsed - the difference is a wait on
+the platform, and hiding it would be the misleading choice.
+
+`--profile` reports the journey alone, because a sweep of many departures has no
+single wait, arrival or elapsed time.
+
 ## Layout
 
 ```
