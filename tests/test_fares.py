@@ -2452,3 +2452,106 @@ def test_not_routing_the_journey_is_not_a_refusal(fares):
                                            depart_minutes=9 * 60)}
 
     assert rows["BBB"][3] == 1090
+
+
+# --- the narrow Advance class -----------------------------------------------
+
+
+def test_a_retailer_scheme_is_not_a_real_advance(fares):
+    """`is_advance_fare` is a residual - sellable and not a walk-up - so it
+    collects fares that are tied to a booked train and still are not an Advance
+    anybody can buy. A retailer's own scheme is the case that costs money:
+    `Secret Fare` sits at 0.79 of the real Advance on its flows, so it wins, and
+    Euston to Cardiff came out £15.00 against a real cheapest of £29.00."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "NAA", 2900), fare(1, "GW4", 1500)],
+        tickets=[ticket("NAA", "ADVANCE", reservation="B"),
+                 ticket("GW4", "Secret Fare", reservation="B")],
+    )
+    # Both are Advances in the broad sense; only one is real.
+    broad, real = connection.execute("""
+        select count(*) filter (where is_advance_fare),
+               count(*) filter (where is_real_advance)
+        from ticket_type_current
+    """).fetchone()
+    assert (broad, real) == (2, 1)
+
+    # And the price the narrow class quotes is the real Advance, not the
+    # retailer's.
+    priced = cheapest_from(connection, directory, "AAA", TRAVEL, advance_only=True)
+    assert [(row[0], row[3]) for row in priced] == [("BBB", 2900)]
+
+    reason = connection.execute(
+        "select reason from advance_reject where ticket_code = 'GW4'").fetchone()
+    assert reason == ("sold through one retailer scheme, not published",)
+
+
+def test_a_walk_up_on_a_booked_train_validity_is_not_a_real_advance(fares):
+    """**Validity code `11` is why this class exists.** It is *described* "AS
+    ADVERTISED" and its `out_description` reads `BOOKDTRAINONLY`, so Grand
+    Central's `GTS ANYTIME S` - 205 fares, not one carrying a restriction,
+    `reservation_required = 'N'` - came out an Advance and duly won as the
+    cheapest one to Hartlepool and Thirsk.
+
+    The rule is that the other two signals outvote the validity: a fare needing
+    no reservation, with no booked-train restriction on any of its prices, and
+    not calling itself an Advance is not tied to a booked train."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "GTS", 2080), fare(1, "NAA", 2560)],
+        tickets=[ticket("GTS", "ANYTIME S", validity="11", reservation="N"),
+                 ticket("NAA", "ADVANCE", reservation="B")],
+        validities=[("11", False, {"description": "AS ADVERTISED",
+                                   "out_description": "BOOKDTRAINONLY"})],
+    )
+    kinds = dict(connection.execute(
+        "select ticket_code, is_real_advance from ticket_type_current").fetchall())
+    assert kinds == {"GTS": False, "NAA": True}
+
+    priced = cheapest_from(connection, directory, "AAA", TRAVEL, advance_only=True)
+    assert [(row[0], row[3]) for row in priced] == [("BBB", 2560)]
+
+
+def test_the_narrow_class_never_widens_the_broad_one(fares):
+    """`is_real_advance` is a subset, and `include_advance` still reads the
+    residual. Two switches on two columns is the one thing here that could go
+    quietly wrong, and this is what says it has not."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 7070), fare(1, "GW4", 1500)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"),
+                 ticket("GW4", "Secret Fare", reservation="B")],
+    )
+    contradictions = connection.execute("""
+        select count(*) from ticket_type_current
+        where is_real_advance and not is_advance_fare
+    """).fetchone()[0]
+    assert contradictions == 0
+
+    # Widening still offers it - nothing existing moves.
+    both = cheapest_from(connection, directory, "AAA", TRAVEL, include_advance=True)
+    assert [(row[0], row[3]) for row in both] == [("BBB", 1500)]
+    # Asking for Advances alone does not, there being no real one here.
+    assert cheapest_from(connection, directory, "AAA", TRAVEL,
+                         advance_only=True) == []
+
+
+def test_a_dummy_ticket_type_is_not_sellable_at_all(fares):
+    """`ILF DUMY-DO NOT USE` carried 8 fares from £18.90 to £26.90 and was the
+    winning cheapest **walk-up** on every one of its flows. `rail validate` had
+    been counting these under "ticket types naming themselves test data" and
+    passing, which is a check that noticed and did nothing.
+
+    The marker is `%DUM%` rather than `%DUMMY%` because the description field is
+    15 characters and the feed ships `Z12 NR SDS DUMM` and `Z123 NR SDS DUM`."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "ILF", 1890), fare(1, "SDS", 7070)],
+        tickets=[ticket("ILF", "DUMY-DO NOT USE"), ticket("SDS", "ANYTIME DAY S")],
+    )
+    assert [(row[0], row[3]) for row in
+            cheapest_from(connection, directory, "AAA", TRAVEL)] == [("BBB", 7070)]
+    assert connection.execute(
+        "select reason from fare_reject where ticket_code = 'ILF'"
+    ).fetchone() == ("dummy record, the feed says do not use",)

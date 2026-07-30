@@ -101,7 +101,43 @@ walk-ups rather than as well as - for the caller asking what the cheapest
 Advance is rather than what the cheapest fare is. The quota caveat applies with
 more force there: a walk-up price is buyable by definition and an Advance price
 is not, so an answer made only of Advances is made entirely of prices that may
-not be on sale. Two things about Advance prices are worth knowing before relying
+not be on sale.
+
+**The two Advance switches read different columns, and the difference is
+deliberate.** A sellable ticket type is `is_walk_up` when none of five
+booked-train signals fires and `is_advance_fare` when any of them does - so the
+second is a *residual*, "sellable and not a walk-up", which is not the same
+thing as "an Advance ticket". `is_real_advance` is the narrower class, and
+`advance_reject` records why each of the 64 exclusions is not one:
+
+| excluded | why |
+|---|---|
+| 20 | no reservation needed, so not tied to a booked train |
+| 19 | sold through one retailer scheme, not published |
+| 14 | rover or explorer pass, not a single journey |
+| 8 | a change to a ticket already held, not a fare |
+| 3 | an operator loyalty or named scheme |
+
+`include_advance` *widens* an answer, so it reads the residual: adding a
+retailer's fare to a list of walk-ups over-reports a little, and narrowing it
+would silently move every existing caller. `advance_only` *is* the answer, so it
+reads the narrow class - quoting a Highland Rover or a transfer fee as "the
+cheapest Advance" would not be over-reporting, it would be wrong.
+
+The case that made this necessary: validity code `11` is *described* "AS
+ADVERTISED" and its `out_description` reads `BOOKDTRAINONLY`, which put Grand
+Central's `GTS ANYTIME S` - 205 fares, not one carrying a restriction,
+`reservation_required = 'N'` - into the Advance class at 0.61 of the real
+Advance on the same flow. Measured on the narrow class against the broad one,
+every price that moves gets **dearer and none cheaper**: 2 destinations from
+York, 92 from Euston (Cardiff £15.00 to £29.00, a `Secret Fare`), 25 from
+Stratford, and 29 from Glasgow Central lose their only Advance because a
+`PARTNER OFFER` was all they had. Inverness does not move at all.
+
+**Sleeper berths stay in.** `CLASSIC SOLO` prices in an eight-rung ladder from
+£155 to £315 on one flow with no walk-up on it at all, which is what an Advance
+quota ladder looks like; a sleeper runs one train a day, so its fares are
+genuinely Advance-shaped whatever their size relative to a seated fare. Two things about Advance prices are worth knowing before relying
 on one:
 
 - **Neither the day nor the departure time changes them.** An Advance

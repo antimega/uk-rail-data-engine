@@ -28,7 +28,7 @@ Excursion rates are sold to operators inside a package at a nominal 5p.
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import duckdb
@@ -98,6 +98,25 @@ NOT_A_PACKAGE = "N"
 #: accumulated blindly. Matched case-insensitively against the description.
 NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     ("%TEST%", "test data in the feed"),
+    # And the feed's other way of saying it, which `%TEST%` cannot see. Ten
+    # codes are described `DUMY-DO NOT USE`, `DUMY DO NOT USE`, `Z1 NR SDS
+    # DUMMY`, and **six of them were walk-up fares**: `ILF` carries 8 fares from
+    # £18.90 to £26.90 and was the winning cheapest walk-up on every one of its
+    # flows. `rail validate` had been *counting* these under "ticket types
+    # naming themselves test data" and passing, which is a check that noticed
+    # and did nothing.
+    #
+    # **`%DUM%` is deliberately wider than `%DUMMY%`**, the description field
+    # being 15 characters: `Z12 NR SDS DUMM` and `Z123 NR SDS DUM` are the same
+    # product truncated one and two letters further. It matches exactly these
+    # ten codes in the feed and nothing else; a future `DUMFRIES ROVER` would be
+    # a false positive, which is what the reject table is for reading.
+    ("%DUM%", "dummy record, the feed says do not use"),
+    ("%DO NOT USE%", "dummy record, the feed says do not use"),
+    # A fee to move a ticket to another train is not a fare to somewhere. Both
+    # codes are flat - £88-£102 standard, £148-£164 first - and sat 3.25 and
+    # 5.16 times the real Advance on the same flow.
+    ("%TRANSFER%", "a fee to change a ticket, not a fare"),
     # The description field is 15 characters, so words get truncated and spaces
     # squeezed out: both "NOT FOR TRAVEL" and "NOTFORTRAVL" occur.
     ("%NOT FOR TRAVEL%", "not for travel"),
@@ -132,7 +151,13 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     # Same category, said the other way round. `AFW` "1ST SUPPLEMENT" was £5-£10
     # on ten flows and classed as a walk-up fare; the validate check below
     # caught it within a minute of being written.
-    ("%SUPPL%", "supplement, not a fare on its own"),
+    # `%SUPP%` rather than `%SUPPL%`, the field being 15 characters: `LME GE PM
+    # PEAK SUPP` and `1DZ SUITE SOLO SUPP` both run out of room before the `L`,
+    # and the first of them was classed a **walk-up fare**. Neither carries a
+    # fare today, so this moves no price - but `is_walk_up` should mean what it
+    # says whether or not a wrong answer happens to follow, which is the same
+    # argument the age-restricted markers below are kept on.
+    ("%SUPP%", "supplement, not a fare on its own"),
     # Seatfrog swaps you onto a different train from the one you booked, which
     # is a change to a ticket you already hold rather than a fare to somewhere.
     #
@@ -249,6 +274,85 @@ def _marker_reason_sql(column: str = "description") -> str:
         for pattern, reason in NON_PUBLIC_MARKERS
     )
 
+
+#: **`is_advance_fare` is a residual, and this is the class that is not.**
+#:
+#: A sellable ticket type is `is_walk_up` when none of five signals fires, and
+#: `is_advance_fare` when any of them does - so the second is really "sellable
+#: and tied to a booked train in some way", which is not the same thing as "an
+#: Advance ticket". The gap is what these markers name.
+#:
+#: The weakest of the five signals is the validity record's `out_description`,
+#: and validity code `11` is why this list exists: it is *described* "AS
+#: ADVERTISED" and its `out_description` reads `BOOKDTRAINONLY`, so Grand
+#: Central's `GTS ANYTIME S` - 205 fares, **not one carrying a restriction**,
+#: `reservation_required = 'N'` - came out an Advance at 0.61 of the real
+#: Advance on the same flow, and duly won as the cheapest "Advance" to
+#: Hartlepool and Thirsk.
+#:
+#: Two rules, and the structural one does most of the work - see
+#: `not_tied_to_a_train` in `build_fares_reference`. These markers cover what it
+#: cannot see, which is a fare that genuinely *is* tied to a booked train and
+#: still is not an Advance anyone can buy.
+#:
+#: **Sleeper berths are deliberately absent.** `CLUB SOLO`, `CLASSIC SOLO`,
+#: `SLEEPER BUSNESS` and the rest price far above any seated Advance on the same
+#: flow - ratios 1.3 to 2.35 - which looks like the signature of a supplement
+#: and is not: a sleeper runs one train a day, so its fares are genuinely
+#: Advance-shaped, and `SLP ADV SOLO` says so in its own name. What a sleeper
+#: ticket actually is deserves its own look; excluding it on a price ratio would
+#: be guessing.
+PSEUDO_ADVANCE_MARKERS: tuple[tuple[str, str], ...] = (
+    # Sold through one retailer's own scheme rather than published to everyone,
+    # which is the same argument that keeps corporate and group fares out of
+    # `is_walk_up`. Four of these carry real fares and would win: `Secret Fare`
+    # sits at 0.79 of the real Advance on its flows and `Seatfrog SF` at 0.90.
+    #
+    # **`%SEATFROG%` is safe here where it was not in `NON_PUBLIC_MARKERS`.**
+    # There the blanket marker was wrong because it would have discarded the
+    # Secret Fares as unsellable; here both halves belong out of the narrow
+    # class for the same reason, so the brand name is exactly the right width.
+    ("%SEATFROG%", "sold through one retailer scheme, not published"),
+    ("%SFROG%", "sold through one retailer scheme, not published"),
+    ("%SECRET FARE%", "sold through one retailer scheme, not published"),
+    ("%BOOKING.COM%", "sold through one retailer scheme, not published"),
+    ("%OMIO%", "sold through one retailer scheme, not published"),
+    ("%MEGATRAIN%", "sold through one retailer scheme, not published"),
+    ("%PARTNER%", "sold through one retailer scheme, not published"),
+    ("%PROMISE%", "operator loyalty scheme, not a published fare"),
+    ("%RWARDS%", "operator loyalty scheme, not a published fare"),
+    ("%CNM STUDENT%", "a named scheme, not a published fare"),
+    # A swap moves you onto a different train from the one you booked, so it is
+    # a change to a ticket you already hold. All ten carry **zero fares**, so
+    # this costs nothing today and is here because the class should mean what it
+    # says. `NON_PUBLIC_MARKERS` catches `%SEATFROG SWAP%` alone; these are the
+    # ones written `SF Std 1st Swap` and `SFROG SWAP STD`.
+    ("%SWAP%", "a change to a ticket already held, not a fare"),
+    # Rovers and explorer passes. Priced per journey in the flow file and bought
+    # as a period product, so quoting one as the cheapest Advance to somewhere
+    # names a price nobody pays for that journey alone. The Highland ones carry
+    # 208 fares between them.
+    ("%HLAND EX%", "rover or explorer pass, not a single journey"),
+    ("%GREAT SCOT%", "rover or explorer pass, not a single journey"),
+    ("%BIG EASY%", "rover or explorer pass, not a single journey"),
+    ("%EASY RIDER%", "rover or explorer pass, not a single journey"),
+    ("%FIRST MOVE%", "rover or explorer pass, not a single journey"),
+)
+
+
+def _pseudo_advance_sql(column: str = "description") -> str:
+    return " or ".join(
+        f"upper({column}) like '{pattern}'"
+        for pattern, _ in PSEUDO_ADVANCE_MARKERS
+    )
+
+
+def _pseudo_advance_reason_sql(column: str = "description") -> str:
+    return "\n".join(
+        f"when upper({column}) like '{pattern}' then '{reason}'"
+        for pattern, reason in PSEUDO_ADVANCE_MARKERS
+    )
+
 #: How a restriction says "the train you booked, not any train". Taken from the
 #: restriction header's own `desc_out`, which is free text written by the
 #: operator - so this is a list of the phrasings the feed actually uses, and it
@@ -312,8 +416,13 @@ class FaresCounts:
     aliases: int
     ticket_types: int
     walk_up: int
+    #: Advance types that are an Advance somebody can buy - the narrow class.
+    #: Always at most `ticket_types - walk_up`, the rest being the residual.
+    real_advance: int = 0
     #: (reason, count) for every ticket type excluded from walk-up pricing.
-    rejected: list[tuple[str, int]]
+    rejected: list[tuple[str, int]] = field(default_factory=list)
+    #: (reason, count) for every Advance-classified type that is not a real one.
+    not_a_real_advance: list[tuple[str, int]] = field(default_factory=list)
 
 
 def _load_flexi_products(
@@ -637,8 +746,62 @@ def build_fares_reference(
                             or every_fare_on_a_booked_train
                             or needs_reservation
                             or upper(description) like '%ADVANCE%')
-                   as is_walk_up
+                   as is_walk_up,
+               -- **The narrow class: an Advance somebody can actually buy.**
+               --
+               -- `is_advance_fare` above is a *residual* - sellable and not a
+               -- walk-up - so anything the five signals catch lands in it,
+               -- including things that are not Advance tickets at all. Two
+               -- rules take those out, and nothing else moves: `is_walk_up` and
+               -- `is_advance_fare` are untouched, so every existing caller
+               -- answers exactly as it did.
+               --
+               -- **The structural rule, which does most of the work.** A fare
+               -- needing no reservation, carrying no booked-train restriction
+               -- on any of its prices, and not calling itself an Advance is not
+               -- tied to a booked train - whatever its validity record says.
+               -- That is the honest reading when the three signals disagree:
+               -- `reservation_required` and the restriction are statements
+               -- about the product, and the validity's `out_description` is one
+               -- field on a code shared between products. Validity `11` is
+               -- described "AS ADVERTISED" and reads `BOOKDTRAINONLY`, which is
+               -- how `GTS ANYTIME S` - 205 fares, not one with a restriction -
+               -- became the cheapest "Advance" to Hartlepool and Thirsk.
+               --
+               -- It catches 25 types: the Grand Central Anytimes, the
+               -- promotional Off-Peaks, `DUMY-DO NOT USE`, and both transfer
+               -- fees at a flat £88-£102.
+               --
+               -- The second rule is `PSEUDO_ADVANCE_MARKERS`, for a fare that
+               -- genuinely is tied to a booked train and still is not one the
+               -- public can buy - a retailer's own scheme, a rover, a swap.
+               is_sellable
+                   and (is_advance or booked_train_only
+                        or every_fare_on_a_booked_train
+                        or needs_reservation
+                        or upper(description) like '%ADVANCE%')
+                   and not (
+                       coalesce(reservation_required, '{NO_RESERVATION}')
+                           = '{NO_RESERVATION}'
+                       and not every_fare_on_a_booked_train
+                       and upper(description) not like '%ADV%')
+                   and not ({_pseudo_advance_sql()})
+                   as is_real_advance
         from booked_only
+    """)
+
+    # Why each Advance-classified type is not a *real* Advance, recorded rather
+    # than dropped - the same discipline `fare_reject` keeps for the walk-up
+    # exclusions, and for the same reason: the list should be arguable.
+    connection.execute(f"""
+        create or replace table advance_reject as
+        select ticket_code, description,
+               case
+                   {_pseudo_advance_reason_sql()}
+                   else 'no reservation needed, so not tied to a booked train'
+               end as reason
+        from ticket_type_current
+        where is_advance_fare and not is_real_advance
     """)
 
     # Excluded ticket types are recorded, not silently dropped: the feed really
@@ -666,8 +829,13 @@ def build_fares_reference(
         aliases=scalar("select count(*) from fare_alias"),
         ticket_types=scalar("select count(*) from ticket_type_current"),
         walk_up=scalar("select count(*) from ticket_type_current where is_walk_up"),
+        real_advance=scalar(
+            "select count(*) from ticket_type_current where is_real_advance"),
         rejected=connection.execute(
             "select reason, count(*) from fare_reject group by 1 order by 2 desc"
+        ).fetchall(),
+        not_a_real_advance=connection.execute(
+            "select reason, count(*) from advance_reject group by 1 order by 2 desc"
         ).fetchall(),
     )
 
@@ -777,7 +945,15 @@ sellable as (
       -- alone. The third is for a caller asking "what is the cheapest Advance",
       -- which is a different question from "what is the cheapest fare" - and
       -- without it that caller has to price every walk-up and discard it.
-      and (($advance_only and t.is_advance_fare)
+      --
+      -- **The two Advance switches read different columns, deliberately.**
+      -- `include_advance` *widens* an answer, so it takes the residual class:
+      -- adding a retailer's own fare to a list of walk-ups over-reports a
+      -- little and withdrawing it would silently change every existing caller.
+      -- `advance_only` *is* the answer, so it takes the narrow one - quoting
+      -- `Transfer Fee` or a Highland Rover as "the cheapest Advance" would not
+      -- be over-reporting, it would be wrong. See `is_real_advance`.
+      and (($advance_only and t.is_real_advance)
            or (not $advance_only
                and (t.is_walk_up or ($include_advance and t.is_advance_fare))))
       and ($ticket_class is null or t.tkt_class = $ticket_class)

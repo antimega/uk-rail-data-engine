@@ -106,13 +106,16 @@ def world(tmp_path):
         # `reservation_required` and `package_mkr` are the feed's own structural
         # flags; `N` on both is an ordinary fare. The Advance row carries `B`,
         # which is what the real `AO2 AIRPORT ADV STD` looks like.
+        # `is_real_advance` is the narrow class - an Advance somebody can buy -
+        # where `is_advance_fare` is the residual "sellable and not a walk-up".
+        # The rows here agree, which is what an undisturbed feed looks like.
         c.execute("""create table ticket_type_current as select * from (values
-            ('SDS', 'ANYTIME DAY S',  2, true,  false, 'N', 'N'),
-            ('CDR', 'OFF-PEAK DAY R', 2, true,  false, 'N', 'N'),
-            ('SVR', 'OFF-PEAK R',     2, true,  false, 'N', 'N'),
-            ('NAA', 'ADVANCE',        2, false, true,  'B', 'N')
+            ('SDS', 'ANYTIME DAY S',  2, true,  false, false, true,  'N', 'N'),
+            ('CDR', 'OFF-PEAK DAY R', 2, true,  false, false, true,  'N', 'N'),
+            ('SVR', 'OFF-PEAK R',     2, true,  false, false, true,  'N', 'N'),
+            ('NAA', 'ADVANCE',        2, false, true,  true,  true,  'B', 'N')
         ) t(ticket_code, description, tkt_class, is_walk_up, is_advance_fare,
-            reservation_required, package_mkr)""")
+            is_real_advance, is_sellable, reservation_required, package_mkr)""")
         c.execute("create table station_tiploc as select * from (values ('AAA','EUSTON')) t(crs, tiploc)")
         # is_rail_station is null unless `rail fetch --supplementary` has run.
         c.execute("""create table station as select * from

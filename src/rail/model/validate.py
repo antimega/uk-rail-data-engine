@@ -264,6 +264,55 @@ def run_checks(
         "none" if not structural
         else f"{len(structural)}: {', '.join(sorted(structural)[:8])}")
 
+    # The narrow Advance class, asserted as an outcome. `is_advance_fare` is a
+    # residual - sellable and not a walk-up - so it collects things that are not
+    # Advance tickets at all, and `is_real_advance` is what `--advance-only`
+    # prices against. Both halves of that are worth guarding.
+    #
+    # The first is the structural rule restated: a fare needing no reservation,
+    # carrying no booked-train restriction and not calling itself an Advance is
+    # not one. `GTS ANYTIME S` reached the map through exactly that gap - 205
+    # fares, not one with a restriction, on a validity described "AS ADVERTISED"
+    # whose `out_description` reads `BOOKDTRAINONLY`.
+    loose = connection.execute(f"""
+        select list(distinct ticket_code) from ticket_type_current
+        where is_real_advance
+          and coalesce(reservation_required, '{NO_RESERVATION}')
+              = '{NO_RESERVATION}'
+          and upper(description) not like '%ADV%'
+    """).fetchone()[0] or []
+    add("fares", "no real Advance is sellable without a reservation",
+        "ok" if not loose else "fail",
+        "none" if not loose else f"{len(loose)}: {', '.join(sorted(loose)[:8])}")
+
+    # And the second: the marker list, guarded the way the walk-up stems are.
+    # A failure here means an operator has named a product in a new way, not
+    # that the parse has drifted - so it is the list that wants arguing with.
+    from .fares import PSEUDO_ADVANCE_MARKERS
+
+    stems = " or ".join(f"upper(description) like '{pattern}'"
+                        for pattern, _ in PSEUDO_ADVANCE_MARKERS)
+    pseudo = connection.execute(f"""
+        select list(distinct ticket_code) from ticket_type_current
+        where is_real_advance and ({stems})
+    """).fetchone()[0] or []
+    add("fares", "no retailer scheme, rover or swap counts as a real Advance",
+        "ok" if not pseudo else "fail",
+        "none" if not pseudo else f"{len(pseudo)}: {', '.join(sorted(pseudo)[:8])}")
+
+    # The classes must partition what is sellable, and the narrow one must sit
+    # inside the broad one. Cheap to check and it would catch a fourth state
+    # appearing by accident, which is how a residual class goes wrong.
+    overlap = connection.execute("""
+        select count(*) from ticket_type_current
+        where (is_walk_up and is_advance_fare)
+           or (is_real_advance and not is_advance_fare)
+           or (is_sellable <> (is_walk_up or is_advance_fare))
+    """).fetchone()[0]
+    add("fares", "walk-up and Advance partition the sellable types",
+        "ok" if not overlap else "fail",
+        "clean" if not overlap else f"{overlap} contradictory rows")
+
     # A PlusBus zone is an add-on to a journey, not a place you can travel to.
     # The original note recorded that they carry no CRS and so could never be
     # named as a destination - true when written, and the feed generation valid
