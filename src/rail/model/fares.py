@@ -772,7 +772,14 @@ sellable as (
     where c.fare is not null
       -- Advance prices are real, but whether one is on sale for a given train
       -- is not in this feed, so they are opt-in.
-      and (t.is_walk_up or ($include_advance and t.is_advance_fare))
+      --
+      -- Three states, not two: walk-up only (the default), both, or Advance
+      -- alone. The third is for a caller asking "what is the cheapest Advance",
+      -- which is a different question from "what is the cheapest fare" - and
+      -- without it that caller has to price every walk-up and discard it.
+      and (($advance_only and t.is_advance_fare)
+           or (not $advance_only
+               and (t.is_walk_up or ($include_advance and t.is_advance_fare))))
       and ($ticket_class is null or t.tkt_class = $ticket_class)
       -- S single, R return. N is a season ticket and is priced differently.
       and t.tkt_type in ('S', 'R')
@@ -1314,6 +1321,7 @@ def fare_options(
     operators: dict[str, set[str]] | None = None,
     modes: dict[str, set[str]] | None = None,
     include_advance: bool = False,
+    advance_only: bool = False,
     break_of_journey: bool = False,
     break_returning: bool = False,
     return_on: dt.date | None = None,
@@ -1340,6 +1348,13 @@ def fare_options(
     with distance, but the feed carries no quota, so nothing here says whether a
     given price point is actually on sale for a given train. Treat the result as
     the best published price, not as a bookable one.
+
+    `advance_only` returns Advance fares *instead of* walk-ups rather than as
+    well as, for the caller asking what the cheapest Advance is rather than what
+    the cheapest fare is. It implies `include_advance` and overrides it. The
+    same quota caveat applies with more force: a walk-up price is buyable by
+    definition and an Advance price is not, so an answer made only of Advances
+    is entirely made of prices that may not be on sale.
 
     Pass `depart_minutes` - and, for arrival-side restrictions, `arrivals`
     mapping destination CRS to arrival time - to exclude fares that are not
@@ -1390,6 +1405,7 @@ def fare_options(
                 "depart_minutes": depart_minutes if restrict else -1,
                 "railcard": railcard,
                 "include_advance": include_advance,
+                "advance_only": advance_only,
                 "check_routes": bool(paths),
                 "break_of_journey": break_of_journey,
                 "break_returning": break_returning,
@@ -1506,6 +1522,7 @@ def fares_between(
     include_returns: bool = True,
     railcard: str | None = None,
     include_advance: bool = False,
+    advance_only: bool = False,
     return_on: dt.date | None = None,
 ) -> list[dict]:
     """Every fare from `origin` to `destination`, with what governs its use.
@@ -1543,6 +1560,7 @@ def fares_between(
                 "depart_minutes": -1,
                 "railcard": railcard,
                 "include_advance": include_advance,
+                "advance_only": advance_only,
                 "check_routes": False,
                 "break_of_journey": False,
                 "break_returning": False,

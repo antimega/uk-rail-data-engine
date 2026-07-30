@@ -96,6 +96,24 @@ given train on a given date. The relevant field is empty throughout. So these
 are the best *published* price, not a bookable one, and that is why they are
 opt-in rather than on by default.
 
+The library also takes `advance_only`, which returns Advances *instead of*
+walk-ups rather than as well as - for the caller asking what the cheapest
+Advance is rather than what the cheapest fare is. The quota caveat applies with
+more force there: a walk-up price is buyable by definition and an Advance price
+is not, so an answer made only of Advances is made entirely of prices that may
+not be on sale. Two things about Advance prices are worth knowing before relying
+on one:
+
+- **Neither the day nor the departure time changes them.** An Advance
+  restriction says "valid on the booked train", not "not before 09:29", so
+  nothing in the feed varies the price by when you travel. Measured across three
+  days and five departure times from one origin: no difference at all.
+- **Railcards apply, but not all of them.** The standard cards discount an
+  Advance by the usual third; the Network Railcard and the Annual Gold Card
+  discount none of them, which the feed models through its railcard-ban records
+  rather than by omitting the discount. Checking only that a discount exists
+  gets this wrong.
+
 **Railcards.** The discount chain is fully implemented - percentage, minimum
 fares, geography, operator and product bans, non-standard discount add-ons. Two
 limits. The feed's **minimum-fare coverage is thin**: 12 railcards have any, and

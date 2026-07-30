@@ -411,6 +411,57 @@ def test_advance_tickets_are_excluded(fares):
     assert prices(connection, directory) == {"BBB": 1510}
 
 
+def test_advance_only_returns_advances_instead_of_walk_ups(fares):
+    """Three states, not two: walk-up only, both, or Advance alone.
+
+    `include_advance` *adds* Advance prices to the walk-ups, which answers "what
+    is the cheapest fare". A caller asking "what is the cheapest Advance" needs
+    the walk-ups gone rather than outranked - otherwise every destination where
+    a walk-up happens to be cheaper reports the walk-up, and the answer silently
+    stops being about Advances at all.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1510), fare(1, "DG0", 900)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("DG0", "ADVANCE")],
+        advance=["DG0"],
+    )
+
+    walk_up = fare_options(connection, directory, "AAA", TRAVEL)
+    both = fare_options(connection, directory, "AAA", TRAVEL, include_advance=True)
+    only = fare_options(connection, directory, "AAA", TRAVEL, advance_only=True)
+
+    assert [(r[1], r[3]) for r in walk_up] == [("SDS", 1510)]
+    assert [(r[1], r[3]) for r in both] == [("DG0", 900), ("SDS", 1510)]
+    assert [(r[1], r[3]) for r in only] == [("DG0", 900)]
+    assert all(row[4] for row in only), "advance_only returned a walk-up fare"
+
+
+def test_advance_only_shows_an_advance_a_walk_up_would_have_masked(fares):
+    """One row per *distinct price*, so a walk-up at the same price as an Advance
+    absorbs it - the cheapest-named ticket stands for the group.
+
+    That is right when the question is "what does this cost" and wrong when it
+    is "what is the cheapest Advance": the Advance exists, at that price, and
+    reporting nothing would be a lie of omission. Four real destinations from
+    York are in exactly this position.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "CDS", 900), fare(1, "DG0", 900)],
+        tickets=[ticket("CDS", "OFF-PEAK DAY S"), ticket("DG0", "ADVANCE")],
+        advance=["DG0"],
+    )
+
+    both = fare_options(connection, directory, "AAA", TRAVEL, include_advance=True)
+    only = fare_options(connection, directory, "AAA", TRAVEL, advance_only=True)
+
+    # The walk-up wins the tie and the Advance is not reported at all...
+    assert [(r[1], r[3], r[4]) for r in both] == [("CDS", 900, False)]
+    # ...but it is there, and asking for Advances finds it.
+    assert [(r[1], r[3], r[4]) for r in only] == [("DG0", 900, True)]
+
+
 def test_a_plusbus_zone_is_never_a_destination(fares):
     """A PlusBus zone is an add-on to a journey, not a place you travel to.
 
