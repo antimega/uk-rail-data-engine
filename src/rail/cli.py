@@ -802,6 +802,139 @@ def railcards(
 
 
 @app.command()
+def tickets(
+    search: str = typer.Argument(
+        "", help="Filter by ticket code, description or class, e.g. 'advance'."),
+    review_only: bool = typer.Option(
+        False, "--review",
+        help="Show only what is new or has changed class since the register, "
+             "and exit 1 if anything unreviewed is already carrying fares."),
+    accept_all: bool = typer.Option(
+        False, "--accept",
+        help="Record the current classification as reviewed. Do this after "
+             "checking the answers, not instead of it - it is a commit."),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Rows to show; 0 or unset for all."),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Every ticket type, the class it is in, and what has changed since.
+
+    Three classes, and each is used by something different:
+
+    \b
+      walk-up            what `rail reachable` prices by default
+      advance            what `--advance` adds and `advance_only` prices alone
+      not-a-real-advance sold, but not as an Advance anyone can buy
+      rejected           not a fare to somewhere; `reason` says why
+
+    **A new generation brings new ticket types, and a misclassified one is
+    silent** - it lands in the wrong class and wins, the wrong class being
+    nearly always the cheaper one. `--review` is the prompt to look.
+    """
+    import duckdb
+
+    from .acquire import Feed, SnapshotStore
+    from .model import review_tickets, accept_tickets, snapshot_parquet_dir
+
+    config = load_config()
+    if not config.db_path.exists():
+        console.print("[red]No database yet - run `rail build`.[/red]")
+        raise typer.Exit(1)
+
+    manifest = SnapshotStore(config.raw_dir).latest(Feed.FARES)
+    snapshot = manifest.filename.rsplit(".", 1)[0] if manifest else ""
+    connection = duckdb.connect(str(config.db_path), read_only=True)
+    result = review_tickets(
+        connection, snapshot_parquet_dir(config, Feed.FARES), snapshot=snapshot)
+    connection.close()
+
+    if accept_all:
+        from .model import REGISTER
+
+        written = accept_tickets(result)
+        console.print(
+            f"[green]{written:,}[/green] ticket types recorded as reviewed "
+            f"against {snapshot or 'this build'}.")
+        console.print(f"[dim]{REGISTER} - commit it. The diff is the review.[/dim]")
+        return
+
+    unreviewed = set(result.added) | {code for code, _, _ in result.moved}
+    rows = [
+        (code, entry["description"], entry["class"], entry.get("reason", ""),
+         result.fares.get(code, 0), code in unreviewed)
+        for code, entry in result.current.items()
+    ]
+    if review_only:
+        rows = [r for r in rows if r[5]]
+    if search:
+        term = search.upper()
+        rows = [r for r in rows
+                if term in r[0].upper() or term in (r[1] or "").upper()
+                or term in r[2].upper()]
+    # Unreviewed first, then by how much each one could move a price: a code
+    # with no fares cannot be wrong about anything yet.
+    rows.sort(key=lambda r: (not r[5], -r[4], r[0]))
+
+    if as_json:
+        console.print_json(data={
+            "snapshot": snapshot,
+            "added": result.added,
+            "moved": [{"ticket_code": c, "was": w, "now": n}
+                      for c, w, n in result.moved],
+            "withdrawn": result.withdrawn,
+            "tickets": [
+                {"ticket_code": c, "description": d, "class": k,
+                 "reason": reason or None, "fares": n, "unreviewed": new}
+                for c, d, k, reason, n, new in rows
+            ],
+        })
+        raise typer.Exit(1 if review_only and result.carrying_fares() else 0)
+
+    shown = rows[:limit] if limit else rows
+    table = Table("code", "description", "class", "fares", "why", "new")
+    for code, description, kind, reason, fares, is_new in shown:
+        table.add_row(
+            code, description or "-", kind, f"{fares:,}" if fares else "-",
+            reason or "-", "yes" if is_new else "")
+    console.print(table)
+    _shown(len(shown), len(rows), what="ticket types")
+
+    if result.withdrawn:
+        console.print(
+            f"[dim]{len(result.withdrawn):,} the register knows and this "
+            f"generation no longer ships: "
+            f"{', '.join(result.withdrawn[:8])}"
+            + (", …" if len(result.withdrawn) > 8 else "") + "[/dim]")
+    for code, was, now in result.moved[:12]:
+        console.print(
+            f"[yellow]moved[/yellow] {code} "
+            f"{result.current[code]['description']}: {was} -> {now}"
+            + (f"  ({result.fares[code]:,} fares)" if result.fares.get(code) else ""))
+    if len(result.moved) > 12:
+        console.print(f"[dim]… and {len(result.moved) - 12:,} more[/dim]")
+
+    if result.settled:
+        console.print("[green]Nothing new since the register.[/green]")
+        return
+
+    # A code with no fares is a product an operator has registered and not yet
+    # filed prices for; it can wait. One that is already pricing journeys cannot,
+    # and that is the only thing here that sets an exit code.
+    pressing = result.carrying_fares()
+    console.print(
+        f"[dim]{len(result.added):,} new, {len(result.moved):,} changed class. "
+        f"Check them, change the rules in model/fares.py if any is wrong, then "
+        f"`rail tickets --accept`.[/dim]")
+    if pressing:
+        console.print(
+            f"[red]{len(pressing):,} of them already carry fares[/red] "
+            f"[dim]- {', '.join(pressing[:8])}"
+            + (", …" if len(pressing) > 8 else "") + "[/dim]")
+        if review_only:
+            raise typer.Exit(1)
+
+
+@app.command()
 def validate(
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:

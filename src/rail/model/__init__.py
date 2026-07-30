@@ -32,6 +32,13 @@ from .returns import (
     return_windows,
     returnable_on,
 )
+from .tickets import (
+    REGISTER,
+    Review,
+    accept as accept_tickets,
+    classify as classify_tickets,
+    review as review_tickets,
+)
 from .timetable import TimetableCounts, build_timetable
 from .validate import Check, run_checks
 
@@ -75,7 +82,12 @@ __all__ = [
     "may_sell_add_on",
     "zone_for",
     "cheapest_from",
+    "REGISTER",
+    "Review",
+    "accept_tickets",
+    "classify_tickets",
     "fare_options",
+    "review_tickets",
     "run_checks",
     "eligible_railcards",
     "links_for",

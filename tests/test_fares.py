@@ -2555,3 +2555,131 @@ def test_a_dummy_ticket_type_is_not_sellable_at_all(fares):
     assert connection.execute(
         "select reason from fare_reject where ticket_code = 'ILF'"
     ).fetchone() == ("dummy record, the feed says do not use",)
+
+
+# --- reviewing new ticket types ---------------------------------------------
+
+
+def test_the_register_notices_a_new_ticket_type(fares, tmp_path):
+    """**The failure this exists for is silent.** A generation ships a product
+    nobody has seen, it lands in the wrong class, and it wins immediately -
+    because the wrong class is nearly always the cheaper one. `SCR GROUP 05` at
+    80p was the cheapest fare from Glasgow Central to 358 destinations."""
+    from rail.model import review_tickets, accept_tickets
+
+    register = tmp_path / "reviewed.json"
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 7070)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+    )
+    first = review_tickets(connection, directory, path=register)
+    assert first.added == ["SDS"]
+    assert not first.settled
+    accept_tickets(first, path=register)
+    assert review_tickets(connection, directory, path=register).settled
+
+    # The next generation brings one more.
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 7070), fare(1, "NEW", 500)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("NEW", "MYSTERY FARE")],
+    )
+    second = review_tickets(connection, directory, path=register)
+    assert second.added == ["NEW"]
+    assert second.moved == []
+    # And it is already pricing a journey, which is what makes it pressing.
+    assert second.carrying_fares() == ["NEW"]
+
+
+def test_the_register_notices_a_type_changing_class(fares, tmp_path):
+    """A code that quietly moves between classes is the other half. `GTS ANYTIME
+    S` did not arrive new - it was reclassified by a validity record that had
+    always been there, and nothing said so."""
+    from rail.model import review_tickets, accept_tickets
+
+    register = tmp_path / "reviewed.json"
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 7070)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+    )
+    accept_tickets(review_tickets(connection, directory, path=register),
+                   path=register)
+
+    # Same code, now requiring a reservation - so it is an Advance.
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 7070)],
+        tickets=[ticket("SDS", "ANYTIME DAY S", reservation="B")],
+    )
+    moved = review_tickets(connection, directory, path=register)
+    assert moved.added == []
+    assert moved.moved == [("SDS", "walk-up", "advance")]
+
+
+def test_a_withdrawn_type_is_reported_and_not_treated_as_new(fares, tmp_path):
+    """The register outlives the feed, so a code can leave. Worth saying, and
+    worth not confusing with an arrival - a withdrawal cannot misprice
+    anything."""
+    from rail.model import review_tickets, accept_tickets
+
+    register = tmp_path / "reviewed.json"
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 7070), fare(1, "OLD", 100)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("OLD", "GOING AWAY")],
+    )
+    accept_tickets(review_tickets(connection, directory, path=register),
+                   path=register)
+
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 7070)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+    )
+    gone = review_tickets(connection, directory, path=register)
+    assert gone.withdrawn == ["OLD"]
+    assert gone.added == [] and gone.carrying_fares() == []
+
+
+def test_the_register_records_the_class_and_not_an_override(fares, tmp_path):
+    """**The register vouches for a classification; it cannot impose one.**
+    Editing a class here and re-reviewing reports the code as *moved*, which is
+    the whole design: reviewing means agreeing with the rules or changing them,
+    never patching their output in a file nothing explains."""
+    import json
+
+    from rail.model import review_tickets, accept_tickets
+
+    register = tmp_path / "reviewed.json"
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 7070)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+    )
+    accept_tickets(review_tickets(connection, directory, path=register),
+                   path=register)
+
+    written = json.loads(register.read_text())
+    written["tickets"]["SDS"]["class"] = "advance"
+    register.write_text(json.dumps(written))
+
+    after = review_tickets(connection, directory, path=register)
+    assert after.moved == [("SDS", "advance", "walk-up")]
+
+
+def test_the_shipped_register_covers_every_type_the_rules_produce():
+    """The checked-in register, against the classes the code can emit. A class
+    renamed in `tickets.py` and not in the file would make every ticket read as
+    having moved, which is a rewrite pretending to be a review."""
+    import json
+
+    from rail.model import REGISTER
+    from rail.model.tickets import ADVANCE, NOT_A_REAL_ADVANCE, REJECTED, WALK_UP
+
+    shipped = json.loads(REGISTER.read_text(encoding="utf-8"))
+    classes = {entry["class"] for entry in shipped["tickets"].values()}
+    assert classes <= {WALK_UP, ADVANCE, NOT_A_REAL_ADVANCE, REJECTED}
+    assert shipped["snapshot"], "the register should say what it was reviewed against"
+    assert len(shipped["tickets"]) > 3000

@@ -51,6 +51,7 @@ does with caveats, and what it cannot do at all.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | how it works, for a reader of the code |
 | [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md) | every source, its licence, and the attribution you must use |
 | [docs/INTERPRETING-THE-FEEDS.md](docs/INTERPRETING-THE-FEEDS.md) | the readings chosen where the formats are ambiguous |
+| [docs/TICKET-TYPES.md](docs/TICKET-TYPES.md) | all 3,425 ticket types, how each is classified, and what uses the answer |
 
 ## Rules of use
 
@@ -122,7 +123,8 @@ than a convenience.
 | `rail refresh` | All three, rebuilding only when something was downloaded. Written for scheduled runs. `--force`, `--rebuild`, `--horizon`. |
 | `rail status` | Snapshot ages, the dates the timetable covers, and how close the portal account is to expiring. |
 | `rail snapshots` | Every stored snapshot, with its checksum and when it arrived. |
-| `rail validate` | 70 data-quality checks. Exit code 1 on any failure, so it works in a pipeline. `--json`. |
+| `rail validate` | 76 data-quality checks. Exit code 1 on any failure, so it works in a pipeline. `--json`. |
+| `rail tickets [search]` | Every ticket type, the class it is in and why. `--review` for what is new or has changed class since the last generation, `--accept` to record it. See [docs/TICKET-TYPES.md](docs/TICKET-TYPES.md). |
 
 Two optional position sources, each under its own licence:
 

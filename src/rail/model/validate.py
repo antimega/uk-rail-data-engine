@@ -313,6 +313,26 @@ def run_checks(
         "ok" if not overlap else "fail",
         "clean" if not overlap else f"{overlap} contradictory rows")
 
+    # Ticket types nobody has looked at since the last generation.
+    #
+    # **A warn, not a fail**, and the distinction matters here more than
+    # anywhere else in this file. A new generation legitimately ships new
+    # products, so failing would stop the scheduled refresh on an ordinary
+    # Tuesday; but a new product lands in the *wrong* class silently and
+    # immediately wins, the wrong class being nearly always the cheaper one.
+    # `rail tickets --review` is where it gets acted on, and that exits 1.
+    #
+    # Only the ones already carrying fares are counted. A code an operator has
+    # registered without filing prices cannot be wrong about anything yet.
+    from .tickets import review as review_tickets
+
+    unreviewed = review_tickets(connection, fares_dir).carrying_fares()
+    add("fares", "no unreviewed ticket type is already pricing journeys",
+        "ok" if not unreviewed else "warn",
+        "none" if not unreviewed
+        else f"{len(unreviewed)}: {', '.join(unreviewed[:8])}"
+             " - run `rail tickets --review`")
+
     # A PlusBus zone is an add-on to a journey, not a place you can travel to.
     # The original note recorded that they carry no CRS and so could never be
     # named as a destination - true when written, and the feed generation valid

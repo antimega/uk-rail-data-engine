@@ -73,7 +73,7 @@ Check it worked:
 uv run rail validate
 ```
 
-70 checks, and it exits non-zero if any fails. If this is green, the parse is
+76 checks, and it exits non-zero if any fails. If this is green, the parse is
 sound.
 
 ---

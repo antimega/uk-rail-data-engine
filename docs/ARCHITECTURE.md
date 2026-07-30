@@ -271,7 +271,7 @@ isolates the arithmetic from every other disagreement in the stack.
 
 ## Validation
 
-`model/validate.py`, run by `rail validate`. 70 checks in five categories, exit
+`model/validate.py`, run by `rail validate`. 76 checks in five categories, exit
 code 1 on any failure.
 
 The bands are deliberately loose: they exist to catch a broken pipeline, not to

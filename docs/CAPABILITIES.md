@@ -78,7 +78,7 @@ cannot be sold when both ends sit in the same zone.
 interchanges, ferry piers and metro stops alongside national rail stations, and
 the timetable can tell them apart better than any supplied flag.
 
-**Data quality.** `rail validate` - 70 checks, exit code 1 on any failure. The
+**Data quality.** `rail validate` - 76 checks, exit code 1 on any failure. The
 ones that matter most are the ones that would catch a drifted parse: every stop
 location resolving to a known code, every fare to a known ticket type, no
 journey running backwards in time, a weekday busier than a Sunday.

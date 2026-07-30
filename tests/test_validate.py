@@ -165,6 +165,10 @@ def world(tmp_path):
             t(crs, mode, atoc_code, calls)""")
         c.execute("create table reference_reject as select * from (values ('x','y','a reason')) t(source, key, reason)")
         c.execute("create table fare_reject as select * from (values ('ZZZ','desc','a reason')) t(ticket_code, description, reason)")
+        # Why an Advance-classified type is not a *real* Advance. Empty here:
+        # the fixture's one Advance is an ordinary `ADVANCE`.
+        c.execute("create table advance_reject (ticket_code varchar, "
+                  "description varchar, reason varchar)")
         c.execute("create table railcard_discount as select * from (values ('YNG', 334)) t(railcard_code, discount_percentage)")
 
         # A fortnight of service, busier on weekdays than at the weekend.
