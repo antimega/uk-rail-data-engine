@@ -29,6 +29,23 @@ app = typer.Typer(
 console = Console()
 
 
+#: Tables show everything by default. `--limit` is for when you want less, and
+#: the notice below fires only when it has actually held something back - a
+#: truncated table with no marker reads as the whole answer, which is how you
+#: conclude a station is unreachable when it was row 21.
+SHOW_EVERYTHING = 0
+
+
+def _shown(displayed: int, total: int, *, what: str = "rows") -> None:
+    """Say so when a table is only part of the answer."""
+    if displayed >= total:
+        return
+    console.print(
+        f"[yellow]Showing {displayed:,} of {total:,} {what}.[/yellow]"
+        " [dim]Omit --limit for all of them.[/dim]"
+    )
+
+
 def _store() -> SnapshotStore:
     return SnapshotStore(load_config().raw_dir)
 
@@ -243,7 +260,9 @@ def build(
 @app.command()
 def stations(
     search: str = typer.Argument("", help="CRS code or part of a station name."),
-    limit: int = typer.Option(20, "--limit"),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Rows to show; 0 or unset for all."
+    ),
 ) -> None:
     """Look up stations in the crosswalk."""
     import duckdb
@@ -262,9 +281,8 @@ def stations(
         from station s left join station_nlc n using (crs)
         where upper(s.crs) = upper($term) or s.name ilike '%' || $term || '%'
         order by (upper(s.crs) = upper($term)) desc, s.name
-        limit $limit
         """,
-        {"term": search, "limit": limit},
+        {"term": search},
     ).fetchall()
     connection.close()
 
@@ -272,9 +290,10 @@ def stations(
         console.print(f"[yellow]Nothing matching {search!r}.[/yellow]")
         return
 
+    shown = rows[:limit] if limit else rows
     table = Table("crs", "name", "nlc", "fare group", "interchange", "tiplocs",
                   "kind")
-    for crs, name, nlc, group, interchange, tiploc_count, kind, is_rail in rows:
+    for crs, name, nlc, group, interchange, tiploc_count, kind, is_rail in shown:
         # MSN mixes bus stops, ferry piers and Metro stations in with stations.
         # `kind` comes from what actually calls there; RSPS5052's own answer is
         # noted only where the two differ, which is how new stations show up.
@@ -286,6 +305,7 @@ def stations(
             f"{interchange} min" if interchange else "-", str(tiploc_count), label,
         )
     console.print(table)
+    _shown(len(shown), len(rows), what="matches")
 
 
 @app.command(name="journey-times")
@@ -299,7 +319,9 @@ def journey_times(
     ),
     until: str = typer.Option("20:00", "--until", help="Last departure when profiling."),
     step: int = typer.Option(30, "--step", help="Profile interval in minutes."),
-    limit: int = typer.Option(20, "--limit", help="Rows to show; 0 for all."),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Rows to show; 0 or unset for all."
+    ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """Journey time from one station to every other station on a date."""
@@ -376,10 +398,12 @@ def journey_times(
     # `elapsed` includes the wait for the first train, so the two differ by
     # however long you stood on the platform - which is worth seeing, not hiding.
     table = Table("crs", "station", "journey", "arrive", "elapsed")
-    for crs, name, journey, arrival, elapsed in rows[: limit or len(rows)]:
+    shown = rows[:limit] if limit else rows
+    for crs, name, journey, arrival, elapsed in shown:
         table.add_row(crs, name, hm(journey),
                       _fmt(arrival) if arrival is not None else "-", hm(elapsed))
     console.print(table)
+    _shown(len(shown), len(rows), what="stations")
     if profile:
         console.print("[dim]Journey time is the shortest across the window. "
                       "There is no single arrival or elapsed time for a "
@@ -424,7 +448,9 @@ def reachable(
              "availability, so they are not necessarily bookable.",
     ),
     first_class: bool = typer.Option(False, "--first-class"),
-    limit: int = typer.Option(30, "--limit", help="Rows to show; 0 for all."),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Rows to show; 0 or unset for all."
+    ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """Stations reachable from an origin within a fare ceiling.
@@ -639,9 +665,8 @@ def reachable(
     if plusbus:
         columns.insert(3, "of which bus")
     table = Table(*columns)
-    for crs, ticket, pence, minutes, is_advance, beaten, add_on, tkt_type in rows[
-        : limit or len(rows)
-    ]:
+    shown = rows[:limit] if limit else rows
+    for crs, ticket, pence, minutes, is_advance, beaten, add_on, tkt_type in shown:
         cells = [crs, network.names[network.index[crs]], f"£{pence / 100:,.2f}"]
         if plusbus:
             cells.append(f"£{add_on / 100:,.2f}" if add_on else "-")
@@ -662,6 +687,7 @@ def reachable(
             f"[/yellow]" if beaten else "",
         )
     console.print(table)
+    _shown(len(shown), len(rows), what="priced destinations")
     if back_on is not None:
         console.print(
             f"[dim]Returns are limited to those valid for a journey back on "
@@ -730,6 +756,9 @@ def railcards(
     all_codes: bool = typer.Option(
         False, "--all", help="Include internal TOC codes, not just public railcards."
     ),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Rows to show; 0 or unset for all."
+    ),
 ) -> None:
     """Railcards a party of this shape can use."""
     import duckdb
@@ -755,13 +784,15 @@ def railcards(
             if term in (r[0] or "").upper() or term in (r[1] or "").upper()
         ]
 
+    shown = rows[:limit] if limit else rows
     table = Table("code", "railcard", "max discount")
-    for code, description in rows:
+    for code, description in shown:
         per_mille = discounts.get(code)
         table.add_row(
             code, description or "-", f"{per_mille / 10:.1f}%" if per_mille else "-"
         )
     console.print(table)
+    _shown(len(shown), len(rows), what="railcards")
     console.print(
         f"[dim]{len(rows)} for {adults} adult(s), {children} child(ren). "
         "The list includes corporate and delegate schemes, which RSP models as "
@@ -918,9 +949,12 @@ def status() -> None:
 def restrictions(
     code: str = typer.Argument(..., help="Two-character restriction code, e.g. 0W."),
     date: str = typer.Option("", "--date", help="Travel date, YYYY-MM-DD."),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Bands to show; 0 or unset for all."
+    ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Explain a restriction code: what it is called and when it bites.
+    """Explain a restriction code: what it is called and when it applies.
 
     A restriction names time bands during which the fare may *not* be used, so
     every line below is a bar, not a permission.
@@ -973,8 +1007,10 @@ def restrictions(
     if detail["change_allowed"] is False:
         console.print("  [yellow]A change of trains is not allowed.[/yellow]")
 
+    bands = detail["bands"]
+    shown = bands[:limit] if limit else bands
     table = Table("leg", "effect", "when", "days", "dates")
-    for band in detail["bands"]:
+    for band in shown:
         where = (f"{band.sense and _SENSE_WORD.get(band.sense, band.sense)} "
                  f"{band.location}" if band.location else "any station")
         table.add_row(
@@ -986,6 +1022,7 @@ def restrictions(
             "; ".join(band.dates) or "[yellow]no dates - never applies[/yellow]",
         )
     console.print(table)
+    _shown(len(shown), len(bands), what="bands")
     console.print(
         "[dim]Only bands at the journey's own origin and destination are "
         "applied when pricing; one naming an intermediate station needs the "
@@ -1011,6 +1048,9 @@ def fares(
     first_class: bool = typer.Option(False, "--first-class", help="First class only."),
     plusbus: bool = typer.Option(
         False, "--plusbus", help="Also show the PlusBus add-on at either end."
+    ),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Fares to show; 0 or unset for all."
     ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -1153,8 +1193,9 @@ def fares(
         + (f", back on {back_on}" if back_on else "")
         + (f", discounted with {railcard.upper()}" if railcard else "")
     )
+    shown = rows[:limit] if limit else rows
     table = Table("fare", "ticket", "class", "type", "route", "when it may be used")
-    for row in rows:
+    for row in shown:
         # The three things that decide whether you may use it: the route it is
         # priced on, the times it is barred, and how long it lasts.
         validity = row["restriction_description"] or "no time restriction"
@@ -1181,6 +1222,7 @@ def fares(
             validity,
         )
     console.print(table)
+    _shown(len(shown), len(rows), what="fares")
     if withdrawn:
         console.print(
             f"[yellow]{withdrawn} return fare{'s' if withdrawn > 1 else ''} "
@@ -1234,6 +1276,9 @@ def routings(
     origin: str = typer.Option(..., "--from", help="Origin CRS code, e.g. YRK."),
     destination: str = typer.Option(..., "--to", help="Destination CRS code."),
     date: str = typer.Option("", "--date", help="Date, for easements in force."),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Routings to show; 0 or unset for all."
+    ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """Every routing the National Routeing Guide permits between two stations.
@@ -1307,8 +1352,9 @@ def routings(
         f" [dim](routeing points {', '.join(guide.points_for(origin.upper()))} → "
         f"{', '.join(guide.points_for(destination.upper()))})[/dim]"
     )
+    shown = found[:limit] if limit else found
     table = Table("maps", "via")
-    for routing in found:
+    for routing in shown:
         if routing.via_london:
             way = ("[yellow]London[/yellow] - validated as two halves with a "
                    "transfer between, so no single path applies")
@@ -1318,6 +1364,7 @@ def routings(
             way = "[dim]the chain does not join these points[/dim]"
         table.add_row(" → ".join(routing.maps), way)
     console.print(table)
+    _shown(len(shown), len(found), what="routings")
     console.print(
         "[dim]Each row is a chain of the guide's maps; the stations are the "
         "shortest walk across it, not the only one. A train may pass through a "
@@ -1822,7 +1869,9 @@ def distance(
         False, "--least-direct",
         help="Sweeping: rank by how far the rail route exceeds the straight line.",
     ),
-    limit: int = typer.Option(20, "--limit", help="Rows to show; 0 for all."),
+    limit: int = typer.Option(
+        SHOW_EVERYTHING, "--limit", help="Rows to show; 0 or unset for all."
+    ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """How far it is by rail, and as the crow flies.
@@ -1952,7 +2001,10 @@ def distance(
                 {"crs": crs, "name": name, "rail_miles": round(rail, 2),
                  "crow_flies_miles": None if straight is None else round(straight, 2),
                  "directness": None if d is None else round(d, 3)}
-                for crs, name, rail, straight, d in rows[: limit or len(rows)]
+                # Not sliced by `--limit`: that flag is about how much fits on
+                # a screen, and a machine-readable answer that silently stops at
+                # row 20 is a trap rather than a convenience.
+                for crs, name, rail, straight, d in rows
             ],
         }, indent=2))
         return
@@ -1961,11 +2013,13 @@ def distance(
         f"[bold]{names.get(a, a)}[/bold] - {len(rows):,} stations reachable by "
         f"rail" + (", least direct first" if least_direct else ", nearest first"))
     table = Table("crs", "station", "rail miles", "straight", "×")
-    for crs, name, rail, straight, d in rows[: limit or len(rows)]:
+    shown = rows[:limit] if limit else rows
+    for crs, name, rail, straight, d in shown:
         table.add_row(crs, name[:30], f"{rail:,.2f}",
                       "-" if straight is None else f"{straight:,.2f}",
                       "-" if d is None else f"{d:.2f}")
     console.print(table)
+    _shown(len(shown), len(rows), what="stations")
     console.print(
         "[dim]Rail miles are RGD station links, which is what the routeing "
         "guide's shortest-route rules use. Straight-line distance is from grid "

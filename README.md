@@ -99,6 +99,19 @@ Stations are CRS codes throughout - `rail stations york` finds them. Dates are
 `YYYY-MM-DD` and must fall inside the horizon you built, which `rail status`
 reports.
 
+**Tables print every row by default.** `--limit N` is there for when you want
+less, and a limited table says what it held back:
+
+```
+Showing 20 of 2,901 stations. Omit --limit for all of them.
+```
+
+That notice is the point of the flag being opt-in. A table that silently stops
+at row 20 reads as the whole answer, which is how you conclude a station is
+unreachable when it was simply row 21. `--json` is never limited, on any
+command - a machine-readable answer that quietly truncates is a trap rather
+than a convenience.
+
 ### Getting and keeping the data
 
 | command | what it does |
