@@ -1,4 +1,4 @@
-# Ticket types: what the feed ships, how it is classified, and what uses it
+# Ticket types: what the feed ships, how it is classified, and what prices it
 
 The fares feed carries **3,425 current ticket types** and has no field saying
 which of them is a fare a member of the public can buy for a journey. It ships
@@ -7,7 +7,8 @@ railcard-shaped age conditions, dummy records and things described `FOR TEST USE
 ONLY`, all in the same table as `SDS ANYTIME DAY S`.
 
 So the classification is a set of rules over the feed's own labels, and this
-document is what they are, why each exists, and what reads the answer.
+document is what they are, why each exists, and which part of the engine reads
+the answer.
 
 **Everything here is derived from `ticket_type_current`**, built by
 `build_fares_reference` in [`model/fares.py`](../src/rail/model/fares.py). Two
@@ -24,10 +25,10 @@ rail tickets --review           # what is new or has moved since the register
 
 ## The four classes
 
-| class | types | fares | what uses it |
+| class | types | fares | what prices it |
 |---|---|---|---|
-| **walk-up** | 824 | 3,175,645 | `rail reachable`, `rail roundtrip`, `rail stopover`, `rail fares` - and the **Railaway** map |
-| **advance** | 1,437 | 2,828,084 | `--advance` on the CLI, `include_advance` / `advance_only` in the library - and the **Advances** map |
+| **walk-up** | 824 | 3,175,645 | every command by default - `rail reachable`, `rail fares`, `rail roundtrip`, `rail stopover`; `cheapest_from` and `fare_options` with no flag |
+| **advance** | 1,437 | 2,828,084 | `--advance` on the CLI; `include_advance=True` adds it, `advance_only=True` prices it alone |
 | **not-a-real-advance** | 63 | 947 | nothing prices it; see below |
 | **rejected** | 1,101 | 1,213,684 | nothing at all |
 
@@ -38,7 +39,7 @@ belong to products no journey planner should quote.
 ### walk-up - `is_walk_up`
 
 A fare you can turn up and buy. This is the default everywhere, and it is the
-class Railaway maps, because a walk-up price is buyable by definition.
+only class whose prices are buyable by definition.
 
 The biggest families are exactly what you would expect:
 
@@ -108,6 +109,13 @@ validity's `out_description` is one field on a code shared between products.
 The rest is `PSEUDO_ADVANCE_MARKERS` - retailer schemes (`Secret Fare`,
 `Seatfrog SF`, `PARTNER OFFER`, `BOOKING.COM`, `OMIO`, `MEGATRAIN`), rovers
 (`HLAND EX*`, `GREAT SCOT`), and swaps.
+
+**Why the two Advance switches read different columns.** `include_advance`
+*widens* an answer, so it takes the residual: adding a retailer's fare to a list
+of walk-ups over-reports a little, and narrowing it would silently move every
+existing caller. `advance_only` *is* the answer, so it takes the narrow class -
+quoting a Highland Rover or a transfer fee as "the cheapest Advance" would not be
+over-reporting, it would be wrong.
 
 Measured, narrow class against residual, **every price that moves gets dearer
 and none cheaper**:
@@ -296,6 +304,12 @@ beside them and the two reject tables publish those reasons per code, which is
 what makes the classification arguable; an override would move a decision out of
 that record and into a file nothing explains, and it would be the first thing to
 go stale.
+
+**Downstream consumers do not get a vote either.** Anything built on this reads
+`is_walk_up`, `is_real_advance` or `is_advance_fare` and takes the answer; a
+consumer that disagreed would have to argue for a rule change here, which is the
+right place for the argument. Nothing outside this repository is named in these
+rules, and nothing should be.
 
 ### Useful things to check a new code against
 
