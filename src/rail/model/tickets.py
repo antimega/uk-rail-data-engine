@@ -171,6 +171,21 @@ def accept(result: Review, *, path: Path = REGISTER) -> int:
                 "note": ("What each ticket code was classified as when somebody "
                          "last looked. Written by `rail tickets --accept`; see "
                          "rail/model/tickets.py for why this is not an override."),
+                # **The file carries its own attribution**, because it is the
+                # one thing here that is a standalone extract of the feed: 3,425
+                # ticket codes and descriptions, in a format somebody could lift
+                # on its own. The NRE Developer Terms permit publishing the data
+                # and require acknowledgement "wherever the data or anything
+                # derived from it is published", and a JSON file lifted out of a
+                # repository takes the repository's README with it precisely
+                # never. See docs/DATA-SOURCES.md.
+                "source": ("Ticket codes and descriptions from the RDG fares "
+                           "feed. Contains information from National Rail "
+                           "Enquiries, licensed under the NRE Developer Terms "
+                           "and Conditions v3.0 - "
+                           "https://opendata.nationalrail.co.uk/terms. The "
+                           "`class` field is this project's own classification, "
+                           "not part of the feed."),
                 "snapshot": result.snapshot,
                 "tickets": dict(sorted(result.current.items())),
             },
