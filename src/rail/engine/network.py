@@ -201,13 +201,47 @@ order by dep, schedule_id
 """
 
 
+def _discover_timetable_dir() -> Path | None:
+    """The latest ingested timetable snapshot, or None if there is not one.
+
+    Found rather than required, because two things that materially change the
+    answer live in that Parquet rather than in the database: the fixed links
+    (`ALF`/`FLF`) and the operator-specific interchange times (`TSI`). Leaving
+    them out does not fail - it quietly returns a smaller, slower network. From
+    York on a weekday it loses **172 of 2,901 destinations**, and every journey
+    that would have changed between two named operators is mistimed.
+
+    A default that is silently the worse answer is a trap, so the argument is
+    optional and its absence means "work it out", not "do without".
+    """
+    from ..acquire import Feed, SnapshotStore
+    from ..config import load_config
+
+    try:
+        config = load_config()
+        manifest = SnapshotStore(config.raw_dir).latest(Feed.TIMETABLE)
+        if manifest is None:
+            return None
+        path = config.parquet_dir / Feed.TIMETABLE.value / Path(manifest.filename).stem
+        return path if path.exists() else None
+    except Exception:  # noqa: BLE001 - discovery is a convenience, never a failure
+        return None
+
+
 def load_network(
     connection: duckdb.DuckDBPyConnection,
     date: dt.date,
     *,
     timetable_dir: Path | None = None,
 ) -> Network:
-    """Build the connection set for one date."""
+    """Build the connection set for one date.
+
+    `timetable_dir` is discovered when not given - see `_discover_timetable_dir`
+    for why the default must not be the network without fixed links. Pass it
+    explicitly to pin a particular snapshot.
+    """
+    if timetable_dir is None:
+        timetable_dir = _discover_timetable_dir()
     rows = connection.execute(_CONNECTION_SQL, {"date": date}).fetchall()
     if not rows:
         raise RuntimeError(

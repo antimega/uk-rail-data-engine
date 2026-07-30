@@ -248,6 +248,90 @@ whatever the feed contains regardless. Dropping from 90 days to 30 removes about
 During `ingest`, add roughly the uncompressed size of one feed on top,
 transiently.
 
+## Using it as a library
+
+The CLI is one caller of the engine, not a wrapper around it. Everything it does
+is available as ordinary Python, which is the point of `rail.engine` and
+`rail.model` being separate from `rail.cli`.
+
+Add it as a dependency - from a checkout while it moves quickly:
+
+```toml
+[project]
+dependencies = ["uk-rail-data-engine"]
+
+[tool.uv.sources]
+uk-rail-data-engine = { path = "../uk-rail-data-engine", editable = true }
+```
+
+**Point it at one copy of the data.** The engine resolves its own directory by
+walking up from its source, so a checkout beside yours needs no configuration at
+all. `RAIL_DATA_DIR` overrides that, and is the answer when it is installed as a
+wheel rather than editable:
+
+```bash
+export RAIL_DATA_DIR=/path/to/uk-rail-data-engine/data
+```
+
+### A worked example
+
+Real output, from the snapshot this was written against:
+
+```python
+import datetime as dt
+import duckdb
+from rail.acquire import Feed
+from rail.config import load_config
+from rail.engine import earliest_arrival, load_network
+from rail.model import cheapest_from, snapshot_parquet_dir
+
+config = load_config()
+connection = duckdb.connect(str(config.db_path), read_only=True)
+
+network = load_network(connection, dt.date(2026, 8, 4))
+result = earliest_arrival(network, "YRK", 9 * 60)      # minutes after midnight
+
+result.journey_minutes_to("CDF")       # 263
+result.changes_to("CDF")               # 2
+result.operators_to("CDF")             # {'AW', 'XC'}
+result.legs_to("CDF")                  # York->Birmingham->Cheltenham->Cardiff
+result.path_to("CDF")                  # every calling point
+
+fares = cheapest_from(connection, snapshot_parquet_dir(config, Feed.FARES),
+                      "YRK", dt.date(2026, 8, 4))
+# 2,761 destinations priced; King's Cross is £70.70 on G2S OFF-PEAK S
+```
+
+One scan answers every destination at once - `earliest_arrival` returns a
+`ScanResult`, not a single journey - which is why one-to-all questions are cheap
+here and expensive against a journey planner's API.
+
+### What to reach for
+
+| | |
+|---|---|
+| `rail.engine` | `load_network`, `earliest_arrival`, `best_over_window`, and the `ScanResult` those return |
+| `rail.model` | `cheapest_from`, `fare_options`, `RouteingGuide`, `Distances`, `eligible_railcards`, `return_window`, `add_ons_from` |
+| `rail.acquire` | `Feed`, `SnapshotStore`, and `FeedSource` if you are replacing the portal client |
+| `rail.config` | `load_config` |
+
+`rail.model.build_all` is the one build sequence, if you want to drive a rebuild
+yourself rather than shelling out to `rail build`.
+
+### Three things worth knowing before you start
+
+**Open the database read-only.** Many processes can read it at once; a single
+writer locks all of them out. `duckdb.connect(path, read_only=True)`.
+
+**Pin `rail.model.SCHEMA_VERSION` if you write your own SQL.** The tables are as
+much the interface as the Python is, and a renamed column breaks a query with no
+import to catch it and no error until it quietly returns nothing.
+
+**`Journey.minutes` is not a journey time.** It counts from the departure you
+asked about, so it includes waiting for the first train; `journey_minutes_to()`
+counts from the first boarding. Both are deliberate and neither substitutes for
+the other - see "Two clocks" above.
+
 ## Known limits
 
 Stated up front because most cannot be engineered away. The figures are from the

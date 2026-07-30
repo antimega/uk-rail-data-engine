@@ -926,3 +926,35 @@ def test_a_window_keeps_the_shortest_journey_not_the_earliest_arrival():
                             step=60)
 
     assert best == {"B": 60}
+
+
+def test_the_timetable_directory_is_found_when_not_given():
+    """`load_network` without `timetable_dir` must not quietly build a lesser
+    network.
+
+    Two things that change the answer live in that Parquet rather than in the
+    database: the fixed links, and the operator-specific interchange times.
+    Omitting them raises nothing - it returns a network with fewer edges, and
+    from York on a weekday that is **172 of 2,901 destinations** gone, plus every
+    journey changing between two named operators mistimed.
+
+    The obvious library call is `load_network(connection, date)`, so that call
+    has to be the right one. Pinned at the source level because the behaviour
+    needs a built database to exercise, and the failure is a silently smaller
+    answer rather than an error.
+    """
+    import inspect
+
+    from rail.engine import network as network_module
+
+    source = inspect.getsource(network_module.load_network)
+    assert "if timetable_dir is None:" in source
+    assert "_discover_timetable_dir()" in source, (
+        "load_network must find the timetable directory when it is not given"
+    )
+
+    # And the discovery itself must never raise: it is a convenience, and a
+    # caller with no ingested snapshot should still get a database-only network.
+    assert network_module._discover_timetable_dir.__doc__
+    discovery = inspect.getsource(network_module._discover_timetable_dir)
+    assert "except Exception" in discovery and "return None" in discovery
