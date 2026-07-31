@@ -210,21 +210,27 @@ def kinds_world(*, calls):
     """Stations classified by what calls at them.
 
     `calls` is (crs, train_status, atoc_code) - the two fields that between them
-    say what kind of service it was and who ran it.
+    say what kind of service it was and who ran it - optionally followed by the
+    schedule's source file and train category, which is what tells an operator
+    marker from a place. They default to an ordinary CIF working.
     """
     c = duckdb.connect()
     c.execute("create table station (crs varchar, name varchar)")
     c.execute("create table station_tiploc (crs varchar, tiploc varchar)")
     c.execute("create table train_schedule "
-              "(schedule_id bigint, train_status varchar, atoc_code varchar)")
+              "(schedule_id bigint, train_status varchar, atoc_code varchar, "
+              " source varchar, train_category varchar)")
     c.execute("create table schedule_stop (schedule_id bigint, location varchar, crs varchar)")
     seen = set()
-    for index, (crs, status, toc) in enumerate(calls, start=1):
+    for index, call in enumerate(calls, start=1):
+        crs, status, toc = call[:3]
+        source, category = (call + ("cif", "OO"))[3:5]
         if crs not in seen:
             c.execute("insert into station values (?, ?)", [crs, crs])
             c.execute("insert into station_tiploc values (?, ?)", [crs, crs + "TIP"])
             seen.add(crs)
-        c.execute("insert into train_schedule values (?, ?, ?)", [index, status, toc])
+        c.execute("insert into train_schedule values (?, ?, ?, ?, ?)",
+                  [index, status, toc, source, category])
         c.execute("insert into schedule_stop values (?, ?, ?)", [index, crs + "TIP", crs])
     classify_locations(c)
     return dict(c.execute("select crs, kind from station").fetchall())
@@ -278,7 +284,8 @@ def test_a_location_nothing_calls_at_is_unserved():
     c.execute("insert into station values ('ZZZ', 'NOWHERE')")
     c.execute("create table station_tiploc (crs varchar, tiploc varchar)")
     c.execute("create table train_schedule "
-              "(schedule_id bigint, train_status varchar, atoc_code varchar)")
+              "(schedule_id bigint, train_status varchar, atoc_code varchar, "
+              " source varchar, train_category varchar)")
     c.execute("create table schedule_stop (schedule_id bigint, location varchar, crs varchar)")
 
     classify_locations(c)
@@ -295,8 +302,10 @@ def test_the_evidence_is_kept_not_just_the_verdict():
     c.execute("create table station_tiploc (crs varchar, tiploc varchar)")
     c.execute("insert into station_tiploc values ('AAA', 'AAATIP')")
     c.execute("create table train_schedule "
-              "(schedule_id bigint, train_status varchar, atoc_code varchar)")
-    c.execute("insert into train_schedule values (1, 'P', 'GW'), (2, 'B', 'GW')")
+              "(schedule_id bigint, train_status varchar, atoc_code varchar, "
+              " source varchar, train_category varchar)")
+    c.execute("insert into train_schedule values "
+              "(1, 'P', 'GW', 'cif', 'OO'), (2, 'B', 'GW', 'cif', 'BS')")
     c.execute("create table schedule_stop (schedule_id bigint, location varchar, crs varchar)")
     c.execute("insert into schedule_stop values "
               "(1, 'AAATIP', 'AAA'), (2, 'AAATIP', 'AAA')")
@@ -306,3 +315,60 @@ def test_the_evidence_is_kept_not_just_the_verdict():
     assert sorted(c.execute(
         "select mode, atoc_code, calls from station_service").fetchall()) == [
         ("bus", "GW", 1), ("train", "GW", 1)]
+
+
+def test_an_operator_marker_is_not_a_place():
+    """**MSN carries locations that are not places.** Twelve of them are named
+    for an operator and a direction - `CH ORIGIN`, `EMR DESTINATION`, `SWR
+    ORIGIN`, `TRANSPENNINE DESTINATION` - and they are how a rail-replacement
+    working names an endpoint it does not have. Every one was classified `rail`
+    on two to six calls, and counted among the stations "too new for the
+    RSPS5052 list", which was a claim nothing checked.
+
+    The test is structural, not by name: `ZTR` is the file for the services CIF
+    cannot express, and an unspecified category there is exactly that kind of
+    working."""
+    assert kinds_world(calls=[
+        ("QXO", "P", "XC", "ztr", "XX"),
+        ("AAA", "P", "XC", "cif", "OO"),
+    ]) == {"QXO": "marker", "AAA": "rail"}
+
+
+def test_a_real_station_a_replacement_bus_also_reaches_is_still_a_station():
+    """The rule is "every call is an unspecified ZTR working", not "any". A
+    station a rail-replacement service calls at as well as a train is a station,
+    and the marker locations are the ones with nothing else at all.
+
+    Stratford International is why this matters and why the obvious weaker rule
+    was rejected: it is served *only* by unspecified workings, 4,100 stops of
+    them, as are Elgin, Forres, Nairn and fifteen more real stations. Category
+    alone would take out all of them."""
+    assert kinds_world(calls=[
+        ("BBB", "P", "GW", "ztr", "XX"),
+        ("BBB", "P", "GW", "cif", "XX"),
+    ]) == {"BBB": "rail"}
+    # And an unspecified CIF working on its own is not a marker either: the
+    # source is half the test.
+    assert kinds_world(calls=[("CCC", "P", "GW", "cif", "XX")]) == {"CCC": "rail"}
+
+
+def test_a_marker_keeps_its_evidence():
+    """`station_service` is the evidence behind `kind`, so the rows stay: a
+    reader has to be able to see *why* a location was set aside, and deleting
+    them would leave `marker` an assertion with nothing behind it."""
+    c = duckdb.connect()
+    c.execute("create table station (crs varchar, name varchar)")
+    c.execute("insert into station values ('QXO', 'XC ORIGIN')")
+    c.execute("create table station_tiploc (crs varchar, tiploc varchar)")
+    c.execute("insert into station_tiploc values ('QXO', 'QXOTIP')")
+    c.execute("create table train_schedule "
+              "(schedule_id bigint, train_status varchar, atoc_code varchar, "
+              " source varchar, train_category varchar)")
+    c.execute("insert into train_schedule values (1, 'P', 'XC', 'ztr', 'XX')")
+    c.execute("create table schedule_stop (schedule_id bigint, location varchar, crs varchar)")
+    c.execute("insert into schedule_stop values (1, 'QXOTIP', 'QXO')")
+    classify_locations(c)
+    assert c.execute("select kind from station").fetchone() == ("marker",)
+    assert c.execute(
+        "select mode, calls from station_service where crs = 'QXO'"
+    ).fetchone() == ("train", 1)

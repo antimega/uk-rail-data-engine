@@ -420,18 +420,30 @@ def classify_locations(connection: duckdb.DuckDBPyConnection) -> dict[str, int]:
     Requires `train_schedule` and `schedule_stop`, so it runs after the
     timetable is built rather than with the rest of the reference layer.
 
-    **It agrees with RSPS5052 on every station RSPS5052 calls a rail station** -
-    all 2,579 - which is the check worth having, since the two are derived from
-    different files by different means. It then adds **30 more**: stations too
-    new for the supplementary list, among them the whole Northumberland Line
-    (Ashington, Bedlington, Blyth Bebside, Newsham, Seaton Delaval), Cambridge
-    South, Beaulieu Park and the Camp Hill stations.
+    **It agrees with RSPS5052 on every station RSPS5052 calls a rail station**,
+    which is the check worth having, since the two are derived from different
+    files by different means. It then adds some the list does not have, which
+    is the expected direction: a new station reaches the timetable before it
+    reaches the supplementary list. The Northumberland Line (Ashington,
+    Bedlington, Blyth Bebside, Newsham, Seaton Delaval), Cambridge South,
+    Beaulieu Park and the Camp Hill stations are all of that kind.
 
-    Two of those 30 deserve a second look rather than trust: `WPK` Wimbledon
-    Park and `ZPU` East Putney are Underground stations at which South Western
-    Railway trains call on shared track. "A National Rail train stops here" is
-    true of them and "this is a National Rail station" is not, and the timetable
-    cannot tell the difference.
+    **Not all of them are new stations, and this docstring used to say they
+    were.** The additions also hold heritage-railway stations - Wirksworth,
+    Idridgehay and Shottle on the Ecclesbourne Valley, Stanhope, Frosterley and
+    Wolsingham on the Weardale - which are real places that National Rail does
+    not serve, and, until the `marker` rule below, twelve locations that are
+    not places at all. Counting the whole difference as "opened since the list"
+    overstated it. The counts are deliberately no longer written down here:
+    `rail build` prints them and `rail validate` asserts the shape, and a
+    figure in a docstring goes stale as the horizon rolls without anything
+    noticing.
+
+    `WPK` Wimbledon Park and `ZPU` East Putney remain the additions to
+    distrust: Underground stations at which South Western Railway trains call
+    on shared track. "A National Rail train stops here" is true of them and
+    "this is a National Rail station" is not, and the timetable cannot tell the
+    difference.
 
     RSPS5052 §7.1.2 forbids its own station list from affecting journey planning
     or ticket selection. This classification is derived from the timetable
@@ -448,13 +460,43 @@ def classify_locations(connection: duckdb.DuckDBPyConnection) -> dict[str, int]:
         group by 1, 2, 3
     """)
 
-    # Strict precedence: a place a train calls at is a station whatever else
-    # also stops there, and a ferry terminal with a connecting bus is still a
-    # ferry terminal.
+    # Strict precedence: a marker is not a place at all, then a place a train
+    # calls at is a station whatever else also stops there, and a ferry terminal
+    # with a connecting bus is still a ferry terminal.
+    #
+    # **`marker` is the addition, and MSN really does carry these.** Twelve
+    # locations are named `CH ORIGIN`, `EMR DESTINATION`, `SWR ORIGIN`,
+    # `TRANSPENNINE DESTINATION` and so on - an operator and a direction, not a
+    # place. They are how a rail-replacement working says "somewhere on this
+    # operator's network" when it has no fixed endpoint to name, and every one
+    # of them was being classified `rail` on the strength of two to six calls.
+    #
+    # The test is structural rather than by name. `ZTR` is the file for the
+    # services CIF cannot express, and an unspecified category there is exactly
+    # that kind of working: `source = 'ztr' and train_category = 'XX'` covers
+    # 22 schedules reaching **these twelve locations and nothing else**. The two
+    # obvious alternatives both fail - the category alone covers 114,844 CIF
+    # schedules over 1,696 locations, and "served only by an unspecified
+    # working" catches Stratford International with its 4,100 stops, along with
+    # Elgin, Forres, Nairn and fifteen other real stations.
+    #
+    # `station_service` keeps the rows: it is the evidence behind `kind`, and
+    # deleting them would hide why a location was set aside.
     connection.execute(f"""
         create or replace table station_kind as
+        with marker as (
+            select ss.crs
+            from train_schedule sc
+            join schedule_stop ss using (schedule_id)
+            where ss.crs is not null
+            group by ss.crs
+            having count(*) filter (
+                where sc.source = 'ztr' and sc.train_category = 'XX'
+            ) = count(*)
+        )
         select crs,
                case
+                   when crs in (select crs from marker) then 'marker'
                    when count(*) filter (
                        where mode = 'train' and atoc_code not in ({excluded})
                    ) > 0 then 'rail'

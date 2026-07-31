@@ -502,7 +502,32 @@ def run_checks(
     add("integrity", "the timetable agrees a rail station is a rail station",
         "ok" if contradicted == 0 else "fail",
         f"{contradicted:,} contradicted; {extra:,} rail by the timetable and "
-        f"too new for the RSPS5052 list, {vouched:,} of them named by RGX")
+        f"not on the RSPS5052 list, {vouched:,} of them named by RGX")
+
+    # **A location named for an operator and a direction is not a station.**
+    # MSN carries `CH ORIGIN`, `SWR DESTINATION` and ten more like them, which
+    # is how a rail-replacement working names an endpoint it does not have.
+    # Every one was classified `rail` on two to six calls until `marker` was
+    # added, and they were counted among the stations "too new for the RSPS5052
+    # list" - a claim this file printed and nothing checked.
+    #
+    # The outcome is asserted rather than the rule, as elsewhere: a failure
+    # here means one has slipped back into a real class, not that an operator
+    # has invented a new name. Names rather than the ZTR test, deliberately -
+    # two independent signals, and agreement between them is the check.
+    named = connection.execute(
+        "select count(*) from duckdb_columns() where table_name = 'station' "
+        "and column_name = 'name'").fetchone()[0]
+    misnamed = connection.execute("""
+        select count(*) from station
+        where kind not in ('marker', 'unserved')
+          and (name like '% ORIGIN' or name like '% DESTINATION')
+    """).fetchone()[0] if named else 0
+    markers = scalar("select count(*) from station where kind = 'marker'")
+    add("integrity", "no operator marker is classified as a place",
+        "ok" if misnamed == 0 else "fail",
+        f"{markers:,} markers set aside; {misnamed:,} named for an operator "
+        f"and a direction but classified as somewhere you can go")
 
     # A third opinion on the crosswalk, from the routeing feed. The fares NLC
     # is already checked against the timetable's NALCO; RGY states CRS against
