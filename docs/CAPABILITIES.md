@@ -256,6 +256,14 @@ table with its reason. The structural weakness is known: a ticket type appearing
 on a single flow cannot be judged by the statistical tests at all, and that is
 where the errors found so far have been.
 
+**Travelcards are not priced.** A Travelcard's destination in the feed is
+`0035` "LONDON ZONES 1-6", a pseudo-location with no CRS, so it never resolves
+to a station - the same arrangement PlusBus uses, and excluded for the same
+reason: an add-on zone must not become a destination. They are always dearer
+than the fare they contain, so nothing is ever mispriced by their absence; what
+is missing is completeness in `rail fares`, which claims to list every fare for
+a pair. A retailer quoting Penzance to Paddington offers three of them.
+
 **Return-leg restrictions.** Evaluated only by `rail roundtrip`. Judging one
 needs the time you travel back, so a one-to-all sweep cannot do it. `rail
 reachable` filters the outward journey only and says so in its footer.
