@@ -96,19 +96,46 @@ given train on a given date. The relevant field is empty throughout. So these
 are the best *published* price, not a bookable one, and that is why they are
 opt-in rather than on by default.
 
-The library also takes `advance_only`, which returns Advances *instead of*
-walk-ups rather than as well as - for the caller asking what the cheapest
-Advance is rather than what the cheapest fare is. The quota caveat applies with
-more force there: a walk-up price is buyable by definition and an Advance price
-is not, so an answer made only of Advances is made entirely of prices that may
-not be on sale.
+### An Advance is a ladder, not a price
 
-**The two Advance switches read different columns, and the difference is
-deliberate.** A sellable ticket type is `is_walk_up` when none of five
-booked-train signals fires and `is_advance_fare` when any of them does - so the
-second is a *residual*, "sellable and not a walk-up", which is not the same
-thing as "an Advance ticket". `is_real_advance` is the narrower class, and
-`advance_reject` records why each of the 64 exclusions is not one:
+**`fare_options` returns one row per distinct price, cheapest first, and for an
+Advance that list *is* the quota ladder.** York to King's Cross carries eight
+`ADVANCE` ticket codes at eight prices on one flow:
+
+```
+£11.00 · £18.00 · £18.90 · £19.60 · £22.00 · £22.80 · £23.60 · £24.20
+```
+
+`cheapest_from` reduces each group to its head, which is the right answer to
+"what is the cheapest fare" and a poor one to "what will this cost": with no
+quota in the feed, the bottom rung is the rung *least* likely to be on sale. A
+caller quoting a single Advance figure should say it is a floor, and one that
+can show the climb should.
+
+The ladder also shows what a single figure cannot. With a 16-25 Railcard the
+same pair reads £11.00 · £11.95 · £13.05 · £14.65 · £15.15 · £15.70 · £16.10 ·
+£17.00 - **the first rung does not move** while every rung above it drops a
+third, because the railcard is banned on Grand Central's `GD9` and not on the
+rest. A minimum alone would have said the railcard was worthless here.
+
+Sleeper accommodation is the same shape: `CLASSIC SOLO` is eight ticket codes
+sharing one description on the same six flows at £155 through £315, with no
+walk-up fare on the flow at all.
+
+### Two Advance switches, reading different columns
+
+`advance_only` returns Advances *instead of* walk-ups rather than as well as -
+for the caller asking what the cheapest Advance is rather than what the cheapest
+fare is. The quota caveat applies with more force there: a walk-up price is
+buyable by definition and an Advance price is not, so an answer made only of
+Advances is made entirely of prices that may not be on sale.
+
+**The difference between the two switches is deliberate.** A sellable ticket
+type is `is_walk_up` when none of five booked-train signals fires and
+`is_advance_fare` when any of them does - so the second is a *residual*,
+"sellable and not a walk-up", which is not the same thing as "an Advance
+ticket". `is_real_advance` is the narrower class, and `advance_reject` records
+why each of the 64 exclusions is not one:
 
 | excluded | why |
 |---|---|
@@ -134,21 +161,50 @@ York, 92 from Euston (Cardiff £15.00 to £29.00, a `Secret Fare`), 25 from
 Stratford, and 29 from Glasgow Central lose their only Advance because a
 `PARTNER OFFER` was all they had. Inverness does not move at all.
 
-**Sleeper berths stay in.** `CLASSIC SOLO` prices in an eight-rung ladder from
-£155 to £315 on one flow with no walk-up on it at all, which is what an Advance
-quota ladder looks like; a sleeper runs one train a day, so its fares are
-genuinely Advance-shaped whatever their size relative to a seated fare. Two things about Advance prices are worth knowing before relying
-on one:
+**Sleeper berths stay in.** They price far above any seated Advance on the same
+flow - ratios 1.3 to 2.35 - which looks like the signature of a supplement and
+is not, for the ladder reason above. A sleeper runs one train a day, so its
+fares are genuinely Advance-shaped whatever their size.
 
-- **Neither the day nor the departure time changes them.** An Advance
-  restriction says "valid on the booked train", not "not before 09:29", so
-  nothing in the feed varies the price by when you travel. Measured across three
-  days and five departure times from one origin: no difference at all.
-- **Railcards apply, but not all of them.** The standard cards discount an
-  Advance by the usual third; the Network Railcard and the Annual Gold Card
-  discount none of them, which the feed models through its railcard-ban records
-  rather than by omitting the discount. Checking only that a discount exists
-  gets this wrong.
+See [TICKET-TYPES.md](TICKET-TYPES.md) for the whole classification and how to
+review a new generation's ticket types.
+
+### What does and does not move an Advance price
+
+- **Neither the day nor the departure time.** An Advance restriction says "valid
+  on the booked train", not "not before 09:29", so nothing in the feed varies
+  the price by when you travel. Measured across three days and five departure
+  times from one origin: no difference at all. A caller sweeping departures is
+  changing the journey, not the fare.
+- **Railcards do, but not the ones the discount table suggests.** Checking only
+  that a discount *exists* gets this wrong: `railcard_ban` withdraws them,
+  159,322 rows of it by ticket type. Priced from York against every
+  destination -
+
+  ```
+  16-25, 26-30, Senior, Two Together, Family, Disabled, Veterans
+                       2,302 of 2,318 priced destinations, median 33.5% off
+  16-17 Saver          1,992,                              median 50.0% off
+  HM Forces            2,319,                              median 33.5% off
+  Network                  0     Annual Gold Card  0     Devon & Cornwall  0
+  ```
+
+  Network, the Annual Gold Card and Devon & Cornwall all carry 33.4% in the
+  discount table and move **nothing**, the last checked from Penzance where it
+  is geographically valid.
+- **The ordinary railcards are not merely the same percentage, they are the same
+  answer.** Measured against the 16-25 across York, Euston and Glasgow Central,
+  the cheapest price differs on at most **2 destinations of 1,774**, and at
+  Glasgow the vectors are identical. A caller pricing all seven separately is
+  doing seven times the work for a difference nobody can see. **HM Forces is the
+  exception**: same discount, its own bans, and 68 of York's cheapest prices
+  differ - which fits its restriction `R2` carrying a departure ban at `LNE`
+  that the others do not.
+- **A railcard can withdraw a destination entirely.** Where it bans the only
+  Advance published to somewhere - 8 or 9 destinations from York, depending on
+  the card - the priced result simply has no row for it. That is not "no Advance
+  exists"; the adult fare still does, and a caller showing a railcard price
+  should fall back to it rather than report the destination unreachable.
 
 **Railcards.** The discount chain is fully implemented - percentage, minimum
 fares, geography, operator and product bans, non-standard discount add-ons. Two

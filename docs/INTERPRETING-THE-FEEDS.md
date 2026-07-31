@@ -49,6 +49,24 @@ The reason to trust the field over the guess: two products carrying it had
 behavioural test. A structural field and a behavioural one reaching the same
 answer independently is about as much confirmation as this data offers.
 
+**A validity record can contradict itself, and the other signals outvote it.**
+A ticket's validity carries both a description and an outward description, and
+these are two fields rather than one fact. The feed ships a current validity
+code *described* "AS ADVERTISED" whose outward description reads
+`BOOKDTRAINONLY` - so anything on it looks tied to a booked train.
+
+One major operator's Anytime Single sits on that code, with 205 fares, **not one
+carrying a restriction**, and "no reservation required" set on the ticket type
+itself. Three signals, one of them saying booked-train and two saying not.
+
+The reading taken is that the two outvote the one, and the reason is what each
+is a statement *about*: the reservation field and the restriction describe the
+product, while the validity's outward description is one field on a code shared
+between products, written for whichever of them it was drafted around. Taking
+the validity at face value made that Anytime Single an Advance at 0.61 of the
+real Advance on the same flow, where it won as the cheapest "Advance" to two
+destinations. See [TICKET-TYPES.md](TICKET-TYPES.md).
+
 **The suppression marker is obsolete** (RSPS5045 4.4.3, field 11) and carries
 the same value throughout. Whatever a reasonable guess at the name suggests, it
 does nothing.

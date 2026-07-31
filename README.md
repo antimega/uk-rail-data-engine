@@ -304,6 +304,28 @@ fares = cheapest_from(connection, snapshot_parquet_dir(config, Feed.FARES),
 # 2,761 destinations priced; King's Cross is £70.70 on G2S OFF-PEAK S
 ```
 
+Advance fares are opt-in, and there are two ways to ask. `include_advance=True`
+adds them to the walk-ups; `advance_only=True` prices Advances *instead*, for
+the caller asking what the cheapest Advance is rather than what the cheapest
+fare is. They read different columns and
+[docs/CAPABILITIES.md](docs/CAPABILITIES.md) says why.
+
+`fare_options` is the one to reach for when the cheapest is not the whole
+answer. It returns one row per **distinct price**, cheapest first - and for an
+Advance that list is the quota ladder, York to King's Cross being eight codes
+from £11.00 to £24.20 on one flow. With no quota in the feed the bottom rung is
+the one least likely to be on sale, so a single figure is a floor rather than a
+price:
+
+```python
+from rail.model import fare_options
+
+ladder = sorted({row[3] for row in fare_options(
+    connection, snapshot_parquet_dir(config, Feed.FARES),
+    "YRK", dt.date(2026, 8, 4), advance_only=True) if row[0] == "KGX"})
+# [1100, 1800, 1890, 1960, 2200, 2280, 2360, 2420]  - pence, as everywhere here
+```
+
 One scan answers every destination at once - `earliest_arrival` returns a
 `ScanResult`, not a single journey - which is why one-to-all questions are cheap
 here and expensive against a journey planner's API.
@@ -313,7 +335,7 @@ here and expensive against a journey planner's API.
 | | |
 |---|---|
 | `rail.engine` | `load_network`, `earliest_arrival`, `best_over_window`, and the `ScanResult` those return |
-| `rail.model` | `cheapest_from`, `fare_options`, `RouteingGuide`, `Distances`, `eligible_railcards`, `return_window`, `add_ons_from` |
+| `rail.model` | `cheapest_from`, `fare_options`, `RouteingGuide`, `Distances`, `eligible_railcards`, `return_window`, `add_ons_from`, `review_tickets` |
 | `rail.acquire` | `Feed`, `SnapshotStore`, and `FeedSource` if you are replacing the portal client |
 | `rail.config` | `load_config` |
 

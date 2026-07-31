@@ -282,3 +282,13 @@ the parse drifts, which is the failure that is otherwise silent.
 
 Several checks exist because a specific bug got through once, and each of those
 is worth more than its line count.
+
+**One check is a warn rather than a fail, and the distinction is the point.**
+A new fares generation legitimately ships ticket types nobody has seen, so
+failing on one would stop a scheduled refresh on an ordinary Tuesday. But a new
+type lands in the wrong class *silently* and wins immediately, the wrong class
+being nearly always the cheaper one. So `rail validate` warns when an unreviewed
+ticket type is already carrying fares, and `rail tickets --review` - which exits
+1 - is where it gets acted on. `src/rail/reviewed_tickets.json` is the register
+that makes "unreviewed" mean something; see
+[TICKET-TYPES.md](TICKET-TYPES.md).
