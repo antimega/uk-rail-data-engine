@@ -2754,3 +2754,29 @@ def test_a_non_derivable_fare_names_no_operator(fares):
     priced = {row[3]: row[7] for row in fare_options(
         connection, directory, "AAA", TRAVEL, advance_only=True)}
     assert priced == {1100: None}
+
+
+def test_two_routes_at_one_price_are_two_rows_when_asked(fares):
+    """**`fare_options` returns one row per distinct price, and that hides a
+    route.** York to Edinburgh offers £54.80 on both `XC ONLY` and `LNER &
+    CONNECTNS`; the group-by collapsed them and the tie-break named whichever
+    route sorted first, so a caller listing what each route sells lost the
+    other. A retailer lists it under both, which is how it was found.
+
+    501 of the 95,404 route-price pairs from York are hidden this way. The
+    default is unchanged, because collapsing is right for "what is the cheapest
+    fare" and only wrong for "what does this route sell"."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222", route="00024"),
+               flow(2, "1111", "2222", route="00430")],
+        fare_records=[fare(1, "NAA", 5480), fare(2, "NAB", 5480)],
+        tickets=[ticket("NAA", "ADVANCE", reservation="B"),
+                 ticket("NAB", "ADVANCE", reservation="B")],
+    )
+    collapsed = fare_options(connection, directory, "AAA", TRAVEL, advance_only=True)
+    assert len(collapsed) == 1, "one row per distinct price, as before"
+
+    split = fare_options(connection, directory, "AAA", TRAVEL,
+                         advance_only=True, per_route=True)
+    assert sorted(row[5] for row in split) == ["00024", "00430"]
+    assert {row[3] for row in split} == {5480}

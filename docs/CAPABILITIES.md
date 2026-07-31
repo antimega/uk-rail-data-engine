@@ -112,6 +112,14 @@ quota in the feed, the bottom rung is the rung *least* likely to be on sale. A
 caller quoting a single Advance figure should say it is a floor, and one that
 can show the climb should.
 
+**`fare_options` returns one row per distinct price, and `per_route=True` makes
+that per price *per route*.** The default collapses a price offered on two
+routes into one row and the tie-break names whichever route sorts first, which
+is right for "what is the cheapest fare" and wrong for a caller listing what
+each route sells. York to Edinburgh offers £54.80 on both `XC ONLY` and
+`LNER & CONNECTNS`; a retailer lists it under both, and only the second came
+back. 501 of the 95,404 route-price pairs from York are hidden this way, 0.5%.
+
 **And the ladder is often several operators interleaved, not one.** Every fare
 carries the operator that *set* it - RSPS5045's flow record has always had it -
 and `fare_options` now returns it as the eighth field, an ATOC code where the

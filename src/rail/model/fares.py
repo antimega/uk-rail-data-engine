@@ -1444,7 +1444,18 @@ select dest_crs,
        min_by(operator, (ticket_code, route_code)) as operator
 from discounted
 where dest_crs <> $origin and fare is not null
-group by dest_crs, fare
+-- **One row per distinct price, or per price *per route* when asked.**
+--
+-- The default collapses a price offered on two routes into one row, and the
+-- tie-break then names whichever route sorts first. That is right for "what is
+-- the cheapest fare" and wrong for a caller listing what a route sells: York to
+-- Edinburgh offers £54.80 on both `XC ONLY` and `LNER & CONNECTNS`, and only
+-- the second was reported - a retailer lists it under both. 501 of the 95,404
+-- route-price pairs from York are hidden this way, 0.5%.
+--
+-- The `case` is how one statement does both: with `per_route` false it is null
+-- on every row and groups exactly as before.
+group by dest_crs, fare, case when $per_route then route_code end
 order by dest_crs, fare
 """
 
@@ -1545,6 +1556,11 @@ def fare_options(
     modes: dict[str, set[str]] | None = None,
     include_advance: bool = False,
     advance_only: bool = False,
+    #: One row per distinct price *per route* rather than per price. The
+    #: default collapses a price offered on two routes into one row and names
+    #: whichever route sorts first - right for "what is the cheapest fare",
+    #: wrong for a caller listing what each route sells.
+    per_route: bool = False,
     break_of_journey: bool = False,
     break_returning: bool = False,
     return_on: dt.date | None = None,
@@ -1629,6 +1645,7 @@ def fare_options(
                 "railcard": railcard,
                 "include_advance": include_advance,
                 "advance_only": advance_only,
+                "per_route": per_route,
                 "check_routes": bool(paths),
                 "break_of_journey": break_of_journey,
                 "break_returning": break_returning,
