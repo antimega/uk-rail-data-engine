@@ -112,6 +112,31 @@ quota in the feed, the bottom rung is the rung *least* likely to be on sale. A
 caller quoting a single Advance figure should say it is a floor, and one that
 can show the climb should.
 
+**And the ladder is often several operators interleaved, not one.** Every fare
+carries the operator that *set* it - RSPS5045's flow record has always had it -
+and `fare_options` now returns it as the eighth field, an ATOC code where the
+feed's own `TOC_FARE` crossref gives one and the fares id otherwise. York to
+King's Cross reads:
+
+```
+£11.00 GC · £18.00 GC · £18.90 GR · £19.60 GC · £22.00 HT · £22.80 GC ·
+£23.60 GR · £24.20 GC
+```
+
+Grand Central sets five rungs, LNER two, Hull Trains one, and they climb through
+each other. That is not one operator's quota selling out, and reading it as a
+single ladder says something the feed does not.
+
+**A non-derivable fare names no operator** and reports null: NFO states a price
+against a code pair outright and has no such field. Null means "the feed does
+not say", never "no operator", so a caller grouping by operator has to keep it
+apart rather than fold it into a blank.
+
+The operator that set a fare is **not** the same question as whose trains it is
+valid on - that is the route's job, and `--check-routes` enforces it. On an
+Advance the two usually agree, because an Advance is nearly always routed to its
+own operator: `AP GC ONLY`, `LNER ONLY`, `HULLTRS&NORTHERN`.
+
 The ladder also shows what a single figure cannot. With a 16-25 Railcard the
 same pair reads £11.00 · £11.95 · £13.05 · £14.65 · £15.15 · £15.70 · £16.10 ·
 £17.00 - **the first rung does not move** while every rung above it drops a

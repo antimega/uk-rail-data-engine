@@ -35,6 +35,10 @@ FLOW_SCHEMA = pa.schema([
     ("direction", pa.string()),
     # 0 and 2 take the standard discount; 1 and 3 send the discount through FNS.
     ("ns_disc_ind", pa.int64()),
+    # The operator that *set* the fare, which is not the same question as whose
+    # trains it is valid on - that is the route's job. Null in most fixtures,
+    # which is what a feed naming none looks like.
+    ("toc", pa.string()),
     ("start_date", pa.date32()), ("end_date", pa.date32()),
 ])
 FARE_SCHEMA = pa.schema([
@@ -77,10 +81,20 @@ def ticket(code, description, *, kind="S", cls=2, group="S", passengers=1,
 
 
 def flow(flow_id, origin, destination, *, direction="S", start=PAST, end=FOREVER,
-         ns_disc=0):
+         ns_disc=0, route="00000", toc=None):
     return {"flow_id": flow_id, "origin_code": origin, "destination_code": destination,
-            "route_code": "00000", "direction": direction, "ns_disc_ind": ns_disc,
-            "start_date": start, "end_date": end}
+            "route_code": route, "direction": direction, "ns_disc_ind": ns_disc,
+            "toc": toc, "start_date": start, "end_date": end}
+
+
+def nfo(origin, destination, code, pence, *, route="00000", railcard=None):
+    """A non-derivable override, which states a price outright and names no
+    operator - there is no `toc` field on the record at all."""
+    return {"origin_code": origin, "destination_code": destination,
+            "route_code": route, "railcard_code": railcard, "ticket_code": code,
+            "adult_fare": pence, "restriction_code": None,
+            "composite_indicator": "Y", "suppress_mkr": False,
+            "start_date": PAST, "end_date": FOREVER}
 
 
 def fare(flow_id, code, pence, restriction=None):
@@ -100,7 +114,7 @@ def fares(tmp_path):
                london_terminals=(), fns=(), toc_rules=(), validities=(),
                headers=(),
                rounding=((99999997, 5), (99999999, 1)), geography=(),
-               railcard_rules=(), counties=None):
+               railcard_rules=(), counties=None, tocs=()):
         pq.write_table(pa.Table.from_pylist(list(flows), schema=FLOW_SCHEMA),
                        directory / "flow.parquet")
         pq.write_table(pa.Table.from_pylist(list(fare_records), schema=FARE_SCHEMA),
@@ -158,7 +172,7 @@ def fares(tmp_path):
                 schema=pa.schema([("route_code", pa.string()), ("crs_code", pa.string()),
                                   ("nlc_code", pa.string()), ("incl_excl", pa.string())])),
             directory / "route_location.parquet")
-        _write_descriptions(directory, validities, headers)
+        _write_descriptions(directory, validities, headers, tocs)
         _write_routeing(connection, rgk_rules, london_marker, london_terminals,
                         toc_rules)
         _write_restrictions(directory, bands)
@@ -872,10 +886,26 @@ def railcard(code, description, status, *, per_mille, category=1,
              "discount_indicator": "0", "discount_percentage": per_mille})
 
 
-def _write_descriptions(directory, validities=(), headers=()):
+def _write_descriptions(directory, validities=(), headers=(), tocs=()):
     """The tables `fares_between` joins out to for its explanations. Empty is
     fine - every join is a left one, so a fare with no route or validity record
     still appears, just without the words."""
+    # The operator crossref, which `build_fares_reference` turns into
+    # `fare_toc`. Empty in a fixture world: `flow.toc` is null there, so every
+    # fare reports no operator, which is exactly what a feed that named none
+    # would do.
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{"fare_toc_id": fid, "toc_id": atoc, "fare_toc_name": name}
+             for fid, atoc, name in tocs],
+            schema=pa.schema([("fare_toc_id", pa.string()), ("toc_id", pa.string()),
+                              ("fare_toc_name", pa.string())])),
+        directory / "toc_fare.parquet")
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{"toc_id": atoc, "toc_name": name} for _fid, atoc, name in tocs if atoc],
+            schema=pa.schema([("toc_id", pa.string()), ("toc_name", pa.string())])),
+        directory / "toc.parquet")
     for name, schema in (
         ("route", pa.schema([
             ("route_code", pa.string()), ("description", pa.string()),
@@ -2683,3 +2713,44 @@ def test_the_shipped_register_covers_every_type_the_rules_produce():
     assert classes <= {WALK_UP, ADVANCE, NOT_A_REAL_ADVANCE, REJECTED}
     assert shipped["snapshot"], "the register should say what it was reviewed against"
     assert len(shipped["tickets"]) > 3000
+
+
+def test_a_fare_says_which_operator_set_it(fares):
+    """**RSPS5045's flow record has carried this all along and nothing read
+    it.** It surfaced when an Advance ladder turned out to be three operators
+    interleaved rather than one operator's quota selling out: York to King's
+    Cross climbs £11.00 Grand Central, £18.00 Grand Central, £18.90 LNER,
+    £19.60 Grand Central, £22.00 Hull Trains.
+
+    Reported as an ATOC code where `TOC_FARE` gives one, so it can be compared
+    with `ScanResult.operators_to`, and as the feed's own id otherwise - 7 of
+    the 36 ids that price a flow are historic sector codes with no modern
+    equivalent, and their own id is the most honest thing to return."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222", toc="GCR"),
+               flow(2, "1111", "2222", toc="ZZZ", route="00027")],
+        fare_records=[fare(1, "NAA", 1100), fare(2, "NAA", 1890)],
+        tickets=[ticket("NAA", "ADVANCE", reservation="B")],
+        tocs=[("GCR", "GC", "GRAND CENTRAL RAILWAY")],
+    )
+    priced = {row[3]: row[7] for row in fare_options(
+        connection, directory, "AAA", TRAVEL, advance_only=True)}
+    # Mapped to its ATOC code where the crossref has one, its own id otherwise.
+    assert priced == {1100: "GC", 1890: "ZZZ"}
+
+
+def test_a_non_derivable_fare_names_no_operator(fares):
+    """NFO states a price against a code pair outright and has no operator field
+    at all. Null is the honest answer - "the feed does not say", never "no
+    operator" - and a caller grouping by operator has to keep it apart from a
+    named one rather than folding it into a blank."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222", toc="GCR")],
+        fare_records=[fare(1, "NAA", 5000)],
+        tickets=[ticket("NAA", "ADVANCE", reservation="B")],
+        nfo=[nfo("1111", "2222", "NAA", 1100)],
+        tocs=[("GCR", "GC", "GRAND CENTRAL RAILWAY")],
+    )
+    priced = {row[3]: row[7] for row in fare_options(
+        connection, directory, "AAA", TRAVEL, advance_only=True)}
+    assert priced == {1100: None}

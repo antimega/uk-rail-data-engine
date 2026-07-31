@@ -804,6 +804,25 @@ def build_fares_reference(
         where is_advance_fare and not is_real_advance
     """)
 
+    # **Who set a fare**, which the flow record has carried all along and
+    # nothing read. RSPS5045's `TOC` file names 86 operators and `TOC_FARE`
+    # crossrefs the fares feed's own ids to ATOC codes - `GCR` to `GC`, `IEC` to
+    # `GR`, `GWA` to `GW`. That crossref was recorded in these notes as "a
+    # crossref nothing needs", which was true only while nothing asked.
+    #
+    # 29 of the 36 ids that price a flow map through. The other 7 are historic
+    # sector codes with no modern equivalent - `NSE` is Network SouthEast - so
+    # `atoc` is null for them and the pricing SQL falls back to the id.
+    connection.execute(f"""
+        create or replace table fare_toc as
+        select f.fare_toc_id as toc_id,
+               f.toc_id as atoc,
+               coalesce(t.toc_name, f.fare_toc_name) as name
+        from read_parquet('{(fares_dir / "toc_fare.parquet").as_posix()}') f
+        left join read_parquet('{(fares_dir / "toc.parquet").as_posix()}') t
+          on t.toc_id = f.toc_id
+    """)
+
     # Excluded ticket types are recorded, not silently dropped: the feed really
     # does ship products described "FOR TEST USE ONLY" and "NOT FOR TRAVEL".
     connection.execute(f"""
@@ -852,13 +871,19 @@ with origin_codes as (
     select distinct code from fare_alias where crs = $origin
 ),
 flows as (
-    select flow_id, destination_code as other_code, route_code, ns_disc_ind
+    -- `toc` is the operator that *set* the fare (RSPS5045 4.2.2), which is not
+    -- the same question as which operator's trains it is valid on - that is the
+    -- route's job, and `--check-routes` enforces it. On an Advance the two
+    -- usually agree, because an Advance is nearly always routed to its own
+    -- operator: York to King's Cross is priced by Grand Central on route 00406
+    -- `AP GC ONLY`, by LNER on 00027 `LNER ONLY`, and by Hull Trains on 01407.
+    select flow_id, destination_code as other_code, route_code, ns_disc_ind, toc
     from read_parquet($flow_path)
     where origin_code in (select code from origin_codes)
       and $travel_date between start_date and end_date
     union all
     -- "R" means the flow may be used in either direction.
-    select flow_id, origin_code, route_code, ns_disc_ind
+    select flow_id, origin_code, route_code, ns_disc_ind, toc
     from read_parquet($flow_path)
     where direction = 'R'
       and destination_code in (select code from origin_codes)
@@ -866,7 +891,7 @@ flows as (
 ),
 flow_fares as (
     select a.crs as dest_crs, f.other_code, f.route_code, f.ns_disc_ind,
-           r.ticket_code, r.fare, r.restriction_code, 'flow' as source
+           r.ticket_code, r.fare, r.restriction_code, 'flow' as source, f.toc
     from flows f
     join read_parquet($fare_path) r using (flow_id)
     join fare_alias a on a.code = f.other_code
@@ -894,6 +919,12 @@ non_derivable_all as (
            case when n.adult_fare >= {_NO_FARE} then null else n.adult_fare end
                as fare,
            n.restriction_code, 'ndf' as source,
+           -- **A non-derivable fare names no operator, and that is the record
+           -- rather than a gap in the parse.** NFO states a price against a
+           -- code pair directly; there is no `toc` field on it at all. So an
+           -- NFO-sourced fare reports null, which a caller must read as "the
+           -- feed does not say" and never as "no operator".
+           null::varchar as toc,
            n.railcard_code is not null as is_railcard_fare
     from read_parquet($ndf_path) n
     join fare_alias a on a.code = n.destination_code
@@ -926,7 +957,7 @@ combined as (
     )
 ),
 sellable as (
-    select c.dest_crs, c.other_code, c.ns_disc_ind,
+    select c.dest_crs, c.other_code, c.ns_disc_ind, c.toc,
            c.ticket_code, c.fare, c.route_code, c.restriction_code,
            t.description, t.tkt_type, t.tkt_class, t.validity_code,
            t.discount_category, c.is_railcard_fare, t.is_advance_fare,
@@ -1324,10 +1355,15 @@ priced as (
      and coalesce(n.route_code, '') = coalesce(s.route_code, '')
 ),
 discounted as (
-    select p.dest_crs, p.ticket_code, p.description, p.route_code,
+    select p.dest_crs, p.ticket_code, p.description, p.route_code, p.toc,
            p.other_code, p.ns_disc_ind,
            p.restriction_code, p.tkt_type, p.tkt_class, p.validity_code,
            p.is_advance_fare, p.fare as undiscounted,
+           -- The ATOC code where `fare_toc` has one, the fares feed's own id
+           -- otherwise. 29 of the 36 operators that price a flow map through;
+           -- the 7 that do not are historic sector codes with no modern
+           -- equivalent, and their own id is the most honest thing to return.
+           coalesce(ft.atoc, p.toc) as operator,
            case
                -- No railcard, or a fare already stated for this railcard.
                when $railcard is null or p.is_railcard_fare then p.fare
@@ -1359,6 +1395,7 @@ discounted as (
                )
            end::bigint as fare
     from priced p
+    left join fare_toc ft on ft.toc_id = p.toc
     -- The first band whose ceiling the discounted fare reaches. Rule 01 is
     -- 5p throughout so this is uniform today, but a banded rule would show
     -- itself on a large fare.
@@ -1394,7 +1431,17 @@ select dest_crs,
        -- TTY field 9: 'S' single, 'R' return, 'N' season. A return sometimes
        -- undercuts two singles and wins here, so the caller has to be able to
        -- say what it quoted.
-       min_by(tkt_type, (ticket_code, route_code)) as tkt_type
+       min_by(tkt_type, (ticket_code, route_code)) as tkt_type,
+       -- **Who set this fare**, as an ATOC code where the feed's own crossref
+       -- gives one and its internal id otherwise. RSPS5045's flow record
+       -- carries it and nothing here read it until an Advance ladder turned out
+       -- to be three operators interleaved: York to King's Cross climbs £11.00
+       -- Grand Central, £18.00 Grand Central, £18.90 LNER, £19.60 Grand
+       -- Central, £22.00 Hull Trains - which is not one operator's quota
+       -- selling out, and reads as though it were.
+       --
+       -- Null on a non-derivable fare, which names no operator at all.
+       min_by(operator, (ticket_code, route_code)) as operator
 from discounted
 where dest_crs <> $origin and fare is not null
 group by dest_crs, fare
@@ -1505,7 +1552,7 @@ def fare_options(
     return_arrival_minutes: int | None = None,
     changes: dict[str, int] | None = None,
     calls: dict[str, list[tuple[str, int, int, bool]]] | None = None,
-) -> list[tuple[str, str, str, int, bool, str | None, str]]:
+) -> list[tuple[str, str, str, int, bool, str | None, str, str | None]]:
     """Every price each reachable station can be reached at, cheapest first.
 
     Returns (destination CRS, ticket code, description, pence, is_advance,
@@ -1616,7 +1663,7 @@ def cheapest_from(
     origin: str,
     travel_date: dt.date,
     **options,
-) -> list[tuple[str, str, str, int, bool, str | None, str]]:
+) -> list[tuple[str, str, str, int, bool, str | None, str, str | None]]:
     """The single cheapest fare to each reachable station, cheapest first.
 
     The same arguments as :func:`fare_options`, reduced to one row per
