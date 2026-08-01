@@ -2780,3 +2780,32 @@ def test_two_routes_at_one_price_are_two_rows_when_asked(fares):
                          advance_only=True, per_route=True)
     assert sorted(row[5] for row in split) == ["00024", "00430"]
     assert {row[3] for row in split} == {5480}
+
+
+def test_fare_options_says_which_restriction_governs_a_fare(fares):
+    """**Null is the useful value.** A fare with no restriction code is usable
+    on any train, which is what an Anytime ticket is - and a caller comparing
+    against a booked-train Advance has to be able to name it.
+
+    Inferring it instead - "the fare that survives a peak departure" - answers a
+    different question: a peak-valid fare can still be restricted in other ways.
+
+    It is appended rather than put beside `tkt_type` where it belongs by
+    meaning, because every consumer reads this tuple positionally and inserting
+    would shift `operator` by one. An operator code read as a restriction is the
+    kind of wrong that still looks like a string."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1510, restriction="1A"),
+                      fare(1, "SOS", 2010)],
+        tickets=[ticket("SDS", "OFF-PEAK DAY S"), ticket("SOS", "ANYTIME S")],
+    )
+    rows = fare_options(connection, directory, "AAA", TRAVEL)
+    assert rows, "the fixture prices nothing"
+    # The dearer one carries no restriction, which is what makes it the
+    # anytime fare - and the cheaper one names the restriction that governs it.
+    assert {row[1]: row[8] for row in rows} == {"SDS": "1A", "SOS": None}
+    assert all(len(row) == 9 for row in rows)
+    # The operator has not moved: it is still the eighth.
+    assert all(row[7] is None or isinstance(row[7], str) for row in rows)
+    assert all(row[8] is None or isinstance(row[8], str) for row in rows)

@@ -397,6 +397,11 @@ STANDARD_CLASS = 2
 #: validity record, because validity codes are shared between the two.
 RETURN_TYPE = "R"
 
+#: The other value that names a journey rather than a season. `N` is a season,
+#: and a caller comparing like with like - an Advance is a single - wants
+#: neither of the other two.
+SINGLE_TYPE = "S"
+
 #: A ticket type whose modal price covers at least this share of its flows is a
 #: flat-rate product, not a distance-based fare. Real walk-up tickets sit below
 #: 0.06 and the flat-rate ones sit at 1.0, so anything between the two would do -
@@ -1441,7 +1446,20 @@ select dest_crs,
        -- selling out, and reads as though it were.
        --
        -- Null on a non-derivable fare, which names no operator at all.
-       min_by(operator, (ticket_code, route_code)) as operator
+       min_by(operator, (ticket_code, route_code)) as operator,
+       -- **The restriction that governs it, or null for none at all.** Null is
+       -- the useful value: a fare with no restriction code is usable on any
+       -- train, which is what an Anytime ticket is, and what a caller comparing
+       -- against a booked-train Advance needs to be able to name. Inferring it
+       -- instead - "the fare that survives a peak departure" - answers a
+       -- different question, a peak-valid fare being restricted in other ways.
+       --
+       -- **Appended, not inserted.** Every consumer reads this tuple
+       -- positionally, so putting it beside `tkt_type` where it belongs by
+       -- meaning would silently shift `operator` by one - and an operator code
+       -- read as a restriction is exactly the kind of wrong that still looks
+       -- like a string.
+       min_by(restriction_code, (ticket_code, route_code)) as restriction_code
 from discounted
 where dest_crs <> $origin and fare is not null
 -- **One row per distinct price, or per price *per route* when asked.**
@@ -1456,7 +1474,20 @@ where dest_crs <> $origin and fare is not null
 -- The `case` is how one statement does both: with `per_route` false it is null
 -- on every row and groups exactly as before.
 group by dest_crs, fare, case when $per_route then route_code end
-order by dest_crs, fare
+-- **A total order, because `dest_crs, fare` is not one.** With `per_route` on,
+-- a price split across two routes is two rows sharing both sort keys, and
+-- DuckDB aggregates in parallel - so their order varies between runs of the
+-- same query on the same data. From Euston, 3,014 (destination, price) pairs
+-- are tied that way, including two `CLASSIC SOLO` fares to Aberdeen at £240
+-- that differ only in route.
+--
+-- A caller reading "the first row at this price" therefore gets a coin flip.
+-- That is not hypothetical: it made a downstream build emit three different
+-- payloads from four identical runs, flipping a ticket name between `ADVANCE`
+-- and `ADVANCE PROMO` at one price. Naming the grouping columns here settles
+-- it once for every consumer, rather than leaving each to sort defensively and
+-- discover the need the hard way.
+order by dest_crs, fare, ticket_code, route_code
 """
 
 
@@ -1568,11 +1599,14 @@ def fare_options(
     return_arrival_minutes: int | None = None,
     changes: dict[str, int] | None = None,
     calls: dict[str, list[tuple[str, int, int, bool]]] | None = None,
-) -> list[tuple[str, str, str, int, bool, str | None, str, str | None]]:
+) -> list[tuple[str, str, str, int, bool, str | None, str,
+                str | None, str | None]]:
     """Every price each reachable station can be reached at, cheapest first.
 
     Returns (destination CRS, ticket code, description, pence, is_advance,
-    route code, ticket type), ordered by destination then price. One row per
+    route code, ticket type, operator, restriction code), ordered by
+    destination then price. The restriction code is null where the fare carries
+    none, which is what makes it usable on any train. One row per
     distinct price: where several tickets cost the same the cheapest-named one
     stands for them. The ticket type is `S`, `R` or `N` - a return can undercut
     two singles and win, so a caller quoting the price has to be able to say
@@ -1680,7 +1714,8 @@ def cheapest_from(
     origin: str,
     travel_date: dt.date,
     **options,
-) -> list[tuple[str, str, str, int, bool, str | None, str, str | None]]:
+) -> list[tuple[str, str, str, int, bool, str | None, str,
+                str | None, str | None]]:
     """The single cheapest fare to each reachable station, cheapest first.
 
     The same arguments as :func:`fare_options`, reduced to one row per
@@ -1747,7 +1782,13 @@ left join (
     where $travel_date between start_date and end_date
 ) v on v.validity_code = d.validity_code and v.rn = 1
 where d.dest_crs = $destination and d.fare is not null
-order by d.fare
+-- Total, for the same reason as `_CHEAPEST_SQL` above: 65% of fares carry a
+-- restriction and a pair commonly offers several at one price, so ordering on
+-- the price alone leaves `rail fares` listing them in whatever order the scan
+-- happened to produce. Nothing downstream breaks on it, the command listing
+-- every row rather than picking one, but a listing that reshuffles between two
+-- runs on unchanged data reads as a data change and is not one.
+order by d.fare, d.ticket_code, d.route_code
 """
 
 

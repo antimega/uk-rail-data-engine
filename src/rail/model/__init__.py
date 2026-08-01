@@ -14,6 +14,7 @@ from .plusbus import (
 from .distance import SHORTEST_ROUTE_MARGIN_MILES, Distances
 from .fares import (
     RETURN_TYPE,
+    SINGLE_TYPE,
     FaresCounts,
     build_fares_reference,
     cheapest_from,
@@ -51,6 +52,7 @@ __all__ = [
     "FaresCounts",
     "LatLon",
     "RETURN_TYPE",
+    "SINGLE_TYPE",
     "SCHEMA_VERSION",
     "SHORTEST_ROUTE_MARGIN_MILES",
     "compare_with_naptan",
