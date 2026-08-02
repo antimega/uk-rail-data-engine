@@ -681,9 +681,10 @@ def _write_restrictions(directory, bands):
     pq.write_table(
         pa.Table.from_pylist(
             # A band is (code, from, to, sense, location) plus, optionally,
-            # min_fare_flag and out_ret - 'O' for the outward leg, 'R' for the
-            # journey home. Sequences are distinct so each band keeps its own
-            # date window rather than collapsing into one.
+            # min_fare_flag, out_ret - 'O' for the outward leg, 'R' for the
+            # journey home - and the operators the band is qualified to.
+            # Sequences are distinct so each band keeps its own date window
+            # rather than collapsing into one.
             [{"cf_mkr": "C", "restriction_code": c, "sequence_no": f"{i:04d}",
               "out_ret": rest[1] if len(rest) > 1 else "O",
               "time_from": f, "time_to": t,
@@ -714,6 +715,20 @@ def _write_restrictions(directory, bands):
                 ("date_from", pa.string()), ("date_to", pa.string()),
                 *[(d, pa.bool_()) for d in DAYS]])),
         directory / "restriction_header_date.parquet")
+    # RSPS5045 4.19.10 field 7. A band with no TT rows applies to every
+    # operator's trains, which is all but 2,565 of the real ones - so the usual
+    # fixture writes an empty table and behaves exactly as it did before.
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{"cf_mkr": "C", "restriction_code": c, "sequence_no": f"{i:04d}",
+              "out_ret": rest[1] if len(rest) > 1 else "O", "toc_code": toc}
+             for i, (c, _f, _t, _sense, _loc, *rest) in enumerate(bands, start=1)
+             for toc in ((len(rest) > 2 and rest[2]) or ())],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()), ("restriction_code", pa.string()),
+                ("sequence_no", pa.string()), ("out_ret", pa.string()),
+                ("toc_code", pa.string())])),
+        directory / "restriction_time_toc.parquet")
 
 
 def test_a_restricted_fare_disappears_at_a_banned_departure_time(fares):
@@ -762,19 +777,23 @@ def test_an_arrival_side_restriction_uses_the_arrival_time(fares):
     assert cheapest(depart_minutes=660, arrivals={"BBB": 780}) == ("CDS", 990)   # arrives 13:00
 
 
-def test_only_a_via_band_looks_at_the_middle_of_the_journey(fares):
-    """**`V` is the only marker that means a station in the middle.**
+def test_a_band_bites_where_the_passenger_boards_not_only_at_the_ends(fares):
+    """**A station band bites where you board or alight, changes included.**
 
-    RSPS5045 4.19.8 says it twice: field 9 is "arrivals at, departures from or
-    *changing at* the location", and field 10 calls the location "a journey
-    origin/destination or via location". So an `A` or `D` band naming a station
-    is about a journey that ends or starts there.
+    RSPS5045 4.19.8 field 10 calls the location "a journey origin/destination
+    or via location", and reading that as "the ends only" was wrong. A retailer
+    settled it: Stratford to Cardiff boards the Cardiff train at Paddington,
+    and `WW` band 0011 bars departures from Paddington before 09:04 - leaving
+    Stratford at 08:11 you catch the 08:48 from Paddington and only Anytime
+    fares are offered, at 08:41 you catch the 09:18 and the Off-Peak Return is
+    back. Woking to Cardiff shows the same at *Reading*, so it is about
+    boarding rather than about London terminals.
 
-    Reading them as "any journey through here" instead made 1,648 fares dearer
-    than any retailer sells. Restriction `LK` is why it cannot be right: band
-    0018 bars departing Euston before 10:29 while band 0006 bars departing
-    Leighton Buzzard before 12:33, and one train cannot satisfy both - they are
-    per-origin rules, not a way of naming trains.
+    What the old reading got right is passing through, and that still holds
+    below: `LK` band 0018 bars departing Euston before 10:29 while band 0006
+    bars departing Leighton Buzzard before 12:33, and one train cannot satisfy
+    both - but that passenger passes Leighton Buzzard without boarding, so the
+    band never spoke to them.
     """
     world = dict(
         flows=[flow(1, "1111", "2222")],
@@ -783,26 +802,37 @@ def test_only_a_via_band_looks_at_the_middle_of_the_journey(fares):
         stations=[("AAA", "1111", "1111"), ("BBB", "2222", "2222"),
                   ("MID", "3333", "3333")],
     )
-    passing = {"BBB": [("AAA", 484, 484, False), ("MID", 603, 603, False),
+    # Arrive at MID 10:03, leave on the connection at 11:40 - far enough apart
+    # that a band can catch one and not the other.
+    passing = {"BBB": [("AAA", 484, 484, False), ("MID", 603, 700, False),
                        ("BBB", 972, 972, False)]}
-    changing = {"BBB": [("AAA", 484, 484, False), ("MID", 603, 603, True),
+    changing = {"BBB": [("AAA", 484, 484, False), ("MID", 603, 700, True),
                         ("BBB", 972, 972, False)]}
-    ask = lambda w, **kw: {
+    ask = lambda **kw: {
         r[0]: (r[1], r[3]) for r in cheapest_from(connection, directory, "AAA",
                                                   TUESDAY, **kw)}["BBB"]
+    run = lambda calls: ask(depart_minutes=480, arrivals={"BBB": 972}, calls=calls)
 
-    # An arrival band at MID: MID is not an end of this journey, so it says
-    # nothing about it however the journey passes through.
+    # Passing through MID says nothing, whichever marker the band carries.
+    for marker in ("A", "D", "V"):
+        connection, directory = fares(**world, bands=[("PB", 270, 720, marker, "MID")])
+        assert run(passing) == ("SSS", 15050), marker
+
+    # Changing at MID: an arrival band is judged on when you got there…
     connection, directory = fares(**world, bands=[("PB", 270, 677, "A", "MID")])
-    assert ask(world, depart_minutes=480, arrivals={"BBB": 972},
-               calls=passing) == ("SSS", 15050)
+    assert run(changing) == ("SDS", 29080)      # arrived 603, inside
+    connection, directory = fares(**world, bands=[("PB", 690, 720, "A", "MID")])
+    assert run(changing) == ("SSS", 15050)      # arrived 603, outside
 
-    # A *via* band at MID bites only where the journey changes there.
+    # …and a departure band on when you left, which is the other number.
+    connection, directory = fares(**world, bands=[("PB", 690, 720, "D", "MID")])
+    assert run(changing) == ("SDS", 29080)      # left 700, inside
+    connection, directory = fares(**world, bands=[("PB", 270, 677, "D", "MID")])
+    assert run(changing) == ("SSS", 15050)      # left 700, outside
+
+    # `V` says "changing at" outright and needs no end test.
     connection, directory = fares(**world, bands=[("PB", 270, 677, "V", "MID")])
-    assert ask(world, depart_minutes=480, arrivals={"BBB": 972},
-               calls=passing) == ("SSS", 15050)
-    assert ask(world, depart_minutes=480, arrivals={"BBB": 972},
-               calls=changing) == ("SDS", 29080)
+    assert run(changing) == ("SDS", 29080)
 
 
 def test_calling_times_the_caller_does_not_supply_bar_nothing(fares):
@@ -1149,6 +1179,106 @@ def test_a_minimum_fare_never_exceeds_the_undiscounted_price(fares):
         depart_minutes=8 * 60)}
 
     assert rows["BBB"] == 500  # a railcard never makes a fare dearer
+
+
+def toc_qualified_railcard(fares):
+    """A railcard barred 00:01-23:59 every day - but only on GR and VT trains.
+
+    The shape of the Annual Gold Card's `RD` and the 16-17 Saver's `R5`. Read
+    without RSPS5045 4.19.10 field 7 this is not a peak restriction at all: it
+    is the railcard not existing, at every hour of every day of the year.
+    """
+    return fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1500)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+        railcards=[railcard("NGC", "ANNUAL GOLD CARD", "003", per_mille=334)],
+        railcard_rules=[("NGC", None, None, "RD")],
+        bands=[("RD", 1, 1439, "D", None, False, "O", ["GR", "VT"])],
+    )
+
+
+def test_a_toc_qualified_railcard_band_spares_another_operators_train(fares):
+    connection, directory = toc_qualified_railcard(fares)
+    priced = {r[0]: r[3] for r in cheapest_from(
+        connection, directory, "AAA", TUESDAY, railcard="NGC",
+        depart_minutes=660, operators={"BBB": {"SW"}})}
+
+    # £15.00 less 33.4% is £9.99, and the rounding rule takes it down to 5p.
+    assert priced["BBB"] == 995
+
+
+def test_a_toc_qualified_railcard_band_bites_on_a_train_it_names(fares):
+    connection, directory = toc_qualified_railcard(fares)
+    # Any one of the named operators is enough, exactly as an easement's
+    # station list works - this journey used a GR train for one of its legs.
+    priced = {r[0]: r[3] for r in cheapest_from(
+        connection, directory, "AAA", TUESDAY, railcard="NGC",
+        depart_minutes=660, operators={"BBB": {"SW", "GR"}})}
+
+    assert priced["BBB"] == 1500  # barred, so no discount
+
+
+def test_not_knowing_the_operators_keeps_a_railcard_band_applying(fares):
+    """The conservative half, and why `rail fares` and unrouted sweeps do not
+    move. A bar lifted on a guess sells a ticket that may not be valid.
+
+    This is the opposite guard from the `T` route conditions, and deliberately
+    so: there a missing answer must not become a refusal, because the question
+    is whether to *withdraw* a fare. Here it is whether to *restore* one.
+    """
+    connection, directory = toc_qualified_railcard(fares)
+    priced = lambda **kw: {r[0]: r[3] for r in cheapest_from(
+        connection, directory, "AAA", TUESDAY, railcard="NGC",
+        depart_minutes=660, **kw)}["BBB"]
+
+    assert priced() == 1500
+    assert priced(operators={}) == 1500
+    # Another destination's operators say nothing about this one.
+    assert priced(operators={"CCC": {"SW"}}) == 1500
+
+
+def test_a_toc_qualifier_applies_to_a_fares_own_bands(fares):
+    """York to Penzance in miniature - and why this needed the change-station
+    fix first.
+
+    Restriction `1L` bars departures 04:30-09:29 on CrossCountry (band 0001)
+    *and* arrivals into King's Cross before 11:16 (band 0038, unqualified). The
+    via-London journey uses no CrossCountry train, so the qualifier rightly
+    lifts 0001 - and if 0038 is skipped for naming a station in the middle,
+    nothing is left and £290.80 collapses to a £150.50 no retailer sells.
+
+    A retailer prices both itineraries with each band carrying one: the
+    via-London journey barred at the change, the not-via-London one - which is
+    CrossCountry throughout - by the qualified band.
+    """
+    world = dict(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1500), fare(1, "SSS", 990, restriction="1L")],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("SSS", "SUPER OFFPEAK S")],
+        stations=[("AAA", "1111", "1111"), ("BBB", "2222", "2222"),
+                  ("MID", "3333", "3333")],
+    )
+    # Changes at MID at 10:03, on nobody's CrossCountry train.
+    via_mid = {"BBB": [("AAA", 484, 484, False), ("MID", 603, 620, True),
+                       ("BBB", 972, 972, False)]}
+    ask = lambda **kw: {r[0]: (r[1], r[3]) for r in cheapest_from(
+        connection, directory, "AAA", TUESDAY, depart_minutes=450,
+        arrivals={"BBB": 972}, **kw)}["BBB"]
+
+    # Both bands, as the real restriction carries them.
+    connection, directory = fares(**world, bands=[
+        ("1L", 270, 569, "D", None, False, "O", ["XC"]),
+        ("1L", 270, 676, "A", "MID", False, "O", None)])
+    assert ask(operators={"BBB": {"GR", "GW"}}, calls=via_mid) == ("SDS", 1500)
+
+    # The qualified band alone: it lifts, because no CrossCountry train is used.
+    connection, directory = fares(**world, bands=[
+        ("1L", 270, 569, "D", None, False, "O", ["XC"])])
+    assert ask(operators={"BBB": {"GR", "GW"}}, calls=via_mid) == ("SSS", 990)
+
+    # …and bites on the itinerary that is CrossCountry throughout.
+    assert ask(operators={"BBB": {"XC"}}, calls={}) == ("SDS", 1500)
 
 
 def test_a_ticket_outside_the_discount_category_is_not_discounted(fares):
@@ -1955,6 +2085,31 @@ def test_one_barred_leg_is_enough_to_refuse(fares):
     assert cheapest["BBB"] == 4490
 
 
+def test_operators_without_a_path_do_not_withdraw_a_barred_fare(fares):
+    """`--check-routes` is the flag, and supplying operators is not it.
+
+    The `X` clause used to be inert only because `journey_operator` was empty,
+    which is a fact about which callers pass `operators=` rather than a rule.
+    Operators are evidence about the journey rather than a policy choice - the
+    same reasoning under which `changes` and `calls` are passed unconditionally
+    - so somebody will eventually pass them here too, and a bare `rail
+    reachable` must not start withdrawing fares when they do.
+    """
+    connection, directory = fares(
+        flows=[routed(1, "1111", "2222", "00085"), routed(2, "1111", "2222", "00000")],
+        fare_records=[fare(1, "SDS", 2820), fare(2, "SDS", 4490)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+        toc_rules=[("00085", "X", "GR")],
+    )
+    cheapest = lambda **kw: {
+        r[0]: r[3] for r in cheapest_from(connection, directory, "AAA", TRAVEL, **kw)
+    }["BBB"]
+
+    # The bar bites on a routed journey, and only there.
+    assert cheapest(paths={"BBB": ["AAA", "BBB"]}, operators={"BBB": {"GR"}}) == 4490
+    assert cheapest(operators={"BBB": {"GR"}}) == 2820
+
+
 def test_without_operators_a_toc_condition_gives_no_verdict(fares):
     """Not knowing who runs the train is not a reason to refuse the fare.
 
@@ -2005,6 +2160,30 @@ def test_a_route_barring_a_mode_is_refused_when_it_is_used(fares):
 
     assert cheapest({"0"}) == 900
     assert cheapest({"0", "4"}) == 1500
+
+
+def test_modes_without_a_path_do_not_withdraw_a_barred_fare(fares):
+    """The `X` guard's twin, and the one that could actually have been tripped.
+
+    `check_routes` is `bool(paths)`, so the 'E' station bar and the RTE
+    fallback cannot fire without the flag - supplying a path *is* the flag.
+    `journey_mode` is filled from `modes=`, which is passed independently, so
+    a caller handing over the modes of a journey and nothing else would have
+    had mode bars applied without asking for route conditions at all.
+    """
+    connection, directory = fares(
+        flows=[routed(1, "1111", "2222", "00002"), routed(2, "1111", "2222", "00000")],
+        fare_records=[fare(1, "SDS", 900), fare(2, "SDS", 1500)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+        toc_rules=[("00002", "N", "4")],
+    )
+    cheapest = lambda **kw: {
+        r[0]: r[3] for r in cheapest_from(connection, directory, "AAA", TRAVEL, **kw)
+    }["BBB"]
+
+    # The bar bites on a routed journey, and only there.
+    assert cheapest(paths={"BBB": ["AAA", "BBB"]}, modes={"BBB": {"0", "4"}}) == 1500
+    assert cheapest(modes={"BBB": {"0", "4"}}) == 900
 
 
 def test_without_modes_a_mode_condition_gives_no_verdict(fares):

@@ -64,12 +64,24 @@ def network(connections, *, stations, change=None, footpaths=None, associations=
     stops: list[list[int]] = [[] for _ in range(trips)]
     tocs: list[str | None] = [None] * trips
     modes_of: list[str] = ["0"] * trips
+    # The trip's own clock, filled exactly as `load_network` fills it: nothing
+    # arrives at the first stop, and each departure is written back onto the
+    # stop the next connection leaves. `calls_to` reads these.
+    trip_arr: list[list[int]] = [[] for _ in range(trips)]
+    trip_dep: list[list[int]] = [[] for _ in range(trips)]
     for connection in ordered:
-        seq = stops[connection[4]]
+        source, target, depart, arrive, trip_index = connection[:5]
+        seq = stops[trip_index]
         if not seq:
-            seq.append(index[connection[0]])
-            tocs[connection[4]] = (operators or {}).get(connection[4])
-        seq.append(index[connection[1]])
+            seq.append(index[source])
+            trip_arr[trip_index].append(depart)
+            trip_dep[trip_index].append(depart)
+            tocs[trip_index] = (operators or {}).get(trip_index)
+        else:
+            trip_dep[trip_index][-1] = depart
+        seq.append(index[target])
+        trip_arr[trip_index].append(arrive)
+        trip_dep[trip_index].append(arrive)
     return Network(
         date=dt.date(2026, 8, 4),
         stations=list(stations),
@@ -89,6 +101,8 @@ def network(connections, *, stations, change=None, footpaths=None, associations=
         toc_change=rules,
         toc_change_stations=frozenset(station for station, _, _ in rules),
         trip_stops=stops,
+        trip_arrival=trip_arr,
+        trip_departure=trip_dep,
         assoc_stride=stride,
         trip_toc=tocs,
         trip_mode=modes_of,
@@ -132,6 +146,31 @@ def test_changing_trains_respects_the_minimum_change_time():
         change={"B": 10},
     )
     assert arrivals(earliest_arrival(net, "A", 540))["C"] == 740
+
+
+def test_a_change_station_is_one_calling_point_with_both_its_times():
+    """It ends one trip and begins the next, so it appears in both - and the
+    halves carry different times. The arrival the passenger made is on the
+    incoming row, the departure they caught on the outgoing one; the other two
+    numbers belong to trains rather than to the journey.
+
+    Left as two rows, a restriction band matching `exists` over them takes
+    whichever is nearer its window and so bites early, which on a morning band
+    withdraws a fare that is valid.
+    """
+    net = network(
+        # The connecting train has been sitting at B since 640; the passenger
+        # arrives at 660 and leaves at 690, and those are the two that count.
+        [("A", "B", 600, 660, 0), ("B", "C", 690, 740, 1)],
+        stations=["A", "B", "C"],
+        change={"B": 10},
+    )
+    calls = earliest_arrival(net, "A", 540).calls_to("C")
+
+    assert [c[0] for c in calls] == ["A", "B", "C"]
+    station, arrived, departed, changed = calls[1]
+    assert (station, changed) == ("B", True)
+    assert (arrived, departed) == (660, 690)
 
 
 def test_a_change_that_exactly_meets_the_minimum_is_allowed():

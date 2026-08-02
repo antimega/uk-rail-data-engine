@@ -54,6 +54,13 @@ HD_SCHEMA = pa.schema([
     ("date_from", pa.string()), ("date_to", pa.string()),
     *[(d, pa.bool_()) for d in DAYS],
 ])
+#: 4.19.10 field 7. A band with TT records applies only to those operators'
+#: trains; one with none applies to everybody's.
+TT_SCHEMA = pa.schema([
+    ("cf_mkr", pa.string()), ("restriction_code", pa.string()),
+    ("sequence_no", pa.string()), ("out_ret", pa.string()),
+    ("toc_code", pa.string()),
+])
 
 
 def weekdays_only(**overrides):
@@ -72,7 +79,7 @@ def band(code, seq, *, frm, to, sense="D", location="EUS", marker="C",
 
 @pytest.fixture
 def restrictions(tmp_path):
-    def _build(*, bands, header_dates=(), band_dates=(), headers=()):
+    def _build(*, bands, header_dates=(), band_dates=(), headers=(), band_tocs=()):
         directory = tmp_path / "fares"
         directory.mkdir(exist_ok=True)
         pq.write_table(
@@ -89,6 +96,8 @@ def restrictions(tmp_path):
                        directory / "restriction_header_date.parquet")
         pq.write_table(pa.Table.from_pylist(list(headers), schema=RH_SCHEMA),
                        directory / "restriction_header.parquet")
+        pq.write_table(pa.Table.from_pylist(list(band_tocs), schema=TT_SCHEMA),
+                       directory / "restriction_time_toc.parquet")
 
         connection = duckdb.connect()
         build_restrictions(connection, directory)
@@ -205,15 +214,55 @@ def test_a_band_with_no_dates_at_all_never_applies(restrictions):
 # --- what a band says --------------------------------------------------------
 
 
+def test_a_band_carries_the_operators_it_is_qualified_to(restrictions):
+    """RSPS5045 4.19.10 field 7, sorted so the set is a stable key."""
+    connection = restrictions(
+        bands=[band("RD", "0001", frm=1, to=1439, location=None)],
+        header_dates=[{"cf_mkr": "C", "restriction_code": "RD", "date_from": "0101",
+                       "date_to": "1231", **weekdays_only(saturday=True,
+                                                          sunday=True)}],
+        band_tocs=[{"cf_mkr": "C", "restriction_code": "RD", "sequence_no": "0001",
+                    "out_ret": "O", "toc_code": toc} for toc in ("VT", "GR")],
+    )
+    assert applicable_bands(connection, dt.date(2026, 8, 4))[0][-1] == ["GR", "VT"]
+
+
+def test_two_bands_of_one_shape_keep_their_own_operators(restrictions):
+    """The `distinct` trap: bands are collapsed by shape, not by sequence.
+
+    Two bands identical in time, sense and location but naming different
+    operators must stay two rows. Collapsed, one's qualifier would govern the
+    other - and since a band with no qualifier at all is the common case, the
+    collapse would silently hand an unconditional bar someone else's operators.
+    """
+    connection = restrictions(
+        bands=[band("RD", "0001", frm=1, to=1439, location=None),
+               band("RD", "0002", frm=1, to=1439, location=None),
+               band("RD", "0003", frm=1, to=1439, location=None)],
+        header_dates=[{"cf_mkr": "C", "restriction_code": "RD", "date_from": "0101",
+                       "date_to": "1231", **weekdays_only()}],
+        band_tocs=[{"cf_mkr": "C", "restriction_code": "RD", "sequence_no": "0001",
+                    "out_ret": "O", "toc_code": "GR"},
+                   {"cf_mkr": "C", "restriction_code": "RD", "sequence_no": "0002",
+                    "out_ret": "O", "toc_code": "XC"}],
+    )
+    rows = applicable_bands(connection, dt.date(2026, 8, 4))
+
+    # Three bands of one shape: two qualified differently, one not at all.
+    assert sorted(str(row[-1]) for row in rows) == ["None", "['GR']", "['XC']"]
+
+
 def test_a_band_carries_its_location_and_sense(restrictions):
     connection = restrictions(
         bands=[band("1C", "0001", frm=270, to=599, sense="A", location="KGX")],
         header_dates=[{"cf_mkr": "C", "restriction_code": "1C", "date_from": "0101",
                        "date_to": "1231", **weekdays_only()}],
     )
-    code, out_ret, frm, to, sense, location, minimum_fare = applicable_bands(
+    code, out_ret, frm, to, sense, location, minimum_fare, tocs = applicable_bands(
         connection, dt.date(2026, 8, 4)
     )[0]
+    # No TT records, so the band applies to every operator's trains.
+    assert tocs is None
 
     assert (code, out_ret, sense, location) == ("1C", "O", "A", "KGX")
     # Not a minimum-fare band, so it bars the fare rather than repricing it.

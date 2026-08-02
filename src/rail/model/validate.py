@@ -787,6 +787,33 @@ def run_checks(
         f"{railcard_pct[0]}–{railcard_pct[1]} per mille "
         f"({(railcard_pct[1] or 0) / 10:.1f}% maximum)")
 
+    # A railcard band barring travel all day, every day, at every station and
+    # naming no operator is not a restriction - it is the railcard not
+    # existing. Two such bands do exist and both name operators: `RD` (Annual
+    # Gold Card) says LNER and Avanti, `R5` (16-17 Saver) says ScotRail and
+    # Caledonian Sleeper. The outcome is asserted rather than the rule, because
+    # losing the TT join withdraws a railcard from the entire network in
+    # silence and the symptom is an ordinary-looking undiscounted fare. See
+    # `_band_toc_applies` in model/fares.py.
+    unqualified = scalar("""
+        select count(*)
+        from restriction_band b
+        join railcard_restriction rr using (restriction_code)
+        where b.cf_mkr = 'C' and b.out_ret = 'O'
+          and not b.min_fare_flag and b.location is null
+          and b.time_from <= 1 and b.time_to >= 1439
+          and not exists (
+              select 1 from restriction_band_toc t
+              where t.cf_mkr = b.cf_mkr
+                and t.restriction_code = b.restriction_code
+                and t.sequence_no = b.sequence_no
+                and t.out_ret = b.out_ret
+          )
+    """)
+    add("fares", "no railcard is barred all day with no operator named",
+        "ok" if unqualified == 0 else "fail",
+        f"{unqualified:,} all-day bars carrying no TOC qualifier")
+
     # --- what was excluded, and why -----------------------------------------
 
     for reason, count in connection.execute(

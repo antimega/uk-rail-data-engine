@@ -37,7 +37,7 @@ availability, which is not in the feed at all.
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 
 import duckdb
@@ -59,6 +59,12 @@ class Leg:
     modes: set[str]
     #: Times the journey changes train, from `ScanResult.changes_to`.
     changes: int = 0
+    #: Calling points with their times and whether the journey changed there,
+    #: from `ScanResult.calls_to`. A band naming a station the journey boards
+    #: or alights at is judged on these; without them the change-station bands
+    #: are inert here and `rail roundtrip` quietly disagrees with the map and
+    #: with `rail reachable`, both of which supply them.
+    calls: list[tuple[str, int, int, bool]] = dc_field(default_factory=list)
 
     @property
     def minutes(self) -> int:
@@ -159,6 +165,10 @@ def price_round_trip(
         # A return ticket has to cover both journeys, so a restriction barring a
         # change is broken by a change on either one.
         changes={out.destination: out.changes + back.changes},
+        # The outward calling points. Outward bands are judged on these; the
+        # return leg's are scalars above, since a band on the way home needs
+        # only when you left and when you got back.
+        calls={out.destination: out.calls},
         **breaks,
         **common,
     )
@@ -181,6 +191,7 @@ def price_round_trip(
             operators={leg.destination: leg.operators} if check_routes else None,
             modes={leg.destination: leg.modes} if check_routes else None,
             changes={leg.destination: leg.changes},
+            calls={leg.destination: leg.calls},
             # Each single covers one leg, so it needs only that leg's
             # permission - and it needs it *outward*, since a single has no
             # return side whichever direction it is travelling.

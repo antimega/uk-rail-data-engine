@@ -170,6 +170,21 @@ def world(tmp_path):
         c.execute("create table advance_reject (ticket_code varchar, "
                   "description varchar, reason varchar)")
         c.execute("create table railcard_discount as select * from (values ('YNG', 334)) t(railcard_code, discount_percentage)")
+        # A railcard's own restriction, and the bands behind it. `RD` is the
+        # Annual Gold Card's all-day bar, which is only sane because RSPS5045
+        # 4.19.10 field 7 names the operators it applies to - so the pair below
+        # is what a healthy build looks like, and dropping the TT row is what
+        # the "barred all day with no operator named" check is watching for.
+        c.execute("""create table railcard_restriction as select * from (values
+            ('NGC', 'RD'), ('YNG', 'R1')) t(railcard_code, restriction_code)""")
+        c.execute("""create table restriction_band as select * from (values
+            ('C', 'RD', '0001', 'O', 1, 1439, 'D', null, false),
+            ('C', 'R1', '0001', 'O', 270, 599, 'D', null, true))
+            t(cf_mkr, restriction_code, sequence_no, out_ret, time_from,
+              time_to, arr_dep_via, location, min_fare_flag)""")
+        c.execute("""create table restriction_band_toc as select * from (values
+            ('C', 'RD', '0001', 'O', 'GR'), ('C', 'RD', '0001', 'O', 'VT'))
+            t(cf_mkr, restriction_code, sequence_no, out_ret, toc_code)""")
 
         # A fortnight of service, busier on weekdays than at the weekend.
         c.execute("""
@@ -492,6 +507,26 @@ def test_a_routeing_feed_disagreement_over_the_nlc_fails(world):
     checks = run_checks(connection, timetable, fares, naptan)
 
     assert status_of(checks, "routeing feed agrees on CRS to NLC") == "fail"
+
+
+def test_a_railcard_barred_all_day_with_no_operator_named_fails(world):
+    """Losing the TT join withdraws a railcard from the entire network.
+
+    `RD` is a single band covering 00:01-23:59 every day at every station, and
+    the only thing that makes it a restriction rather than the Annual Gold Card
+    ceasing to exist is the pair of operators it names. The symptom of getting
+    this wrong is an ordinary-looking undiscounted fare, which is exactly the
+    kind of silence a check has to cover.
+    """
+    connection, timetable, fares, naptan = world()
+    assert status_of(run_checks(connection, timetable, fares, naptan),
+                     "no railcard is barred all day with no operator named") == "ok"
+
+    connection.execute("delete from restriction_band_toc")
+
+    checks = run_checks(connection, timetable, fares, naptan)
+    assert status_of(
+        checks, "no railcard is barred all day with no operator named") == "fail"
 
 
 def test_a_routeing_feed_disagreement_over_the_fare_group_fails(world):

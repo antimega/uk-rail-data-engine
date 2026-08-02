@@ -10,6 +10,7 @@ its helpers live; importing them keeps one definition of what a fare looks like.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 
 import pytest
@@ -141,6 +142,39 @@ def test_a_return_leg_restriction_withdraws_the_return_ticket(fares):
 
     assert peak.single_ticket is None
     assert later.single_ticket.pence == 2010
+
+
+def test_a_band_at_a_change_station_reaches_the_round_trip(fares):
+    """**The SQL is only half of it: a caller supplying no calling points gets
+    none of it.**
+
+    That guard is deliberate - not routing is not a refusal - so the
+    change-station bands go quietly inert rather than failing. For a while
+    `rail roundtrip` was such a caller while the map was not, and it kept
+    offering a Stratford to Amersham return the map had already withdrawn.
+    Nothing errored; two commands simply disagreed.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222"), flow(2, "2222", "1111")],
+        fare_records=[fare(1, "SVR", 2010, restriction="R1"),
+                      fare(1, "SDS", OUT), fare(2, "SDS", BACK)],
+        tickets=[ticket("SVR", "OFF-PEAK R", kind="R", validity="13"),
+                 ticket("SDS", "ANYTIME DAY S", validity="01")],
+        validities=RETURN_VALIDITIES,
+        stations=[("AAA", "1111", "1111"), ("BBB", "2222", "2222"),
+                  ("MID", "3333", "3333")],
+        # Not valid boarding at MID between 11:30 and 12:00, outward.
+        bands=[("R1", 690, 720, "D", "MID")],
+    )
+    out, back = legs()
+    # The outward journey changes at MID, boarding the connection at 11:45.
+    routed = dataclasses.replace(out, calls=[
+        ("AAA", 660, 660, False), ("MID", 700, 705, True), ("BBB", 720, 720, False)])
+
+    # Without the calling points the band cannot be judged and the fare stands.
+    assert price_round_trip(connection, directory, out, back).single_ticket.pence == 2010
+    # With them it is withdrawn, exactly as `rail reachable` and the map do it.
+    assert price_round_trip(connection, directory, routed, back).single_ticket is None
 
 
 def test_each_single_is_restricted_on_its_own_leg(fares):

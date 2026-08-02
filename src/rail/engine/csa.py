@@ -238,6 +238,22 @@ class ScanResult:
             for offset, station in enumerate(stops):
                 at = start + offset
                 name = self.network.stations[station]
+                # **A change station is one calling point, not two.** It ends
+                # one trip and begins the next, so it appears in both, and the
+                # halves carry different times: the incoming row has the
+                # arrival the passenger made, the outgoing row the departure
+                # they caught. The other two numbers belong to trains rather
+                # than to the journey - the outgoing trip's own arrival is when
+                # *it* pulled in, usually before the passenger was there.
+                #
+                # Left as two rows, a band testing `exists` over them matches
+                # whichever is nearer its window and so bites early, which on a
+                # morning band withdraws a fare that is valid. Merge to keep
+                # the arrival from the first and the departure from the second.
+                if (calls and calls[-1][0] == name and calls[-1][3]
+                        and name in boundaries):
+                    calls[-1] = (name, calls[-1][1], departures[at], True)
+                    continue
                 calls.append((name, arrivals[at], departures[at],
                               name in boundaries))
         return calls

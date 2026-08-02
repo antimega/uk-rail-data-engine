@@ -868,6 +868,59 @@ def build_fares_reference(
 #: fare is available for the ticket/railcard combination, not a price.
 _NO_FARE = 99999999
 
+
+def _band_toc_applies(band: str, dest: str) -> str:
+    """Whether a band's TOC qualifier lets it bite on this journey.
+
+    RSPS5045 4.19.10 field 7: "The time restriction only applies to trains
+    provided by this TOC." Three cases, and the middle one is what keeps this
+    honest:
+
+    * the band names no operator - it applies to everything, as before;
+    * the caller did not say which operators the journey used - the band goes
+      on applying, because a bar lifted on a guess sells a ticket that may not
+      be valid. That is what `rail fares` and any unrouted sweep get, so their
+      answers do not move;
+    * the operators are known - the band applies only if the journey actually
+      used one of the trains it names.
+
+    Left unapplied, a qualified band bars every operator. That is how the
+    16-17 Saver's `R5` - a single all-day, all-year band naming ScotRail and
+    Caledonian Sleeper - withdrew the railcard from all 2,621 destinations
+    reachable from York, and how the Annual Gold Card's `RD`, naming LNER and
+    Avanti, withdrew it from Stratford to Shanklin on a journey that is
+    Underground, South Western and a Wightlink ferry. A retailer sells that
+    journey at £48.40 with a Gold Card, a third off; we quoted the full fare.
+
+    **Applied to fares and to railcards alike, but the fare side had to wait
+    for the change-station fix.** On its own it dropped York to Penzance from
+    £290.80 to £150.50 - a fare no retailer sells - because restriction `1L`
+    bars departures 04:30-09:29 qualified to `XC` (band 0001) *and* arrivals
+    into King's Cross before 11:16 (band 0038, no qualifier). The journey uses
+    no CrossCountry train, so 0001 should not bite; it reaches King's Cross at
+    10:03, so 0038 should - and 0038 was being skipped for naming a station in
+    the middle. Two errors cancelling, and lifting one alone released the fare.
+
+    A retailer has since priced both York-to-Penzance itineraries and each band
+    carries one of them: the via-London journey is barred by 0038 at the
+    change, and the not-via-London one - CrossCountry throughout, which is the
+    only operator running York to Exeter direct - by 0001. So both are needed
+    and both are now applied, in that order.
+    """
+    return f"""(
+        not exists (
+            select 1 from applicable_band_toc t where t.band_id = {band}.band_id
+        )
+        or not exists (
+            select 1 from journey_operator o where o.crs = {dest}
+        )
+        or exists (
+            select 1 from applicable_band_toc t
+            join journey_operator o on o.crs = {dest} and o.toc = t.toc
+            where t.band_id = {band}.band_id
+        )
+    )"""
+
 #: Flow fares for one origin, expanded out to destination stations, with
 #: non-derivable fares (NFO) overriding them on the same
 #: origin/destination/route/ticket. Adult, no railcard.
@@ -1089,10 +1142,20 @@ sellable as (
               where r.route_code = c.route_code and r.entry_type = 'T'
           )
       )
-      and not exists (
-          select 1 from route_condition r
-          join journey_operator o on o.crs = c.dest_crs and o.toc = r.toc_id
-          where r.route_code = c.route_code and r.entry_type = 'X'
+      -- Gated like its 'T' sibling, though an ungated 'X' is inert while
+      -- `journey_operator` is empty. That emptiness is a fact about which
+      -- callers pass `operators=` today, not a statement about when route
+      -- conditions apply: operators are evidence about the journey rather
+      -- than a policy choice, so supplying them unconditionally is tempting
+      -- and would then withdraw fares under `rail reachable` with no flag
+      -- asking for it. The gate says so instead of relying on it.
+      and (
+          not $check_routes
+          or not exists (
+              select 1 from route_condition r
+              join journey_operator o on o.crs = c.dest_crs and o.toc = r.toc_id
+              where r.route_code = c.route_code and r.entry_type = 'X'
+          )
       )
       -- 'L' - at least one leg must use this transport mode, and 'N' - none
       -- may. 95 routes say so: route 00002 requires an Underground leg. Modes
@@ -1113,10 +1176,18 @@ sellable as (
               where r.route_code = c.route_code and r.entry_type = 'L'
           )
       )
-      and not exists (
-          select 1 from route_condition r
-          join journey_mode m on m.crs = c.dest_crs and m.mode = r.mode_code
-          where r.route_code = c.route_code and r.entry_type = 'N'
+      -- Gated for the same reason as 'X' above, and this is the clause the
+      -- argument was really about: `check_routes` is `bool(paths)`, so 'E' and
+      -- the RTE fallback below cannot be tripped without the flag - supplying
+      -- a path *is* the flag. `journey_mode` is passed independently, so a
+      -- caller supplying `modes=` alone would silently enable mode bars.
+      and (
+          not $check_routes
+          or not exists (
+              select 1 from route_condition r
+              join journey_mode m on m.crs = c.dest_crs and m.mode = r.mode_code
+              where r.route_code = c.route_code and r.entry_type = 'N'
+          )
       )
       -- RTE, only where RGK says nothing about this route.
       and not exists (
@@ -1163,6 +1234,16 @@ sellable as (
           from applicable_band b
           where b.restriction_code = c.restriction_code
             and not b.min_fare_flag
+            -- RSPS5045 4.19.10 field 7, and it took the change-station fix
+            -- above to make this safe. Applied on its own it dropped York to
+            -- Penzance from £290.80 to a £150.50 nobody sells, because `1L`
+            -- band 0001 is qualified to CrossCountry and the journey uses
+            -- none - while band 0038, which bars King's Cross arrivals before
+            -- 11:16, was being skipped for naming a station in the middle.
+            -- With 0038 biting at the change, lifting 0001 costs nothing and
+            -- both York-to-Penzance itineraries land where a retailer puts
+            -- them. See `_band_toc_applies`.
+            and {_band_toc_applies("b", "c.dest_crs")}
             and (
                 -- The outward leg. RSPS5045 4.19.8 field 10: three spaces means
                 -- the band is not station specific, so it bites at whichever end
@@ -1179,29 +1260,58 @@ sellable as (
                      and (b.location is null or b.location = c.dest_crs)
                      and j.minutes % 1440 between b.time_from and b.time_to)
                     or
-                    -- **`V` is the only marker that means a station in the
-                    -- middle**, and RSPS5045 4.19.8 says so twice: field 9 is
-                    -- "arrivals at, departures from or *changing at* the
-                    -- location", and field 10 is "a location denoting a journey
-                    -- origin/destination or via location".
+                    -- **A band bites where the passenger boards or alights,
+                    -- which is not only the two ends of the journey.**
                     --
-                    -- So an `A` or `D` band naming a station is about a journey
-                    -- that *ends or starts* there, not one passing through, and
-                    -- the two clauses above are right to test only the ends.
-                    -- Restriction `LK` proves it: its band 0018 bars departing
+                    -- RSPS5045 4.19.8 field 10 calls the location "a journey
+                    -- origin/destination or via location", and reading that as
+                    -- "the ends only" is what this did. A retailer settled it
+                    -- on 4 Aug 2026. Stratford to Cardiff boards the Great
+                    -- Western train at Paddington, and `WW` band 0011 bars
+                    -- departures from Paddington before 09:04:
+                    --
+                    --   dep SRA 08:11 -> leaves PAD 08:48 -> Anytime only, £299.00
+                    --   dep SRA 08:41 -> leaves PAD 09:18 -> Off-Peak Return £144.70
+                    --
+                    -- The step is at the *Paddington* departure. Woking to
+                    -- Cardiff shows the same thing at **Reading**, so this is
+                    -- about boarding rather than about London terminals: no
+                    -- Off-Peak fare at all when the journey joins at Reading
+                    -- inside `WW` band 0017, and £79.70 when it joins after.
+                    --
+                    -- **The old reasoning was right about passing through and
+                    -- wrong about changing.** `LK` band 0018 bars departing
                     -- Euston before 10:29 while band 0006 bars departing
                     -- Leighton Buzzard before 12:33, and one train cannot
-                    -- satisfy both - they are per-origin rules, not a way of
-                    -- naming trains.
-                    --
-                    -- Three `V` bands are in force and only one is outward
-                    -- (`PB`, changing at Farringdon before 10:55), so this
-                    -- earns almost nothing today. It is here because it is the
-                    -- reading the spec gives, and because getting it wrong the
-                    -- other way made 1,648 fares dearer than any retailer sells.
+                    -- satisfy both - but that passenger *passes* Leighton
+                    -- Buzzard without boarding, so the band never applied to
+                    -- them. `is_change` is exactly that distinction, and the
+                    -- feed's own band sets are built around it: a pass-through
+                    -- conflict cannot be constructed from `LK` or `9I`,
+                    -- because the intermediate windows close before a legal
+                    -- departure from the terminal could reach them.
+                    (b.arr_dep_via = 'D' and b.location is not null and exists (
+                        select 1 from journey_call k
+                        where k.crs = c.dest_crs
+                          and k.via_crs = b.location
+                          and k.is_change
+                          and k.depart % 1440 between b.time_from and b.time_to
+                    ))
+                    or
+                    (b.arr_dep_via = 'A' and b.location is not null and exists (
+                        select 1 from journey_call k
+                        where k.crs = c.dest_crs
+                          and k.via_crs = b.location
+                          and k.is_change
+                          and k.arrive % 1440 between b.time_from and b.time_to
+                    ))
+                    or
+                    -- `V` says "changing at" outright (4.19.8 field 9), so it
+                    -- needs no station-is-an-end test. Three are in force and
+                    -- one is outward, `PB` changing at Farringdon before 10:55.
                     --
                     -- `journey_call` is empty when the caller supplies no
-                    -- calling times, and then nothing here bites - the same
+                    -- calling times, and then none of these bite - the same
                     -- guard the return leg and the TOC conditions use.
                     (b.arr_dep_via = 'V' and exists (
                         select 1 from journey_call k
@@ -1312,6 +1422,9 @@ priced as (
                  -- whole day, so reading it as a bar withdraws the Network
                  -- Railcard outright.
                  and not rb.min_fare_flag
+                 -- ...and 'N' spanning the whole day is not a bar either where
+                 -- the band names the operators it applies to. R5 and RD do.
+                 and {_band_toc_applies("rb", "s.dest_crs")}
                  and (
                      (rb.arr_dep_via = 'D'
                       and (rb.location is null or rb.location = $origin)
@@ -1321,6 +1434,32 @@ priced as (
                       and (rb.location is null or rb.location = s.dest_crs)
                       and s.arrival_minutes % 1440
                           between rb.time_from and rb.time_to)
+                     or
+                     -- A railcard's bands read the same way as a fare's: they
+                     -- bite where the passenger boards or alights, changes
+                     -- included. See the fare clause above for the evidence.
+                     (rb.arr_dep_via = 'D' and rb.location is not null
+                      and exists (
+                          select 1 from journey_call k
+                          where k.crs = s.dest_crs and k.via_crs = rb.location
+                            and k.is_change
+                            and k.depart % 1440
+                                between rb.time_from and rb.time_to))
+                     or
+                     (rb.arr_dep_via = 'A' and rb.location is not null
+                      and exists (
+                          select 1 from journey_call k
+                          where k.crs = s.dest_crs and k.via_crs = rb.location
+                            and k.is_change
+                            and k.arrive % 1440
+                                between rb.time_from and rb.time_to))
+                     or
+                     (rb.arr_dep_via = 'V' and exists (
+                          select 1 from journey_call k
+                          where k.crs = s.dest_crs and k.via_crs = rb.location
+                            and k.is_change
+                            and k.arrive % 1440
+                                between rb.time_from and rb.time_to))
                  )
            ) as railcard_in_time,
            -- RSPS5045 4.16.1.1: a railcard minimum fare applies "when railcards
@@ -1338,6 +1477,7 @@ priced as (
                  and (rr.route_code is null or rr.route_code = s.route_code)
                  and rb.out_ret = 'O'
                  and rb.min_fare_flag
+                 and {_band_toc_applies("rb", "s.dest_crs")}
                  and (
                      (rb.arr_dep_via = 'D'
                       and (rb.location is null or rb.location = $origin)
@@ -1347,6 +1487,32 @@ priced as (
                       and (rb.location is null or rb.location = s.dest_crs)
                       and s.arrival_minutes % 1440
                           between rb.time_from and rb.time_to)
+                     or
+                     -- A railcard's bands read the same way as a fare's: they
+                     -- bite where the passenger boards or alights, changes
+                     -- included. See the fare clause above for the evidence.
+                     (rb.arr_dep_via = 'D' and rb.location is not null
+                      and exists (
+                          select 1 from journey_call k
+                          where k.crs = s.dest_crs and k.via_crs = rb.location
+                            and k.is_change
+                            and k.depart % 1440
+                                between rb.time_from and rb.time_to))
+                     or
+                     (rb.arr_dep_via = 'A' and rb.location is not null
+                      and exists (
+                          select 1 from journey_call k
+                          where k.crs = s.dest_crs and k.via_crs = rb.location
+                            and k.is_change
+                            and k.arrive % 1440
+                                between rb.time_from and rb.time_to))
+                     or
+                     (rb.arr_dep_via = 'V' and exists (
+                          select 1 from journey_call k
+                          where k.crs = s.dest_crs and k.via_crs = rb.location
+                            and k.is_change
+                            and k.arrive % 1440
+                                between rb.time_from and rb.time_to))
                  )
            ) as minimum_fare_applies
     from sellable s
@@ -1509,15 +1675,28 @@ def _register_journey_tables(
     """
     connection.register("applicable_band", pa.table(
         {
-            name: pa.array(
-                [row[index] for row in bands],
-                type=pa.int32() if name in ("time_from", "time_to")
-                else pa.bool_() if name == "min_fare_flag"
-                else pa.string(),
-            )
-            for index, name in enumerate(_BAND_COLUMNS)
+            "band_id": pa.array(range(len(bands)), type=pa.int32()),
+            **{
+                name: pa.array(
+                    [row[index] for row in bands],
+                    type=pa.int32() if name in ("time_from", "time_to")
+                    else pa.bool_() if name == "min_fare_flag"
+                    else pa.string(),
+                )
+                for index, name in enumerate(_BAND_COLUMNS)
+            },
         }
     ))
+    # RSPS5045 4.19.10 field 7, flattened to one row per (band, operator). A
+    # band absent from here names no operator and so applies to every train;
+    # `_BAND_TOC_APPLIES` is the clause that reads it.
+    qualified = [(index, toc)
+                 for index, row in enumerate(bands)
+                 for toc in (row[len(_BAND_COLUMNS)] or ())]
+    connection.register("applicable_band_toc", pa.table({
+        "band_id": pa.array([i for i, _ in qualified], type=pa.int32()),
+        "toc": pa.array([t for _, t in qualified], type=pa.string()),
+    }))
     connection.register("journey_arrival", pa.table({
         "crs": pa.array(list(arrivals), type=pa.string()),
         "minutes": pa.array(list(arrivals.values()), type=pa.int32()),
@@ -1565,9 +1744,9 @@ def _register_journey_tables(
 
 
 def _unregister_journey_tables(connection) -> None:
-    for name in ("applicable_band", "journey_arrival", "journey_path",
-                 "journey_call", "journey_operator", "journey_mode",
-                 "journey_changes"):
+    for name in ("applicable_band", "applicable_band_toc", "journey_arrival",
+                 "journey_path", "journey_call", "journey_operator",
+                 "journey_mode", "journey_changes"):
         connection.unregister(name)
 
 

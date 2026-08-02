@@ -1262,7 +1262,7 @@ def fares(
         # says they apply.
         in_force = {
             (code, out_ret, frm, to, sense, location)
-            for code, out_ret, frm, to, sense, location, _ in
+            for code, out_ret, frm, to, sense, location, *_ in
             applicable_bands(connection, back_on)
         }
         for code in sorted({row["restriction_code"] for row in rows
@@ -1818,7 +1818,7 @@ def roundtrip(
             return Leg(origin=frm, destination=to, date=on, depart=after,
                        arrive=first.arrival[index], path=first.path_to(to),
                        operators=first.operators_to(to), modes=first.modes_to(to),
-                       changes=first.changes_to(to))
+                       changes=first.changes_to(to), calls=first.calls_to(to))
 
         middle = network.index.get(stop, -1)
         if middle < 0 or first.arrival[middle] >= UNREACHABLE_SENTINEL:
@@ -1827,6 +1827,19 @@ def roundtrip(
         end = network.index.get(to, -1)
         if end < 0 or second.arrival[end] >= UNREACHABLE_SENTINEL:
             return None
+        # The break station ends one half and begins the other, so it appears
+        # in both lists - joined the same way `calls_to` joins a change of
+        # trains, keeping the arrival from the first half and the departure
+        # from the second. It *is* a change, however direct the halves are, so
+        # a band naming it bites here exactly as it would anywhere else.
+        halves, onward = first.calls_to(stop), second.calls_to(to)
+        if halves and onward and halves[-1][0] == onward[0][0]:
+            calls = (halves[:-1]
+                     + [(halves[-1][0], halves[-1][1], onward[0][2], True)]
+                     + onward[1:])
+        else:
+            calls = halves + onward
+
         return Leg(
             origin=frm, destination=to, date=on, depart=after,
             arrive=second.arrival[end],
@@ -1835,6 +1848,7 @@ def roundtrip(
             modes=first.modes_to(stop) | second.modes_to(to),
             # The deliberate break is itself a change, however direct the halves.
             changes=first.changes_to(stop) + second.changes_to(to) + 1,
+            calls=calls,
         )
 
     out_leg = route(a, b, out_date, _hhmm(depart), via.upper())

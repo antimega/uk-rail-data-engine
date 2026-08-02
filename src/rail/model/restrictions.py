@@ -102,6 +102,22 @@ def build_restrictions(
         where time_from is not null or time_to is not null
     """)
 
+    # RSPS5045 4.19.10 field 7: "The time restriction only applies to trains
+    # provided by this TOC." 2,565 of the current bands carry one, and applying
+    # them to every operator is how the 16-17 Saver came to be withdrawn from
+    # the entire network - its restriction `R5` is a single band barring travel
+    # 00:01-23:59, every day of the year, at any station, qualified to
+    # ScotRail and Caledonian Sleeper alone. Read without the qualifier that is
+    # not a peak restriction, it is the railcard not existing.
+    #
+    # The band is keyed here exactly as `restriction_band` keys it, so a band
+    # with no TT rows joins to nothing and keeps applying unconditionally.
+    connection.execute(f"""
+        create or replace table restriction_band_toc as
+        select distinct cf_mkr, restriction_code, sequence_no, out_ret, toc_code
+        from read_parquet('{path("restriction_time_toc")}')
+    """)
+
     # A band's dates come from its own TD records where it has any, and from the
     # restriction's header dates otherwise. MMDD is stored as an integer so the
     # range test is a plain comparison.
@@ -177,20 +193,37 @@ def marker_for(connection: duckdb.DuckDBPyConnection, travel_date: dt.date) -> s
 #: Bands that bite on a given date, for a given restriction set. `mmdd` and the
 #: weekday are supplied by the caller so this stays a plain lookup.
 APPLICABLE_BANDS_SQL = """
-select distinct b.restriction_code, b.out_ret, b.time_from, b.time_to,
-       b.arr_dep_via, b.location, b.min_fare_flag
-from restriction_band b
-join restriction_band_window w
-  on w.cf_mkr = b.cf_mkr
- and w.restriction_code = b.restriction_code
- and w.sequence_no = b.sequence_no
- and w.out_ret = b.out_ret
-where b.cf_mkr = $marker
-  and $mmdd between w.from_mmdd and w.to_mmdd
-  and case $weekday
-      when 0 then w.monday when 1 then w.tuesday when 2 then w.wednesday
-      when 3 then w.thursday when 4 then w.friday when 5 then w.saturday
-      else w.sunday end
+with in_force as (
+    select b.restriction_code, b.out_ret, b.time_from, b.time_to,
+           b.arr_dep_via, b.location, b.min_fare_flag,
+           b.cf_mkr, b.sequence_no
+    from restriction_band b
+    join restriction_band_window w
+      on w.cf_mkr = b.cf_mkr
+     and w.restriction_code = b.restriction_code
+     and w.sequence_no = b.sequence_no
+     and w.out_ret = b.out_ret
+    where b.cf_mkr = $marker
+      and $mmdd between w.from_mmdd and w.to_mmdd
+      and case $weekday
+          when 0 then w.monday when 1 then w.tuesday when 2 then w.wednesday
+          when 3 then w.thursday when 4 then w.friday when 5 then w.saturday
+          else w.sunday end
+)
+-- The TOC qualifier rides along with the band rather than being looked up
+-- later, because `distinct` collapses bands to their shape: two bands of
+-- identical times and location differing only in which operators they name
+-- must stay two rows, or one's qualifier would silently govern the other.
+-- `list_sort` keeps that key stable so identical sets do still collapse.
+select distinct i.restriction_code, i.out_ret, i.time_from, i.time_to,
+       i.arr_dep_via, i.location, i.min_fare_flag,
+       (select list_sort(list(t.toc_code))
+        from restriction_band_toc t
+        where t.cf_mkr = i.cf_mkr
+          and t.restriction_code = i.restriction_code
+          and t.sequence_no = i.sequence_no
+          and t.out_ret = i.out_ret) as tocs
+from in_force i
 """
 
 
@@ -205,6 +238,13 @@ def applicable_bands(
     minimum, where `N` bars it outright. Only 19 of the 33,216 current bands are
     `Y`, but one of them is the Network Railcard's, and it spans the whole day -
     read as a bar it withdraws the railcard entirely.
+
+    The last element is the band's **TOC qualifier** (4.19.10 field 7): the
+    operators whose trains it applies to, or ``None`` where it applies to all of
+    them. It is null for the great majority - only 2,565 current bands name any
+    - and a caller that cannot say which operators a journey used must go on
+    applying the band, since a bar wrongly lifted sells a ticket that is not
+    valid. See `_register_journey_tables` for where that guard lives.
     """
     return connection.execute(
         APPLICABLE_BANDS_SQL,
