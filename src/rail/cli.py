@@ -220,6 +220,7 @@ def build(
     )
     table.add_row("station_nlc (priceable)", f"{counts.priced:,}")
     table.add_row("station_cluster", f"{counts.clusters:,}")
+    table.add_row("station_alias", f"{counts.aliases:,}")
     table.add_row("reference_reject", f"{counts.rejects:,}")
     table.add_row("train_schedule", f"{timetable.schedules:,}")
     table.add_row("schedule_stop", f"{timetable.stops:,}")

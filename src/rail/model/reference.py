@@ -46,6 +46,7 @@ class ReferenceCounts:
     priced: int
     clusters: int
     rejects: int
+    aliases: int = 0
 
 
 def _add_rail_station_flag(
@@ -109,8 +110,23 @@ def build_reference(
         select 'msn', coalesce(tiploc_code, station_name), 'crs is not three letters'
         from msn_raw where crs_code is null or not regexp_matches(crs_code, '^[A-Z]{3}$')
     """)
-    # One row per CRS. Prefer an entry that actually has coordinates, then take
-    # the lowest TIPLOC so the choice is deterministic across rebuilds.
+    # One row per CRS. Prefer an entry that actually has coordinates, then one
+    # MSN does not call subsidiary, then the lowest TIPLOC so the choice is
+    # deterministic across rebuilds.
+    #
+    # A CRS may carry several MSN records, one per TIPLOC, each with its own
+    # name - 18 do - and the name is what a person reads. Ordering by TIPLOC
+    # alone chose between them alphabetically, which took the platform-level
+    # name six times: PAD came out `PADDINGTON EL` rather than
+    # `LONDON PADDINGTON` and RDG `READING 4/5/6` rather than `READING`, so
+    # neither could be found by typing the name on the ticket.
+    #
+    # `cate_interchange_status` of '9' is MSN's own word for a subsidiary
+    # record, and it separates them exactly: every one of the six wrong picks
+    # is a '9' and no CRS in the feed carries nothing but '9's, so demoting
+    # them never leaves a station nameless. The position term stays ahead of it
+    # because a position is harder to recover than a name - the two orderings
+    # are measured to agree on every station today, so nothing rests on it.
     connection.execute("""
         create or replace table station as
         with valid as (
@@ -118,7 +134,9 @@ def build_reference(
         ), ranked as (
             select *, row_number() over (
                 partition by crs_code
-                order by (easting is null), tiploc_code
+                order by (easting is null),
+                         (cate_interchange_status = '9'),
+                         tiploc_code
             ) as rn
             from valid
         )
@@ -180,6 +198,47 @@ def build_reference(
     """)
     connection.execute("drop table tiploc_ranked")
 
+    # --- the names a station also goes by ------------------------------------
+    # MSN's `L` records, 298 of them: the Welsh name (Abertawe, Caerdydd
+    # Canolog, Y-Fenni), the name a station used to have (Belfast Central,
+    # Bodmin Road, Manchester G-Mex), the landmark it is known for (Birmingham
+    # Airport, Aston Villa FC, Lakeside Shopping Centre), and the untruncated
+    # form of a name MSN has cut to its 26-character field.
+    #
+    # **Joined against every MSN name for the CRS, not the one `station` kept.**
+    # The alias file names a station by whichever of its records it likes, so
+    # joining on `station.name` loses whichever three the ranking above did not
+    # choose - and the alias file's own choice is sometimes the better one: it
+    # calls PAD `LONDON PADDINGTON` where the record we used to take was
+    # `PADDINGTON EL`. Against the full set all 298 join, and no MSN name is
+    # shared by two CRS, so there is nothing to disambiguate.
+    #
+    # The table is created either way, empty when MSN carried no `L` records at
+    # all, so a consumer's SQL never has to ask whether it exists.
+    alias_file = timetable_dir / "station_alias.parquet"
+    connection.execute(
+        f"""
+        create or replace table station_alias as
+        select distinct m.crs_code as crs, a.station_alias as alias
+        from read_parquet('{alias_file.as_posix()}') a
+        join msn_raw m on m.station_name = a.station_name
+        where regexp_matches(m.crs_code, '^[A-Z]{{3}}$')
+          and a.station_alias is not null
+          and trim(a.station_alias) <> ''
+          -- An alias identical to a name the station already carries adds
+          -- nothing to a search and would show as a duplicate suggestion.
+          and not exists (
+              select 1 from msn_raw n
+              where n.crs_code = m.crs_code
+                and upper(trim(n.station_name)) = upper(trim(a.station_alias))
+          )
+        order by crs, alias
+        """
+        if alias_file.exists() else
+        "create or replace table station_alias "
+        "as select null::varchar as crs, null::varchar as alias where false"
+    )
+
     # --- the fares side: current NLC per station -----------------------------
     # LOC is a versioned history. Keep only records whose validity window covers
     # today, then the most recently started of those.
@@ -236,6 +295,7 @@ def build_reference(
         priced=scalar("select count(*) from station_nlc"),
         clusters=scalar("select count(*) from station_cluster"),
         rejects=scalar("select count(*) from reference_reject"),
+        aliases=scalar("select count(*) from station_alias"),
     )
 
 

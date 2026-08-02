@@ -372,3 +372,112 @@ def test_a_marker_keeps_its_evidence():
     assert c.execute(
         "select mode, calls from station_service where crs = 'QXO'"
     ).fetchone() == ("train", 1)
+
+
+ALIAS_SCHEMA = pa.schema(
+    [("station_name", pa.string()), ("station_alias", pa.string())]
+)
+
+
+@pytest.fixture
+def named(tmp_path):
+    """A station with two MSN records, one of them subsidiary.
+
+    Paddington's real shape: `PADTLL` sorts before `PADTON`, so the TIPLOC
+    tie-break alone hands the station the Elizabeth line box's name.
+    """
+    timetable = tmp_path / "timetable"
+    fares = tmp_path / "fares"
+    timetable.mkdir()
+    fares.mkdir()
+
+    write(
+        timetable / "physical_station.parquet",
+        [
+            {"station_name": "PADDINGTON EL", "tiploc_code": "PADTLL",
+             "crs_code": "PAD", "cate_interchange_status": "9",
+             "easting": 15295, "northing": 61827, "minimum_change_time": 15},
+            {"station_name": "LONDON PADDINGTON", "tiploc_code": "PADTON",
+             "crs_code": "PAD", "cate_interchange_status": "3",
+             "easting": 15295, "northing": 61827, "minimum_change_time": 15},
+            {"station_name": "SWANSEA", "tiploc_code": "SWANSEA",
+             "crs_code": "SWA", "cate_interchange_status": "1",
+             "easting": 12657, "northing": 61932, "minimum_change_time": 5},
+        ],
+        MSN_SCHEMA,
+    )
+    write(timetable / "tiploc.parquet", [], TIPLOC_SCHEMA)
+    write(
+        timetable / "station_alias.parquet",
+        [
+            # Named by the record the ranking does *not* keep. Joining on
+            # `station.name` would lose this one entirely.
+            {"station_name": "LONDON PADDINGTON", "station_alias": "PADDINGTON"},
+            {"station_name": "SWANSEA", "station_alias": "ABERTAWE"},
+            # An alias the station already answers to under another TIPLOC.
+            {"station_name": "LONDON PADDINGTON", "station_alias": "PADDINGTON EL"},
+            {"station_name": "SWANSEA", "station_alias": "   "},
+        ],
+        ALIAS_SCHEMA,
+    )
+    write(fares / "location.parquet", [], LOCATION_SCHEMA)
+    write(fares / "station_cluster.parquet", [], CLUSTER_SCHEMA)
+
+    connection = duckdb.connect()
+    counts = build_reference(connection, timetable, fares)
+    return connection, counts
+
+
+def test_a_subsidiary_msn_record_does_not_name_the_station(named):
+    """MSN's own `9` is what separates a platform-level record from the station.
+
+    Without it the TIPLOC tie-break chose alphabetically and PAD came out
+    `PADDINGTON EL`, which no passenger would type and no ticket carries.
+    """
+    connection, _ = named
+    assert connection.execute(
+        "select name from station where crs = 'PAD'"
+    ).fetchone() == ("LONDON PADDINGTON",)
+
+
+def test_an_alias_is_resolved_against_every_name_the_station_carries(named):
+    """The alias file names a station by whichever of its MSN records it likes.
+
+    It calls PAD `LONDON PADDINGTON`; before the fix above that was the record
+    `station` discarded, so a join on the kept name lost the alias. Joining on
+    the whole MSN set is what makes the two files independent of each other.
+    """
+    connection, counts = named
+    assert connection.execute(
+        "select crs, alias from station_alias order by crs, alias"
+    ).fetchall() == [("PAD", "PADDINGTON"), ("SWA", "ABERTAWE")]
+    assert counts.aliases == 2
+
+
+def test_an_alias_repeating_a_name_the_station_has_is_dropped(named):
+    """`PADDINGTON EL` is a name PAD already carries on its other TIPLOC.
+
+    Keeping it would offer the same station twice in a search, the second time
+    under the very name this change exists to stop showing.
+    """
+    connection, _ = named
+    assert "PADDINGTON EL" not in [
+        row[0] for row in connection.execute("select alias from station_alias").fetchall()
+    ]
+
+
+def test_station_alias_exists_even_when_msn_carried_no_l_records(tmp_path):
+    """A consumer's SQL should not have to ask whether the table is there."""
+    timetable = tmp_path / "timetable"
+    fares = tmp_path / "fares"
+    timetable.mkdir()
+    fares.mkdir()
+    write(timetable / "physical_station.parquet", [], MSN_SCHEMA)
+    write(timetable / "tiploc.parquet", [], TIPLOC_SCHEMA)
+    write(fares / "location.parquet", [], LOCATION_SCHEMA)
+    write(fares / "station_cluster.parquet", [], CLUSTER_SCHEMA)
+
+    connection = duckdb.connect()
+    counts = build_reference(connection, timetable, fares)
+    assert counts.aliases == 0
+    assert connection.execute("select count(*) from station_alias").fetchone() == (0,)

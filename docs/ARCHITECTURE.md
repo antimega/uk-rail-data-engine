@@ -97,6 +97,22 @@ a drift here would be invisible in the output.
 - a station can have several TIPLOCs, and some of the extras are junctions
 several kilometres away, which matters when positions are resolved.
 
+**A station may also carry several names**, one per TIPLOC, and 18 do. Which one
+`station.name` keeps used to be settled by the TIPLOC tie-break alone, which
+took the platform-level record six times - Paddington came out named after its
+Elizabeth line box and Reading after three of its platforms. The station file's
+own subsidiary flag separates them exactly, and is what decides now. Nothing
+joins on the name, so this is a display fix rather than a correctness one; it is
+recorded because the failure was invisible until someone looked a station up by
+the name on their ticket.
+
+`station_alias` carries the other names the feed knows a station by: the Welsh
+name, the name it used to have, the landmark it is known for, and the
+untruncated form of one the feed has cut to its 26-character field. 298 of them,
+resolved against *every* name a station carries rather than the one kept above -
+the alias file names a station by whichever of its records it likes. Nothing in
+the engine reads it; it is there for search and display.
+
 ---
 
 ## The router
