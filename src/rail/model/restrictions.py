@@ -54,6 +54,9 @@ class RestrictionCounts:
     #: silent: with none of them every qualified band bars every operator, and
     #: the 16-17 Saver quietly discounts nothing anywhere.
     toc_qualifiers: int = 0
+    #: SR train-list rows and SQ location exceptions retained for decisions.
+    trains: int = 0
+    train_exceptions: int = 0
 
 
 def build_restrictions(
@@ -83,9 +86,80 @@ def build_restrictions(
     # every change becomes too strict and this is the place to fix it.
     connection.execute(f"""
         create or replace table restriction_current as
-        select cf_mkr, restriction_code, description, change_ind as change_allowed
+        select cf_mkr, restriction_code, description,
+               type_out, type_ret, change_ind as change_allowed
         from read_parquet('{path("restriction_header")}')
     """)
+
+    train_path = fares_dir / "restriction_train.parquet"
+    if train_path.exists():
+        connection.execute(f"""
+            create or replace table restriction_train_current as
+            select cf_mkr, restriction_code, train_no, out_ret,
+                   quota_ind, sleeper_ind
+            from read_parquet('{train_path.as_posix()}')
+        """)
+    else:
+        connection.execute("""
+            create or replace table restriction_train_current (
+                cf_mkr varchar,
+                restriction_code varchar,
+                train_no varchar,
+                out_ret varchar,
+                quota_ind varchar,
+                sleeper_ind varchar
+            )
+        """)
+
+    train_date_path = fares_dir / "restriction_train_date.parquet"
+    if train_date_path.exists():
+        connection.execute(f"""
+            create or replace table restriction_train_window as
+            select cf_mkr, restriction_code, train_no, out_ret,
+                   try_cast(date_from as integer) as from_mmdd,
+                   try_cast(date_to as integer) as to_mmdd,
+                   {", ".join(_DAY_COLUMNS)}
+            from read_parquet('{train_date_path.as_posix()}')
+        """)
+    else:
+        connection.execute("""
+            create or replace table restriction_train_window (
+                cf_mkr varchar,
+                restriction_code varchar,
+                train_no varchar,
+                out_ret varchar,
+                from_mmdd integer,
+                to_mmdd integer,
+                monday boolean,
+                tuesday boolean,
+                wednesday boolean,
+                thursday boolean,
+                friday boolean,
+                saturday boolean,
+                sunday boolean
+            )
+        """)
+
+    exception_path = fares_dir / "restriction_train_quota.parquet"
+    if exception_path.exists():
+        connection.execute(f"""
+            create or replace table restriction_train_exception_current as
+            select cf_mkr, restriction_code, train_no, out_ret,
+                   location, quota_ind, arr_dep
+            from read_parquet('{exception_path.as_posix()}')
+        """)
+    else:
+        connection.execute("""
+            create or replace table restriction_train_exception_current (
+                cf_mkr varchar,
+                restriction_code varchar,
+                train_no varchar,
+                out_ret varchar,
+                location varchar,
+                quota_ind varchar,
+                arr_dep varchar
+            )
+        """)
 
     # A blank time is an **open end**, not a missing band. 30 of the 66,432
     # records leave one side empty - `FL` and `FK` four each, then `XG`, `8Z`,
@@ -178,6 +252,10 @@ def build_restrictions(
             "where cf_mkr = 'C' and not change_allowed"
         ),
         toc_qualifiers=scalar("select count(*) from restriction_band_toc"),
+        trains=scalar("select count(*) from restriction_train_current"),
+        train_exceptions=scalar(
+            "select count(*) from restriction_train_exception_current"
+        ),
     )
 
 
@@ -253,6 +331,50 @@ def applicable_bands(
     """
     return connection.execute(
         APPLICABLE_BANDS_SQL,
+        {
+            "marker": marker_for(connection, travel_date),
+            "mmdd": travel_date.month * 100 + travel_date.day,
+            "weekday": travel_date.weekday(),
+        },
+    ).fetchall()
+
+
+APPLICABLE_TRAINS_SQL = """
+select r.cf_mkr, r.restriction_code, r.train_no, r.out_ret,
+       r.quota_ind, r.sleeper_ind
+from restriction_train_current r
+where r.cf_mkr = $marker
+  and (
+      not exists (
+          select 1 from restriction_train_window w
+          where w.cf_mkr = r.cf_mkr
+            and w.restriction_code = r.restriction_code
+            and w.train_no = r.train_no
+            and w.out_ret = r.out_ret
+      )
+      or exists (
+          select 1 from restriction_train_window w
+          where w.cf_mkr = r.cf_mkr
+            and w.restriction_code = r.restriction_code
+            and w.train_no = r.train_no
+            and w.out_ret = r.out_ret
+            and $mmdd between w.from_mmdd and w.to_mmdd
+            and case $weekday
+                when 0 then w.monday when 1 then w.tuesday when 2 then w.wednesday
+                when 3 then w.thursday when 4 then w.friday when 5 then w.saturday
+                else w.sunday end
+      )
+  )
+"""
+
+
+def applicable_trains(
+    connection: duckdb.DuckDBPyConnection,
+    travel_date: dt.date,
+) -> list[tuple[str, str, str, str, str, str]]:
+    """SR train-list rows in force on ``travel_date`` after SD windows."""
+    return connection.execute(
+        APPLICABLE_TRAINS_SQL,
         {
             "marker": marker_for(connection, travel_date),
             "mmdd": travel_date.month * 100 + travel_date.day,

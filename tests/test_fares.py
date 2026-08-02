@@ -931,6 +931,85 @@ def test_an_arrival_side_restriction_uses_the_arrival_time(fares):
     assert cheapest(depart_minutes=660, arrivals={"BBB": 780}) == ("CDS", 990)   # arrives 13:00
 
 
+def test_a_negative_train_list_honours_its_departure_exception(fares):
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SSS", 6360, restriction="1A"),
+                      fare(1, "SDS", 9000)],
+        tickets=[ticket("SSS", "SUPER OFFPEAK S"),
+                 ticket("SDS", "ANYTIME DAY S")],
+        headers=[(
+            "1A",
+            "NOT VALID ON CERTAIN TRAINS MON-FRI",
+            True,
+            "N",
+        )],
+    )
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "1A",
+                "train_no": "C04660",
+                "out_ret": "O",
+                "quota_ind": "N",
+                "sleeper_ind": "N",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("train_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("quota_ind", pa.string()),
+                ("sleeper_ind", pa.string()),
+            ]),
+        ),
+        directory / "restriction_train.parquet",
+    )
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "1A",
+                "train_no": "C04660",
+                "out_ret": "O",
+                "location": "CLT",
+                "quota_ind": "",
+                "arr_dep": "D",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("train_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("location", pa.string()),
+                ("quota_ind", pa.string()),
+                ("arr_dep", pa.string()),
+            ]),
+        ),
+        directory / "restriction_train_quota.parquet",
+    )
+    build_restrictions(connection, directory)
+
+    def price(train_no, calls):
+        rows = cheapest_from(
+            connection,
+            directory,
+            "AAA",
+            TUESDAY,
+            trains={"BBB": {train_no}},
+            calls={"BBB": calls},
+        )
+        return {row[0]: row[3] for row in rows}["BBB"]
+
+    ordinary_calls = [("AAA", 480, 480, False), ("BBB", 600, 600, False)]
+    excepted_calls = [("CLT", 480, 480, False), ("BBB", 600, 600, False)]
+
+    assert price("C04660", ordinary_calls) == 9000
+    assert price("C04660", excepted_calls) == 6360
+    assert price("P66915", ordinary_calls) == 6360
+
+
 def test_a_band_bites_where_the_passenger_boards_not_only_at_the_ends(fares):
     """**A station band bites where you board or alight, changes included.**
 
@@ -1112,6 +1191,7 @@ def _write_descriptions(directory, validities=(), headers=(), tocs=()):
         ("restriction_header", pa.schema([
             ("cf_mkr", pa.string()), ("restriction_code", pa.string()),
             ("description", pa.string()), ("desc_out", pa.string()),
+            ("type_out", pa.string()), ("type_ret", pa.string()),
             ("change_ind", pa.bool_())])),
     ):
         rows = [
@@ -1128,8 +1208,11 @@ def _write_descriptions(directory, validities=(), headers=(), tocs=()):
             # (code, description, change_ind) - whether a change of trains is
             # allowed at all, which no time band can express.
             {"cf_mkr": "C", "restriction_code": code, "description": description,
-             "desc_out": description, "change_ind": change_allowed}
-            for code, description, change_allowed in headers
+             "desc_out": description,
+             "type_out": types[0] if types else "N",
+             "type_ret": types[1] if len(types) > 1 else (types[0] if types else "N"),
+             "change_ind": change_allowed}
+            for code, description, change_allowed, *types in headers
         ] if name == "restriction_header" else []
         pq.write_table(pa.Table.from_pylist(rows, schema=schema),
                        directory / f"{name}.parquet")

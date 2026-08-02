@@ -442,3 +442,77 @@ def test_a_band_carries_the_operators_it_is_qualified_to(restrictions, tmp_path)
     # has to mean that rather than "unknown", or every unqualified band would
     # be rendered with a caveat it does not carry.
     assert bands["RDG"].tocs == ()
+def test_sq_exceptions_remain_attached_to_the_listed_train(restrictions, tmp_path):
+    directory = tmp_path / "fares"
+    directory.mkdir(exist_ok=True)
+    train_schema = pa.schema([
+        ("cf_mkr", pa.string()),
+        ("restriction_code", pa.string()),
+        ("train_no", pa.string()),
+        ("out_ret", pa.string()),
+        ("quota_ind", pa.string()),
+        ("sleeper_ind", pa.string()),
+    ])
+    pq.write_table(
+        pa.Table.from_pylist([{
+            "cf_mkr": "C",
+            "restriction_code": "1A",
+            "train_no": "C04660",
+            "out_ret": "O",
+            "quota_ind": "N",
+            "sleeper_ind": "N",
+        }], schema=train_schema),
+        directory / "restriction_train.parquet",
+    )
+    exception_schema = pa.schema([
+        ("cf_mkr", pa.string()),
+        ("restriction_code", pa.string()),
+        ("train_no", pa.string()),
+        ("out_ret", pa.string()),
+        ("location", pa.string()),
+        ("quota_ind", pa.string()),
+        ("arr_dep", pa.string()),
+    ])
+    locations = ["ALR", "CLT", "GRB", "HYH", "TLS", "WEE", "WIV"]
+    pq.write_table(
+        pa.Table.from_pylist([
+            {
+                "cf_mkr": "C",
+                "restriction_code": "1A",
+                "train_no": "C04660",
+                "out_ret": "O",
+                "location": location,
+                "quota_ind": "",
+                "arr_dep": "D",
+            }
+            for location in locations
+        ], schema=exception_schema),
+        directory / "restriction_train_quota.parquet",
+    )
+    connection = restrictions(
+        bands=[band("1A", "0001", frm=0, to=1439, location="")],
+        header_dates=[{
+            "cf_mkr": "C",
+            "restriction_code": "1A",
+            "date_from": "0101",
+            "date_to": "1231",
+            **weekdays_only(),
+        }],
+        headers=[{
+            "cf_mkr": "C",
+            "restriction_code": "1A",
+            "description": "GA OFF-PEAK TO LONDON",
+            "desc_out": "NOT VALID ON CERTAIN TRAINS MON-FRI",
+            "desc_ret": "NOT VALID ON CERTAIN TRAINS MON-FRI",
+            "type_out": "N",
+            "type_ret": "N",
+            "change_ind": True,
+        }],
+    )
+
+    rows = connection.execute(
+        "select location, arr_dep from restriction_train_exception_current "
+        "where restriction_code = '1A' and train_no = 'C04660'"
+    ).fetchall()
+
+    assert set(rows) == {(location, "D") for location in locations}
