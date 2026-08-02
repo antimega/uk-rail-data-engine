@@ -54,8 +54,11 @@ class RestrictionCounts:
     #: silent: with none of them every qualified band bars every operator, and
     #: the 16-17 Saver quietly discounts nothing anywhere.
     toc_qualifiers: int = 0
-    #: SR train-list rows and SQ location exceptions retained for decisions.
+    #: SR train-list rows retained for dated fare decisions.
     trains: int = 0
+    #: SD date windows attached to SR train-list rows.
+    train_windows: int = 0
+    #: SQ location exceptions attached to negative train-list rows.
     train_exceptions: int = 0
 
 
@@ -253,6 +256,7 @@ def build_restrictions(
         ),
         toc_qualifiers=scalar("select count(*) from restriction_band_toc"),
         trains=scalar("select count(*) from restriction_train_current"),
+        train_windows=scalar("select count(*) from restriction_train_window"),
         train_exceptions=scalar(
             "select count(*) from restriction_train_exception_current"
         ),

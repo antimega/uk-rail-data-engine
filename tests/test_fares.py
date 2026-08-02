@@ -931,6 +931,58 @@ def test_an_arrival_side_restriction_uses_the_arrival_time(fares):
     assert cheapest(depart_minutes=660, arrivals={"BBB": 780}) == ("CDS", 990)   # arrives 13:00
 
 
+def test_a_positive_train_list_distinguishes_listed_and_unlisted_trains(fares):
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "FSS", 6360, restriction="FF"),
+                      fare(1, "FOS", 9000)],
+        tickets=[ticket("FSS", "TFW WEEKDAY 1ST", cls=1),
+                 ticket("FOS", "ANYTIME 1S", cls=1)],
+        headers=[(
+            "FF",
+            "VALID ON CERTAIN TRAINS MONDAY-FRIDAY",
+            True,
+            "P",
+        )],
+    )
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "FF",
+                "train_no": "G38870",
+                "out_ret": "O",
+                "quota_ind": "N",
+                "sleeper_ind": "N",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("train_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("quota_ind", pa.string()),
+                ("sleeper_ind", pa.string()),
+            ]),
+        ),
+        directory / "restriction_train.parquet",
+    )
+    build_restrictions(connection, directory)
+
+    def price(train_no):
+        rows = cheapest_from(
+            connection,
+            directory,
+            "AAA",
+            TUESDAY,
+            ticket_class=1,
+            trains={"BBB": {train_no}},
+        )
+        return {row[0]: row[3] for row in rows}["BBB"]
+
+    assert price("G38870") == 6360
+    assert price("G38875") == 9000
+
+
 def test_a_negative_train_list_honours_its_departure_exception(fares):
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],

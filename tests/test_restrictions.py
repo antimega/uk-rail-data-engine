@@ -442,6 +442,82 @@ def test_a_band_carries_the_operators_it_is_qualified_to(restrictions, tmp_path)
     # has to mean that rather than "unknown", or every unqualified band would
     # be rendered with a caveat it does not carry.
     assert bands["RDG"].tocs == ()
+def test_sr_positive_list_and_sd_dates_are_materialised(restrictions, tmp_path):
+    directory = tmp_path / "fares"
+    directory.mkdir(exist_ok=True)
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "FF",
+                "train_no": "G38870",
+                "out_ret": "O",
+                "quota_ind": "N",
+                "sleeper_ind": "N",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("train_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("quota_ind", pa.string()),
+                ("sleeper_ind", pa.string()),
+            ]),
+        ),
+        directory / "restriction_train.parquet",
+    )
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "FF",
+                "train_no": "G38870",
+                "out_ret": "O",
+                "date_from": "0101",
+                "date_to": "1231",
+                **weekdays_only(),
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("train_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("date_from", pa.string()),
+                ("date_to", pa.string()),
+                *[(day, pa.bool_()) for day in DAYS],
+            ]),
+        ),
+        directory / "restriction_train_date.parquet",
+    )
+    connection = restrictions(
+        bands=[band("FF", "0001", frm=0, to=1439, location="")],
+        header_dates=[{
+            "cf_mkr": "C",
+            "restriction_code": "FF",
+            "date_from": "0101",
+            "date_to": "1231",
+            **weekdays_only(),
+        }],
+        headers=[{
+            "cf_mkr": "C",
+            "restriction_code": "FF",
+            "description": "TFW WEEKDAY 1ST",
+            "desc_out": "VALID ON CERTAIN TRAINS MONDAY-FRIDAY",
+            "desc_ret": "VALID ON CERTAIN TRAINS MONDAY-FRIDAY",
+            "type_out": "P",
+            "type_ret": "P",
+            "change_ind": True,
+        }],
+    )
+
+    assert connection.execute(
+        "select train_no from restriction_train_current"
+    ).fetchall() == [("G38870",)]
+    assert connection.execute(
+        "select from_mmdd, to_mmdd from restriction_train_window"
+    ).fetchall() == [(101, 1231)]
+
+
 def test_sq_exceptions_remain_attached_to_the_listed_train(restrictions, tmp_path):
     directory = tmp_path / "fares"
     directory.mkdir(exist_ok=True)

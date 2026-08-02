@@ -1489,6 +1489,25 @@ sellable as (
             and not rc.change_allowed
             and jc.changes > 0
       )
+      -- Header type P makes SR a positive list. Train evidence is optional:
+      -- without it this API has no verdict and preserves the fare; once it is
+      -- supplied, every outward train used by the journey must be listed.
+      and not exists (
+          select 1
+          from restriction_current rc
+          join journey_train jt on jt.crs = c.dest_crs
+          where rc.cf_mkr = $marker
+            and rc.restriction_code = c.restriction_code
+            and rc.type_out = 'P'
+            and not exists (
+                select 1
+                from applicable_restriction_train rt
+                where rt.cf_mkr = rc.cf_mkr
+                  and rt.restriction_code = rc.restriction_code
+                  and rt.out_ret = 'O'
+                  and rt.train_no = jt.train_no
+            )
+      )
       -- Header type N makes SR a negative list. A listed outward train bars
       -- the fare unless an SQ exception matches a calling point in the sense
       -- it names (arrival or departure).
@@ -2217,6 +2236,12 @@ def fare_options(
     train, from `ScanResult.changes()`. Supply it to enforce the 36 restrictions
     that bar a change outright. A destination absent from it gives no verdict,
     so not routing is not a refusal.
+
+    `trains` maps destination CRS to the outward train UIDs used to get there.
+    It enables the SR/SD train restrictions: a `P` header requires every
+    supplied UID to appear on its positive list, while an `N` header bars a
+    listed UID unless an SQ arrival/departure exception matches `calls`.
+    Omitting train evidence gives no verdict and preserves the fare.
     """
     from .restrictions import marker_for
     from .returns import returnable_on
