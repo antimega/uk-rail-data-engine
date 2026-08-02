@@ -370,7 +370,6 @@ class RouteingGuide:
         self.station_group = station_group
         self.routes = routes
         self.map_links = map_links
-        self._reach_cache: dict[tuple[str, ...], dict[str, set[str]]] = {}
         #: Stations from or to which a cross-London transfer is permitted.
         self.cross_london: set[str] = set()
         #: Published exceptions to what the maps allow, from RGF.
@@ -520,33 +519,7 @@ class RouteingGuide:
         Breadth-first rather than every simple path: the busiest maps carry 180
         links and enumerating all of them would not terminate usefully.
         """
-        adjacency: dict[str, set[str]] = {}
-        for code in chain:
-            for source, target in self.map_links.get(code, ()):
-                adjacency.setdefault(source, set()).add(target)
-        # **Sorted, because several shortest paths are usually the same length.**
-        # `map_links` is a set of tuples and Python hashes strings differently in
-        # every process, so an unsorted walk picks a different one of the equally
-        # short paths from run to run - and this is what `rail routings` prints.
-        neighbours = {node: sorted(steps) for node, steps in adjacency.items()}
-
-        came_from: dict[str, str | None] = {start: None}
-        queue = deque([start])
-        while queue:
-            node = queue.popleft()
-            if node == end:
-                break
-            for step in neighbours.get(node, ()):
-                if step not in came_from:
-                    came_from[step] = node
-                    queue.append(step)
-        if end not in came_from:
-            return []
-        route, node = [], end
-        while node is not None:
-            route.append(node)
-            node = came_from[node]
-        return list(reversed(route))
+        return self._ordered_path(chain, start, end, [start, end])
 
     def main_station(self, code: str) -> str:
         """A routeing point as somewhere a passenger has heard of.
@@ -792,31 +765,92 @@ class RouteingGuide:
                     return True
         return False
 
-    def _reachable_from(self, chain: tuple[str, ...]) -> dict[str, set[str]]:
-        """Which nodes each node can reach across the chain's maps."""
-        cached = self._reach_cache.get(chain)
-        if cached is not None:
-            return cached
+    def _ordered_path(
+        self,
+        chain: tuple[str, ...],
+        start: str,
+        end: str,
+        required: list[str],
+    ) -> list[str]:
+        """Find a path without moving backwards through an ordered map chain.
 
-        adjacency: dict[str, set[str]] = {}
-        for map_code in chain:
-            for source, target in self.map_links.get(map_code, ()):
-                adjacency.setdefault(source, set()).add(target)
+        A state includes the map currently being traversed. It may follow a
+        link on that map, or move to the next map while standing on a node
+        shared by both. There is deliberately no transition to an earlier map.
 
-        reachable: dict[str, set[str]] = {}
-        for origin in adjacency:
-            seen = {origin}
-            queue = [origin]
-            while queue:
-                node = queue.pop()
-                for neighbour in adjacency.get(node, ()):
-                    if neighbour not in seen:
-                        seen.add(neighbour)
-                        queue.append(neighbour)
-            reachable[origin] = seen
+        ``required`` contains the routeing nodes the train is known to call at.
+        They must appear in order, but other map nodes may be passed without a
+        call. Keeping that progress in the state avoids reducing each observed
+        pair independently and accidentally joining incompatible partial paths.
+        """
+        if not chain:
+            return []
 
-        self._reach_cache[chain] = reachable
-        return reachable
+        observed = [
+            node for index, node in enumerate(required)
+            if index == 0 or node != required[index - 1]
+        ]
+        if not observed or observed[0] != start or observed[-1] != end:
+            return []
+
+        map_nodes = []
+        adjacency = []
+        for code in chain:
+            links = self.map_links.get(code, ())
+            nodes: set[str] = set()
+            neighbours: dict[str, set[str]] = {}
+            for source, target in links:
+                nodes.update((source, target))
+                neighbours.setdefault(source, set()).add(target)
+            map_nodes.append(nodes)
+            adjacency.append(neighbours)
+
+        # node, map index, number of required nodes already encountered
+        initial = (start, 0, 1)
+        queue = deque([initial])
+        came_from: dict[
+            tuple[str, int, int], tuple[str, int, int] | None
+        ] = {initial: None}
+        target_state = None
+
+        while queue:
+            state = queue.popleft()
+            node, map_index, matched = state
+            if node == end and map_index == len(chain) - 1 and matched == len(observed):
+                target_state = state
+                break
+
+            for step in adjacency[map_index].get(node, ()):
+                next_matched = matched
+                if matched < len(observed) and step == observed[matched]:
+                    next_matched += 1
+                following = (step, map_index, next_matched)
+                if following not in came_from:
+                    came_from[following] = state
+                    queue.append(following)
+
+            next_map = map_index + 1
+            if (
+                next_map < len(chain)
+                and node in map_nodes[map_index]
+                and node in map_nodes[next_map]
+            ):
+                following = (node, next_map, matched)
+                if following not in came_from:
+                    came_from[following] = state
+                    queue.append(following)
+
+        if target_state is None:
+            return []
+
+        route = []
+        state = target_state
+        while state is not None:
+            node = state[0]
+            if not route or route[-1] != node:
+                route.append(node)
+            state = came_from[state]
+        return list(reversed(route))
 
     def _chain_covers(self, chain: tuple[str, ...], sequence: list[str]) -> bool:
         """Can the journey be traced across this chain of maps?
@@ -827,12 +861,10 @@ class RouteingGuide:
         Darlington, yet York to Newcastle via Darlington is plainly permitted.
         Each observed node must therefore be *reachable* from the previous one.
         """
-        reachable = self._reachable_from(chain)
         ordered = [
             node for i, node in enumerate(sequence)
             if i == 0 or node != sequence[i - 1]
         ]
-        for current, following in zip(ordered, ordered[1:]):
-            if following not in reachable.get(current, ()):
-                return False
-        return True
+        return bool(self._ordered_path(
+            chain, ordered[0], ordered[-1], ordered
+        ))
