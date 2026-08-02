@@ -1364,7 +1364,22 @@ non_standard as (
         from sellable s
         join no_standard_discount n
           on (n.origin_code = '****' or n.origin_code in (select code from origin_codes))
-         and (n.destination_code = '****' or n.destination_code = s.other_code)
+         -- **Every code the destination answers to, not just the one the flow
+         -- matched on.** The origin side a line above already expands into
+         -- `origin_codes`; this compared against `s.other_code`, which is
+         -- whichever single code the *flow* happened to use. Stratford to
+         -- Shanklin prices through the cluster `Q262`, and the FNS record that
+         -- governs it names `5529`, Shanklin's own NLC - both are Shanklin, and
+         -- only one of them was ever tested, so the add-on never applied.
+         --
+         -- The asymmetry is the bug: fares are not point-to-point, and a
+         -- station is named by its NLC, its group, its clusters and its county.
+         -- Whichever of those a flow was found by has nothing to do with which
+         -- one an FNS record chose to name.
+         and (n.destination_code = '****'
+              or exists (select 1 from fare_alias da
+                         where da.crs = s.dest_crs
+                           and da.code = n.destination_code))
          and (n.route_code = '*****' or n.route_code = s.route_code)
          and (n.ticket_code = '***' or n.ticket_code = s.ticket_code)
          -- Three spaces means "no railcard needed", which is the child-fare

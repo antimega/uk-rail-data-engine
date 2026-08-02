@@ -2988,3 +2988,34 @@ def test_fare_options_says_which_restriction_governs_a_fare(fares):
     # The operator has not moved: it is still the eighth.
     assert all(row[7] is None or isinstance(row[7], str) for row in rows)
     assert all(row[8] is None or isinstance(row[8], str) for row in rows)
+
+
+def test_an_add_on_applies_when_the_flow_priced_through_a_cluster(fares):
+    """**The destination is expanded like the origin, and for years it was not.**
+
+    Fares are not point-to-point: a station is named by its own NLC, its fare
+    group, every cluster holding it and its county code. Which of those a flow
+    happened to be *found* by has nothing to do with which one an FNS record
+    chose to *name* - and the join compared the FNS destination against the one
+    the flow matched on, so the two only ever met by luck.
+
+    Here the flow prices `BBB` through cluster `C002` and the FNS record names
+    `2222`, its own NLC. Both are `BBB`. Before the fix the add-on never
+    applied and the fare came out 120 light.
+
+    This is the real shape of it. Stratford to Shanklin prices through cluster
+    `Q262` while the record names `5529`, and every walk-up fare to the Isle of
+    Wight was 25-45p under what a retailer sells. Confirmed on four pairs and
+    three railcards: 14 of 14 retailer-quoted prices reproduce with the
+    destination expanded and 0 of 14 without.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "C002", ns_disc=1)],
+        fare_records=[fare(1, "SDS", 1000)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+        clusters=[("C002", "2222")],          # BBB belongs to cluster C002
+        railcards=[railcard("YNG", "16-25 RAILCARD", "003", per_mille=334)],
+        fns=[fns(dest="2222", railcard="YNG", addon=120)],
+    )
+    # 1000 less 33.4% is 666, rounded down to 665, plus the £1.20 add-on.
+    assert discounted(connection, directory) == {"BBB": 785}
