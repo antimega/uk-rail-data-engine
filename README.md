@@ -7,7 +7,7 @@ these are the published future timetables and the published prices.
 A few of the questions it answers:
 
 ```bash
-# The best journey to every station in Britain, swept across the whole day
+# The quickest journey to every station in Britain, swept across the whole day
 rail journey-times --from YRK --date 2026-08-04 --profile
 
 # Everywhere reachable for £20 or less, with a railcard applied
@@ -161,7 +161,7 @@ winning source per station, which is how staleness stays visible.
 | command | what it does |
 |---|---|
 | `rail restrictions <code>` | Spells a restriction code out in English. Every band is a **bar**, not a permission. |
-| `rail routings --from --to` | Every routing the National Routeing Guide permits, and the easements that grant or withdraw one. |
+| `rail routings --from --to` | Every routing the National Routeing Guide permits, each shown as the shortest way across it rather than every path through it, and the easements that grant or withdraw one. |
 
 `rail reachable` has two checks worth knowing apart, both opt-in because each
 narrows the question:
