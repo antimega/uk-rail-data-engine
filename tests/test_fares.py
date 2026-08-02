@@ -762,6 +762,51 @@ def test_an_arrival_side_restriction_uses_the_arrival_time(fares):
     assert cheapest(depart_minutes=660, arrivals={"BBB": 780}) == ("CDS", 990)   # arrives 13:00
 
 
+def test_a_toc_qualified_band_only_restricts_a_matching_operator(fares):
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SSS", 6360, restriction="1L"),
+                      fare(1, "SDS", 9000)],
+        tickets=[ticket("SSS", "SUPER OFFPEAK S"),
+                 ticket("SDS", "ANYTIME DAY S")],
+        bands=[("1L", 270, 569, "D", None)],
+    )
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "1L",
+                "sequence_no": "0001",
+                "out_ret": "O",
+                "toc_code": "XC",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("sequence_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("toc_code", pa.string()),
+            ]),
+        ),
+        directory / "restriction_time_toc.parquet",
+    )
+    build_restrictions(connection, directory)
+
+    def price(operator):
+        rows = cheapest_from(
+            connection,
+            directory,
+            "AAA",
+            TUESDAY,
+            depart_minutes=330,
+            operators={"BBB": {operator}},
+        )
+        return {row[0]: row[3] for row in rows}["BBB"]
+
+    assert price("GR") == 6360
+    assert price("XC") == 9000
+
+
 def test_only_a_via_band_looks_at_the_middle_of_the_journey(fares):
     """**`V` is the only marker that means a station in the middle.**
 

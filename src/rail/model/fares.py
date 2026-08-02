@@ -35,7 +35,7 @@ import duckdb
 import pyarrow as pa
 
 from .plusbus import ZONE_MARKER
-from .restrictions import applicable_bands
+from .restrictions import applicable_band_records
 
 #: Ticket group E is literally described "NOT FOR TRAVEL".
 NOT_FOR_TRAVEL_GROUP = "E"
@@ -1163,6 +1163,17 @@ sellable as (
           from applicable_band b
           where b.restriction_code = c.restriction_code
             and not b.min_fare_flag
+            -- A TT record makes this exact sequence operator-specific. With
+            -- no operator evidence the qualifier cannot reject a fare; with
+            -- evidence, at least one operator used must match the TT list.
+            and (
+                b.toc_codes is null
+                or exists (
+                    select 1 from journey_operator o
+                    where o.crs = c.dest_crs
+                      and list_contains(b.toc_codes, o.toc)
+                )
+            )
             and (
                 -- The outward leg. RSPS5045 4.19.8 field 10: three spaces means
                 -- the band is not station specific, so it bites at whichever end
@@ -1313,6 +1324,14 @@ priced as (
                  -- Railcard outright.
                  and not rb.min_fare_flag
                  and (
+                     rb.toc_codes is null
+                     or exists (
+                         select 1 from journey_operator o
+                         where o.crs = s.dest_crs
+                           and list_contains(rb.toc_codes, o.toc)
+                     )
+                 )
+                 and (
                      (rb.arr_dep_via = 'D'
                       and (rb.location is null or rb.location = $origin)
                       and $depart_minutes between rb.time_from and rb.time_to)
@@ -1338,6 +1357,14 @@ priced as (
                  and (rr.route_code is null or rr.route_code = s.route_code)
                  and rb.out_ret = 'O'
                  and rb.min_fare_flag
+                 and (
+                     rb.toc_codes is null
+                     or exists (
+                         select 1 from journey_operator o
+                         where o.crs = s.dest_crs
+                           and list_contains(rb.toc_codes, o.toc)
+                     )
+                 )
                  and (
                      (rb.arr_dep_via = 'D'
                       and (rb.location is null or rb.location = $origin)
@@ -1493,7 +1520,7 @@ order by dest_crs, fare, ticket_code, route_code
 
 _BAND_COLUMNS = (
     "restriction_code", "out_ret", "time_from", "time_to", "arr_dep_via",
-    "location", "min_fare_flag",
+    "location", "min_fare_flag", "cf_mkr", "sequence_no", "toc_codes",
 )
 
 
@@ -1513,6 +1540,7 @@ def _register_journey_tables(
                 [row[index] for row in bands],
                 type=pa.int32() if name in ("time_from", "time_to")
                 else pa.bool_() if name == "min_fare_flag"
+                else pa.list_(pa.string()) if name == "toc_codes"
                 else pa.string(),
             )
             for index, name in enumerate(_BAND_COLUMNS)
@@ -1658,7 +1686,7 @@ def fare_options(
     from .returns import returnable_on
 
     restrict = depart_minutes is not None
-    bands = applicable_bands(connection, travel_date) if restrict else []
+    bands = applicable_band_records(connection, travel_date) if restrict else []
     arrivals = arrivals or {}
     paths = paths or {}
     operators = operators or {}

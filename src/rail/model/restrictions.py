@@ -50,6 +50,8 @@ class RestrictionCounts:
     intermediate_bands: int
     #: Current restrictions barring a change of trains outright.
     no_change_allowed: int = 0
+    #: Time-band/operator relationships retained from TT records.
+    toc_qualifiers: int = 0
 
 
 def build_restrictions(
@@ -101,6 +103,29 @@ def build_restrictions(
         from read_parquet('{path("restriction_time")}')
         where time_from is not null or time_to is not null
     """)
+
+    # TT qualifies one time-band sequence to one or more operators. It is a
+    # relationship, not a standalone restriction: 1L/0001 is an XC morning
+    # band and therefore says nothing about a Grand Central train at the same
+    # time. Keep the full key because sequence numbers repeat across codes,
+    # directions and current/future marker sets.
+    toc_path = fares_dir / "restriction_time_toc.parquet"
+    if toc_path.exists():
+        connection.execute(f"""
+            create or replace table restriction_band_toc as
+            select cf_mkr, restriction_code, sequence_no, out_ret, toc_code
+            from read_parquet('{toc_path.as_posix()}')
+        """)
+    else:
+        connection.execute("""
+            create or replace table restriction_band_toc (
+                cf_mkr varchar,
+                restriction_code varchar,
+                sequence_no varchar,
+                out_ret varchar,
+                toc_code varchar
+            )
+        """)
 
     # A band's dates come from its own TD records where it has any, and from the
     # restriction's header dates otherwise. MMDD is stored as an integer so the
@@ -157,6 +182,7 @@ def build_restrictions(
             "select count(*) from restriction_current "
             "where cf_mkr = 'C' and not change_allowed"
         ),
+        toc_qualifiers=scalar("select count(*) from restriction_band_toc"),
     )
 
 
@@ -194,6 +220,31 @@ where b.cf_mkr = $marker
 """
 
 
+APPLICABLE_BAND_RECORDS_SQL = """
+select distinct b.restriction_code, b.out_ret, b.time_from, b.time_to,
+       b.arr_dep_via, b.location, b.min_fare_flag,
+       b.cf_mkr, b.sequence_no,
+       (select list(t.toc_code order by t.toc_code)
+        from restriction_band_toc t
+        where t.cf_mkr = b.cf_mkr
+          and t.restriction_code = b.restriction_code
+          and t.sequence_no = b.sequence_no
+          and t.out_ret = b.out_ret) as toc_codes
+from restriction_band b
+join restriction_band_window w
+  on w.cf_mkr = b.cf_mkr
+ and w.restriction_code = b.restriction_code
+ and w.sequence_no = b.sequence_no
+ and w.out_ret = b.out_ret
+where b.cf_mkr = $marker
+  and $mmdd between w.from_mmdd and w.to_mmdd
+  and case $weekday
+      when 0 then w.monday when 1 then w.tuesday when 2 then w.wednesday
+      when 3 then w.thursday when 4 then w.friday when 5 then w.saturday
+      else w.sunday end
+"""
+
+
 def applicable_bands(
     connection: duckdb.DuckDBPyConnection,
     travel_date: dt.date,
@@ -208,6 +259,26 @@ def applicable_bands(
     """
     return connection.execute(
         APPLICABLE_BANDS_SQL,
+        {
+            "marker": marker_for(connection, travel_date),
+            "mmdd": travel_date.month * 100 + travel_date.day,
+            "weekday": travel_date.weekday(),
+        },
+    ).fetchall()
+
+
+def applicable_band_records(
+    connection: duckdb.DuckDBPyConnection,
+    travel_date: dt.date,
+) -> list[tuple]:
+    """Applicable bands with their stable key and allowed operators.
+
+    The shorter :func:`applicable_bands` tuple is retained as the public
+    reporting API. Pricing uses these records so a TT qualifier stays attached
+    to the exact sequence it qualifies.
+    """
+    return connection.execute(
+        APPLICABLE_BAND_RECORDS_SQL,
         {
             "marker": marker_for(connection, travel_date),
             "mmdd": travel_date.month * 100 + travel_date.day,

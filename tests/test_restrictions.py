@@ -16,7 +16,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from rail.model.restrictions import applicable_bands, build_restrictions, marker_for
+from rail.model.restrictions import (
+    applicable_band_records,
+    applicable_bands,
+    build_restrictions,
+    marker_for,
+)
 
 CURRENT_START, CURRENT_END = dt.date(2026, 7, 5), dt.date(2026, 10, 31)
 FUTURE_START, FUTURE_END = dt.date(2026, 11, 1), dt.date(2999, 12, 31)
@@ -220,3 +225,42 @@ def test_a_band_carries_its_location_and_sense(restrictions):
     assert minimum_fare is False
     # 04:30 to 09:59 - the morning peak arrival ban into King's Cross.
     assert (frm, to) == (270, 599)
+
+
+def test_a_time_band_retains_its_operator_qualifier(restrictions, tmp_path):
+    directory = tmp_path / "fares"
+    directory.mkdir(exist_ok=True)
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "1L",
+                "sequence_no": "0001",
+                "out_ret": "O",
+                "toc_code": "XC",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("sequence_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("toc_code", pa.string()),
+            ]),
+        ),
+        directory / "restriction_time_toc.parquet",
+    )
+    connection = restrictions(
+        bands=[band("1L", "0001", frm=270, to=569, location="")],
+        header_dates=[{
+            "cf_mkr": "C",
+            "restriction_code": "1L",
+            "date_from": "0101",
+            "date_to": "1231",
+            **weekdays_only(),
+        }],
+    )
+
+    record = applicable_band_records(connection, dt.date(2026, 8, 4))[0]
+
+    assert record[7:9] == ("C", "0001")
+    assert record[9] == ["XC"]
