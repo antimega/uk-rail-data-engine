@@ -35,6 +35,15 @@ PASSENGER_STATUSES = ("P", "B", "S", "1", "4", "5")
 #: up and set down, "U" pick up only, "D" set down only, "R" request stop.
 PUBLIC_ACTIVITIES = ("T", "U", "D", "R")
 
+# Activity is a compact sequence of one- and multi-character CIF codes, not a
+# bag of letters. Remove the known multi-character codes before inspecting the
+# remaining one-character atoms; otherwise TB is mistaken for T and -D for D.
+MULTI_CHARACTER_ACTIVITIES = (
+    "-D", "-T", "-U", "AE", "AX", "BL", "HH", "KC", "KE", "KF", "KS",
+    "OP", "OR", "PR", "RM", "RR", "TB", "TF", "TS", "TW",
+)
+ACTIVITY_MULTI_PATTERN = "(" + "|".join(MULTI_CHARACTER_ACTIVITIES) + ")"
+
 DEFAULT_HORIZON_DAYS = 90
 
 #: **The feed ships two schedule files and `ZTR` is the second one.** It carries
@@ -162,6 +171,15 @@ def build_timetable(
             left join station_tiploc t on t.tiploc = st.location
             {ztr_stops}
         )
+        , classified as (
+            select *,
+                   replace(coalesce(activity, ''), ' ', '') as compact_activity,
+                   regexp_replace(
+                       replace(coalesce(activity, ''), ' ', ''),
+                       '{ACTIVITY_MULTI_PATTERN}', '', 'g'
+                   ) as activity_atoms
+            from joined
+        )
         select schedule_id,
                row_number() over (
                    partition by schedule_id order by line_no
@@ -173,10 +191,17 @@ def build_timetable(
                -- A public time plus a boarding activity is what makes a stop
                -- usable by a passenger; everything else is a passing point.
                (coalesce(public_arrival, public_departure) is not null
-                and list_any_value(
-                    [a for a in {list(PUBLIC_ACTIVITIES)} if contains(activity, a)]
-                ) is not null) as is_public
-        from joined
+                -- N is an explicit non-advertised instruction and wins even
+                -- when another token, such as origin TB, would permit a call.
+                and not contains(activity_atoms, 'N')
+                and (
+                    regexp_matches(
+                        activity_atoms, '[{"".join(PUBLIC_ACTIVITIES)}]'
+                    )
+                    or (record_type = 'LO' and contains(compact_activity, 'TB'))
+                    or (record_type = 'LT' and contains(compact_activity, 'TF'))
+                )) as is_public
+        from classified
     """)
 
     # Public times are minutes after midnight and wrap on overnight services -
