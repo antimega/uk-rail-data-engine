@@ -353,3 +353,60 @@ def test_the_pool_reads_the_marker_the_travel_date_selects(restrictions, tmp_pat
     assert (current.description, current.bars_return) == ("NOW", False)
     # The only return band in the file belongs to the future set.
     assert (future.description, future.bars_return) == ("NEXT", True)
+
+
+def test_the_pool_carries_the_times_the_prose_leaves_out(restrictions, tmp_path):
+    """**This is where the prose stops being good enough.**
+
+    `YX` says "PEAK TRAVEL RESTRICTIONS APPLY MON-FRI" in *both* notes and
+    carries 42 bands. What somebody travelling to Lostwithiel needs is the one
+    that says no train back before 07:20, and no amount of reading the sentence
+    gets there.
+
+    The windows match National Rail's own published page for the code to the
+    minute - "06:16 from Penzance" against `departing PNZ 04:30-06:15`, and
+    "arrive London Waterloo before 11:48" against `arriving at WAT
+    02:30-11:47`.
+    """
+    connection = restrictions(
+        bands=[band("YX", "0001", frm=150, to=439, out_ret="R", location="LOS")],
+        header_dates=[{"cf_mkr": "C", "restriction_code": "YX", "date_from": "0101",
+                       "date_to": "1231", **weekdays_only()}],
+        headers=[{"cf_mkr": "C", "restriction_code": "YX", "description": "SUPER OFF-PEAK",
+                  "desc_out": "PEAK TRAVEL RESTRICTIONS APPLY MON-FRI",
+                  "desc_ret": "PEAK TRAVEL RESTRICTIONS APPLY MON-FRI",
+                  "type_out": "N", "type_ret": "N", "change_ind": True}],
+    )
+    note = restriction_notes(connection, dt.date(2026, 8, 4), tmp_path / "fares")["YX"]
+
+    assert len(note.bands) == 1
+    window = note.bands[0]
+    assert (window.out_ret, window.sense, window.location) == ("R", "D", "LOS")
+    # 02:30 to 07:19 - so the first train home is the 07:20.
+    assert (window.time_from, window.time_to) == (150, 439)
+    assert window.days == "Mon-Fri"
+
+
+def test_a_band_that_never_applies_is_not_offered_as_a_condition(
+        restrictions, tmp_path):
+    """A band with neither its own dates nor the header's never bites - 20 of
+    the 33,219. `describe_restriction` returns them so they *show*, which is
+    right when the question is what the file says. Here the question is what to
+    tell a passenger, and "no trains on no days" is not an answer."""
+    connection = restrictions(
+        bands=[band("ZZ", "0001", frm=150, to=439, out_ret="R"),
+               band("ZZ", "0002", frm=600, to=700, out_ret="R")],
+        # Dates for the first band only, and no header dates at all.
+        band_dates=[{"cf_mkr": "C", "restriction_code": "ZZ", "sequence_no": "0001",
+                     "out_ret": "R", "date_from": "0101", "date_to": "1231",
+                     **weekdays_only()}],
+        headers=[{"cf_mkr": "C", "restriction_code": "ZZ", "description": "",
+                  "desc_out": "", "desc_ret": "", "type_out": "N", "type_ret": "N",
+                  "change_ind": True}],
+    )
+    note = restriction_notes(connection, dt.date(2026, 8, 4), tmp_path / "fares")["ZZ"]
+
+    assert [(b.time_from, b.time_to) for b in note.bands] == [(150, 439)]
+    # It still counts towards `bars_return`, which is read from the raw bands
+    # and deliberately errs towards saying a ticket has a condition.
+    assert note.bars_return is True

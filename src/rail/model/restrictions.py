@@ -266,6 +266,13 @@ def _mmdd(value: int | None) -> str:
     return f"{day} {months[month]}" if 1 <= month <= 12 else str(value)
 
 
+#: What `_days` says when no day is set - a band with neither its own date
+#: records nor the restriction header's, which RSPS5045 means as "never
+#: applies". Named so that reading it is a comparison rather than a string
+#: literal repeated in two files.
+_NO_DAYS = "no days"
+
+
 def _days(flags: tuple[bool, ...]) -> str:
     names = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     on = [name for name, flag in zip(names, flags) if flag]
@@ -275,7 +282,7 @@ def _days(flags: tuple[bool, ...]) -> str:
         return "Mon-Fri"
     if on == list(names[5:]):
         return "weekends"
-    return ", ".join(on) or "no days"
+    return ", ".join(on) or _NO_DAYS
 
 
 #: What the band's location means for the journey.
@@ -388,6 +395,27 @@ def describe_restriction(
 
 
 @dataclass(frozen=True)
+class RestrictionWindow:
+    """One band of a restriction, flattened for a consumer to render.
+
+    `RestrictionBand` above is the same thing with its date ranges and sequence
+    number attached, which is what `rail restrictions 0W` prints. This is what
+    is left once a caller only wants to say *when*.
+    """
+
+    out_ret: str
+    sense: str
+    #: `None` means the band is not station-specific (RSPS5045 4.19.8 field 10,
+    #: three spaces), so it bites at whichever end its sense names - which for a
+    #: return leg is the destination for `D` and the origin for `A`. A consumer
+    #: that renders it as "somewhere on the journey" is throwing that away.
+    location: str | None
+    time_from: int
+    time_to: int
+    days: str
+
+
+@dataclass(frozen=True)
 class RestrictionNote:
     """What a restriction is called and, in the operator's words, what it does.
 
@@ -410,6 +438,16 @@ class RestrictionNote:
     #: Whether any current band governs the **return** leg. Read from the bands
     #: rather than from the prose, because the prose is not a rule.
     bars_return: bool
+    #: Every current band, outward and return. **This is where the prose stops
+    #: being good enough**: `YX` says "PEAK TRAVEL RESTRICTIONS APPLY MON-FRI"
+    #: in both notes and carries 42 bands, and what a passenger going to
+    #: Lostwithiel needs is the one that says no train back before 07:20.
+    #:
+    #: Checked against National Rail's own page for the code, which publishes
+    #: the same windows to the minute - "06:16 from Penzance" against our
+    #: `departing PNZ 04:30-06:15`, "arrive London Waterloo before 11:48"
+    #: against `arriving at WAT 02:30-11:47`.
+    bands: tuple[RestrictionWindow, ...] = ()
 
 
 def restriction_notes(
@@ -460,6 +498,47 @@ def restriction_notes(
         {"marker": marker},
     ).fetchall()
 
+    # Every band for every code in one pass, joined to its day flags exactly as
+    # `describe_restriction` joins them for one. `restriction_band_window` has
+    # already resolved the precedence - a band with its own TD records uses
+    # those and the rest inherit the restriction's header dates - so there is
+    # one join here and not two.
+    #
+    # A band matching nothing has neither, which RSPS5045 says means it never
+    # applies; `_days` of no flags gives "no days", which is that said out loud
+    # rather than a band with a blank day list.
+    windows = connection.execute(
+        f"""
+        select t.restriction_code, t.out_ret, t.sequence_no, t.arr_dep_via,
+               t.location,
+               coalesce(t.time_from, 0), coalesce(t.time_to, 1439),
+               {", ".join(f"coalesce(max(w.{day}), false)" for day in _DAY_COLUMNS)}
+        from read_parquet('{(fares_dir / "restriction_time.parquet").as_posix()}') t
+        left join restriction_band_window w
+          on w.cf_mkr = t.cf_mkr and w.restriction_code = t.restriction_code
+         and w.sequence_no = t.sequence_no and w.out_ret = t.out_ret
+        where t.cf_mkr = $marker
+        group by all
+        order by t.restriction_code, t.out_ret, t.sequence_no
+        """,
+        {"marker": marker},
+    ).fetchall()
+    banded: dict[str, list[RestrictionWindow]] = {}
+    for code, out_ret, _seq, sense, location, start, end, *flags in windows:
+        days = _days(tuple(bool(f) for f in flags))
+        # **A band with neither its own dates nor the header's never applies**,
+        # and 20 of the 33,219 are in that position. `describe_restriction`
+        # returns them with empty dates so they show, which is right for
+        # `rail restrictions 0W` - the question there is what the file says.
+        # The question here is what to tell a passenger, and "no trains on no
+        # days" is not an answer.
+        if days == _NO_DAYS:
+            continue
+        banded.setdefault(code, []).append(RestrictionWindow(
+            out_ret=out_ret, sense=sense, location=location,
+            time_from=start, time_to=end, days=days,
+        ))
+
     # The header file carries one row per code per marker, but say so by
     # construction rather than trusting it - a duplicate would otherwise pick
     # whichever row sorted last.
@@ -471,5 +550,6 @@ def restriction_notes(
             note_out=(out or "").strip(),
             note_return=(ret or "").strip(),
             bars_return=bool(bars_return),
+            bands=tuple(banded.get(code, ())),
         ))
     return notes
