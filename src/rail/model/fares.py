@@ -126,6 +126,16 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     ("%COMP %", "complimentary, not sold"),
     ("%COMP", "complimentary, not sold"),
     ("%STAFF%", "staff travel, not sold to the public"),
+    # A privilege rate is the same thing under the industry's own word for it,
+    # and `%STAFF%` cannot see it - `FTS FCCTFL_PRIV` was a walk-up fare.
+    #
+    # It carries **no fare in the feed**, so this moves no price and cannot; it
+    # is here because `is_walk_up` should mean what it says, which is the same
+    # argument the `%SUPP%` and age-restricted markers are kept on. `%PRIV%`
+    # matches that one ticket type and nothing else, sellable or not, so it
+    # needs no narrowing today - and a future `PRIVATE HIRE` would be a true
+    # positive anyway.
+    ("%PRIV%", "privilege rate, not sold to the public"),
     # An upgrade on a ticket you already hold is not a fare to somewhere. The
     # description field is 15 characters, so "UPGRADE" is routinely truncated -
     # "WEEKEND 1ST UPG", "SEATFROG UPGR", "Std Plus Upgrde", "FESTIVAL UPGRDE".

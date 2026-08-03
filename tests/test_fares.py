@@ -1867,6 +1867,37 @@ def test_an_age_restricted_fare_is_not_an_adult_fare(fares):
     ).fetchone() == ("age-restricted fare, not an adult fare",)
 
 
+def test_a_negotiated_scheme_is_not_a_fare_the_public_can_buy(fares):
+    """Corporate, business and privilege rates are the same argument as a
+    concession: a condition on *who you are*, written as a ticket type rather
+    than as a discount, so nothing structural sees it - min and max passengers
+    are both 1 and the price varies with distance.
+
+    `CSF BUSINESS SINGLE` was £39.10 Manchester to Sheffield against a public
+    £78.20, and `FTS FCCTFL_PRIV` is the industry's own word for a staff rate,
+    which `%STAFF%` cannot see. The privilege one carries no fare in the live
+    feed and so moves no price; it is excluded because `is_walk_up` should mean
+    what it says whether or not a wrong answer happens to follow.
+    """
+    connection, directory = fares(
+        flows=[routed(1, "1111", "2222", "00000")],
+        fare_records=[fare(1, "CSF", 3910), fare(1, "FTS", 500),
+                      fare(1, "SDS", 7820)],
+        tickets=[ticket("CSF", "BUSINESS SINGLE"), ticket("FTS", "FCCTFL_PRIV"),
+                 ticket("SDS", "ANYTIME DAY S")],
+    )
+    rows = cheapest_from(connection, directory, "AAA", TRAVEL)
+
+    assert [(r[1], r[3]) for r in rows] == [("SDS", 7820)]
+    assert dict(connection.execute(
+        "select ticket_code, reason from fare_reject"
+        " where ticket_code in ('CSF', 'FTS')"
+    ).fetchall()) == {
+        "CSF": "corporate scheme, not sold to the public",
+        "FTS": "privilege rate, not sold to the public",
+    }
+
+
 def test_one_fare_reached_by_two_codes_is_listed_once(fares):
     """A station is named by its own NLC, its fare group and every cluster
     holding it, and a flow may exist under more than one. Birmingham New Street
