@@ -410,3 +410,35 @@ def test_a_band_that_never_applies_is_not_offered_as_a_condition(
     # It still counts towards `bars_return`, which is read from the raw bands
     # and deliberately errs towards saying a ticket has a condition.
     assert note.bars_return is True
+
+
+def test_a_band_carries_the_operators_it_is_qualified_to(restrictions, tmp_path):
+    """RSPS5045 4.19.10 field 7, and the mistake this file records at length.
+
+    `R5` and `RD` are each a single band spanning 00:01-23:59 every day at
+    every station, and read without the qualifier that is not a peak
+    restriction - it is the railcard withdrawn from the whole network. The same
+    trap on a fare's own bands is quieter and no more correct: all five of
+    `YX`'s Paddington windows are GW-only, and a page rendering them as "no
+    train leaving Paddington 04:30-10:09" says that of every operator's.
+    """
+    connection = restrictions(
+        bands=[band("YX", "0006", frm=270, to=609, location="PAD"),
+               band("YX", "0011", frm=270, to=609, location="RDG")],
+        header_dates=[{"cf_mkr": "C", "restriction_code": "YX", "date_from": "0101",
+                       "date_to": "1231", **weekdays_only()}],
+        headers=[{"cf_mkr": "C", "restriction_code": "YX", "description": "",
+                  "desc_out": "", "desc_ret": "", "type_out": "N", "type_ret": "N",
+                  "change_ind": True}],
+        band_tocs=[{"cf_mkr": "C", "restriction_code": "YX", "sequence_no": "0006",
+                    "out_ret": "O", "toc_code": "GW"}],
+    )
+    bands = {b.location: b for b in
+             restriction_notes(connection, dt.date(2026, 8, 4),
+                               tmp_path / "fares")["YX"].bands}
+
+    assert bands["PAD"].tocs == ("GW",)
+    # No TT rows, so the band applies to every operator's trains - and empty
+    # has to mean that rather than "unknown", or every unqualified band would
+    # be rendered with a caveat it does not carry.
+    assert bands["RDG"].tocs == ()

@@ -413,6 +413,17 @@ class RestrictionWindow:
     time_from: int
     time_to: int
     days: str
+    #: RSPS5045 4.19.10 field 7 - the band applies only to these operators'
+    #: trains, and empty means everybody's. 2,565 of the 33,219 current bands
+    #: carry one.
+    #:
+    #: **Rendering a qualified band as unconditional is the mistake this file
+    #: records at length**: `R5` and `RD` are each a single band spanning
+    #: 00:01-23:59 every day at every station, and read without the qualifier
+    #: that is not a peak restriction, it is the railcard withdrawn from the
+    #: whole network. The same trap on a fare's own bands is quieter and no
+    #: more correct - all five of `YX`'s Paddington windows are GW-only.
+    tocs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -512,11 +523,15 @@ def restriction_notes(
         select t.restriction_code, t.out_ret, t.sequence_no, t.arr_dep_via,
                t.location,
                coalesce(t.time_from, 0), coalesce(t.time_to, 1439),
-               {", ".join(f"coalesce(max(w.{day}), false)" for day in _DAY_COLUMNS)}
+               {", ".join(f"coalesce(max(w.{day}), false)" for day in _DAY_COLUMNS)},
+               list(distinct q.toc_code) filter (where q.toc_code is not null)
         from read_parquet('{(fares_dir / "restriction_time.parquet").as_posix()}') t
         left join restriction_band_window w
           on w.cf_mkr = t.cf_mkr and w.restriction_code = t.restriction_code
          and w.sequence_no = t.sequence_no and w.out_ret = t.out_ret
+        left join restriction_band_toc q
+          on q.cf_mkr = t.cf_mkr and q.restriction_code = t.restriction_code
+         and q.sequence_no = t.sequence_no and q.out_ret = t.out_ret
         where t.cf_mkr = $marker
         group by all
         order by t.restriction_code, t.out_ret, t.sequence_no
@@ -524,7 +539,8 @@ def restriction_notes(
         {"marker": marker},
     ).fetchall()
     banded: dict[str, list[RestrictionWindow]] = {}
-    for code, out_ret, _seq, sense, location, start, end, *flags in windows:
+    for code, out_ret, _seq, sense, location, start, end, *rest in windows:
+        *flags, tocs = rest
         days = _days(tuple(bool(f) for f in flags))
         # **A band with neither its own dates nor the header's never applies**,
         # and 20 of the 33,219 are in that position. `describe_restriction`
@@ -537,6 +553,7 @@ def restriction_notes(
         banded.setdefault(code, []).append(RestrictionWindow(
             out_ret=out_ret, sense=sense, location=location,
             time_from=start, time_to=end, days=days,
+            tocs=tuple(sorted(tocs or ())),
         ))
 
     # The header file carries one row per code per marker, but say so by
