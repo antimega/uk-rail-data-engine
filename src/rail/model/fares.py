@@ -1021,7 +1021,34 @@ def _band_toc_applies(band: str, dest: str) -> str:
 #: origin/destination/route/ticket. Adult, no railcard.
 _PRICING_CTES = f"""
 with origin_codes as (
-    select distinct code from fare_alias where crs = $origin
+    -- **The third form of flow endpoint, and the only one still unreached.**
+    -- RSPS5045 4.1.2 allows an "NLC code, county code, zone code"; the county
+    -- arm went in for the Isle of Man, and this is the zone. 22 locations,
+    -- `ZONE U1*` through `ZONE U56`, carrying *through* fares from a London
+    -- Underground zone - which is to say fares that include the Underground.
+    --
+    -- `ZONE U1 -> KINGS LYNN` is £50.70 where `LONDON TERMINALS` is £47.70,
+    -- and £50.70 is what a retailer quotes for a Euston journey. The whole
+    -- Euston to Claygate ladder is the same story, five products, singles
+    -- £3.00 apart and returns £6.00 - which is the "flat £3.00 each way"
+    -- add-on this repository derived from Euston to Reading, stated by the
+    -- feed rather than inferred from a difference.
+    --
+    -- **It replaces the station's own codes rather than joining them**, and
+    -- that is the whole reason it is a parameter instead of an extra
+    -- `fare_alias` row. A zone fare is usually dearer - 850 of 859 comparable
+    -- pairs from Euston - but on 9 it is *cheaper*, by up to £108.80, so
+    -- adding it unconditionally would quote a fare that includes the
+    -- Underground to a passenger whose journey never touches it. The caller
+    -- asks for it only for a journey that does.
+    --
+    -- `$origin` is unchanged and still names the physical station, because the
+    -- restriction bands are about where the passenger stands: they depart from
+    -- Euston whichever code prices the ticket.
+    select distinct code from fare_alias
+    where crs = $origin and $origin_zone is null
+    union all
+    select $origin_zone where $origin_zone is not null
 ),
 flows as (
     -- `toc` is the operator that *set* the fare (RSPS5045 4.2.2), which is not
@@ -1925,6 +1952,11 @@ def fare_options(
     include_advance: bool = False,
     advance_only: bool = False,
     payg_only: bool = False,
+    #: Price from a London Underground zone code instead of the
+    #: station's own - RSPS5045 4.1.2's third endpoint form. For a
+    #: journey that begins or ends on the Underground, where the
+    #: station's own fare does not cover the hop. See `_PRICING_CTES`.
+    origin_zone: str | None = None,
     #: One row per distinct price *per route* rather than per price. The
     #: default collapses a price offered on two routes into one row and names
     #: whichever route sorts first - right for "what is the cheapest fare",
@@ -2018,6 +2050,7 @@ def fare_options(
                 "include_advance": include_advance,
                 "advance_only": advance_only,
                 "payg_only": payg_only,
+                "origin_zone": origin_zone,
                 "per_route": per_route,
                 "check_routes": bool(paths),
                 "break_of_journey": break_of_journey,
@@ -2144,6 +2177,11 @@ def fares_between(
     include_advance: bool = False,
     advance_only: bool = False,
     payg_only: bool = False,
+    #: Price from a London Underground zone code instead of the
+    #: station's own - RSPS5045 4.1.2's third endpoint form. For a
+    #: journey that begins or ends on the Underground, where the
+    #: station's own fare does not cover the hop. See `_PRICING_CTES`.
+    origin_zone: str | None = None,
     return_on: dt.date | None = None,
 ) -> list[dict]:
     """Every fare from `origin` to `destination`, with what governs its use.
@@ -2183,6 +2221,7 @@ def fares_between(
                 "include_advance": include_advance,
                 "advance_only": advance_only,
                 "payg_only": payg_only,
+                "origin_zone": origin_zone,
                 "check_routes": False,
                 "break_of_journey": False,
                 "break_returning": False,

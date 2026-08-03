@@ -3279,3 +3279,64 @@ def test_the_tie_break_does_not_reach_for_the_commoner_ticket(fares):
     # `SOR` sorts first and wins, exactly as before - no reaching for the
     # off-peak one because it happens to be the commoner product.
     assert [r[1] for r in fare_options(connection, directory, "AAA", TRAVEL)] == ["SOR"]
+
+
+def test_a_zone_code_prices_a_journey_that_uses_the_underground(fares):
+    """RSPS5045 4.1.2's third endpoint form, and the last one to be reached.
+
+    A `ZONE U1` fare is a *through* fare from a London Underground zone - it
+    includes the hop the station's own fare does not. `ZONE U1 -> KINGS LYNN`
+    is £50.70 against London Terminals' £47.70, and £50.70 is what a retailer
+    quotes for a Euston journey; the whole Euston to Claygate ladder is the
+    same, singles £3.00 apart and returns £6.00.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222"), flow(2, "0785", "2222")],
+        fare_records=[fare(1, "SDS", 4770), fare(2, "SDS", 5070)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+    )
+    price = lambda **kw: {
+        r[0]: r[3] for r in cheapest_from(connection, directory, "AAA", TRAVEL, **kw)}
+
+    assert price() == {"BBB": 4770}
+    assert price(origin_zone="0785") == {"BBB": 5070}
+
+
+def test_a_zone_replaces_the_station_codes_rather_than_joining_them(fares):
+    """**The reason this is a parameter and not another `fare_alias` row.**
+
+    A zone fare is usually dearer, being the same journey plus the
+    Underground - 850 of 859 comparable pairs from Euston. On 9 it is
+    *cheaper*, by up to £108.80, so a union would quote a fare including the
+    Underground to a passenger whose journey never touches it, and quote it as
+    the cheapest. Asked for, it is the only answer; unasked, it is absent.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222"), flow(2, "0785", "2222")],
+        fare_records=[fare(1, "SDS", 4770), fare(2, "SDS", 1830)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+    )
+    price = lambda **kw: {
+        r[0]: r[3] for r in cheapest_from(connection, directory, "AAA", TRAVEL, **kw)}
+
+    assert price() == {"BBB": 4770}
+    assert price(origin_zone="0785") == {"BBB": 1830}
+
+
+def test_a_zone_priced_fare_still_departs_from_the_station(fares):
+    """`$origin` is unchanged: the passenger stands at Euston whichever code
+    prices the ticket, so a band naming the station still bites.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "0785", "2222")],
+        fare_records=[fare(1, "SDS", 5070), fare(1, "CDS", 3000, restriction="0W")],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("CDS", "OFF-PEAK DAY S")],
+        bands=[("0W", 270, 565, "D", "AAA")],  # 04:30-09:25 departing AAA
+    )
+    price = lambda **kw: {
+        r[0]: (r[1], r[3])
+        for r in cheapest_from(connection, directory, "AAA", TUESDAY,
+                               origin_zone="0785", **kw)}
+
+    assert price(depart_minutes=660) == {"BBB": ("CDS", 3000)}
+    assert price(depart_minutes=450) == {"BBB": ("SDS", 5070)}
