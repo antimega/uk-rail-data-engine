@@ -159,8 +159,10 @@ def build_reference(
 
     _add_rail_station_flag(connection, supplementary_dir)
 
-    # Every TIPLOC that belongs to a station, from MSN and from the timetable's
-    # own TIPLOC records, so a stop at either York TIPLOC resolves to York.
+    # Resolve the best three-letter reference for each TIPLOC from MSN and the
+    # timetable's own TI records. Passenger mappings are narrowed to actual MSN
+    # stations below, so a stop at either York TIPLOC resolves to York without
+    # treating every operational code as a station.
     #
     # A TIPLOC must map to exactly one CRS or it duplicates rows downstream and
     # corrupts the lead()/lag() that builds connections. Around 38 TIPLOCs carry
@@ -187,9 +189,18 @@ def build_reference(
         ) as rn
         from candidates
     """)
+    # Keep the best three-letter reference for every TIPLOC, including timing
+    # points which are not passenger stations. Consumers can show this richer
+    # operational metadata without making it a journey-planning location.
+    connection.execute("""
+        create or replace table tiploc_crs as
+        select crs, tiploc from tiploc_ranked where rn = 1 order by crs, tiploc
+    """)
     connection.execute("""
         create or replace table station_tiploc as
-        select crs, tiploc from tiploc_ranked where rn = 1 order by crs, tiploc
+        select t.crs, t.tiploc
+        from tiploc_crs t join station s using (crs)
+        order by t.crs, t.tiploc
     """)
     connection.execute("""
         insert into reference_reject

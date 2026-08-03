@@ -70,7 +70,7 @@ Z_STOP_SCHEMA = STOP_SCHEMA
 @pytest.fixture
 def build(tmp_path):
     def _build(schedules, stops=(), horizon_days=13,
-               z_schedules=(), z_stops=(), z_extra=()):
+               z_schedules=(), z_stops=(), z_extra=(), operational_only=None):
         directory = tmp_path / "tt"
         directory.mkdir(exist_ok=True)
         pq.write_table(pa.Table.from_pylist(list(schedules), schema=SCHEDULE_SCHEMA),
@@ -94,9 +94,17 @@ def build(tmp_path):
         # first. Here the fixture's locations are their own CRS plus "TIP", so
         # the mapping is mechanical.
         connection.execute("create table station_tiploc (crs varchar, tiploc varchar)")
+        connection.execute("create table tiploc_crs (crs varchar, tiploc varchar)")
+        operational_only = operational_only or {}
         for location in {s["location"] for s in stops}:
-            connection.execute("insert into station_tiploc values (?, ?)",
-                               [location[:3], location])
+            operational_crs = operational_only.get(location, location[:3])
+            connection.execute(
+                "insert into tiploc_crs values (?, ?)",
+                [operational_crs, location],
+            )
+            if location not in operational_only:
+                connection.execute("insert into station_tiploc values (?, ?)",
+                                   [location[:3], location])
         counts = build_timetable(connection, directory, start=START,
                                  horizon_days=horizon_days)
         return connection, counts
@@ -342,6 +350,21 @@ def test_the_two_files_name_locations_differently_and_both_resolve(build):
         # A ZTR location is already a CRS and passes straight through.
         ("ztr", "XRD", "XRD"), ("ztr", "SHV", "SHV"),
     ]
+
+
+def test_operational_crs_does_not_turn_a_timing_point_into_a_station(build):
+    connection, _ = build(
+        [schedule(1, "A00001", "P", START, START)],
+        [
+            stop(2, "LO", "AAATIP", depart=600),
+            stop(3, "LI", "MILESPL", arrive=630),
+        ],
+        operational_only={"MILESPL": "MLP"},
+    )
+
+    assert connection.execute(
+        "select crs, operational_crs from schedule_stop where location = 'MILESPL'"
+    ).fetchone() == (None, "MLP")
 
 
 def test_a_ztr_service_gets_running_dates_like_any_other(build):

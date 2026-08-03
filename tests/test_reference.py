@@ -99,6 +99,9 @@ def built(tmp_path):
         [
             {"tiploc_code": "YORK", "crs_code": "YRK"},
             {"tiploc_code": "YRKSDG", "crs_code": None},  # timing point, no CRS
+            # A TI reference can describe an operational timing point without
+            # making that code a passenger station in MSN.
+            {"tiploc_code": "MILESPL", "crs_code": "MLP"},
         ],
         TIPLOC_SCHEMA,
     )
@@ -174,6 +177,17 @@ def test_timing_points_without_a_crs_are_not_stations(built):
     connection, _ = built
     assert connection.execute(
         "select count(*) from station_tiploc where tiploc = 'YRKSDG'"
+    ).fetchone() == (0,)
+
+
+def test_operational_crs_is_retained_without_creating_a_station(built):
+    connection, _ = built
+
+    assert connection.execute(
+        "select crs from tiploc_crs where tiploc = 'MILESPL'"
+    ).fetchone() == ("MLP",)
+    assert connection.execute(
+        "select count(*) from station_tiploc where tiploc = 'MILESPL'"
     ).fetchone() == (0,)
 
 
