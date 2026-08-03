@@ -385,3 +385,91 @@ def describe_restriction(
         "change_allowed": bool(header[5]) if header else None,
         "bands": bands,
     }
+
+
+@dataclass(frozen=True)
+class RestrictionNote:
+    """What a restriction is called and, in the operator's words, what it does.
+
+    `describe_restriction` renders every band for one code, which is the right
+    answer for `rail restrictions 0W` and far too much for a consumer that
+    wants to put a line of text beside a price - 18 KB for a single code, most
+    of it band structure. This is the header alone, for every code at once.
+    """
+
+    code: str
+    #: The restriction's name - "OFF-PEAK", "SUPER OFF-PEAK". A label, not a
+    #: rule: `1B` is called "EIF Advance" and does no more than bar arrivals
+    #: into London before 11:26.
+    description: str
+    #: RSPS5045 4.19.3 `DESC_OUT` / `DESC_RTN` - the operator's own prose, and
+    #: the only place the rule is stated in a form a passenger could read:
+    #: "NO ARR IN LDN EUS PRE 1130 Mon-Thurs". Free text, not parsed.
+    note_out: str
+    note_return: str
+    #: Whether any current band governs the **return** leg. Read from the bands
+    #: rather than from the prose, because the prose is not a rule.
+    bars_return: bool
+
+
+def restriction_notes(
+    connection: duckdb.DuckDBPyConnection,
+    travel_date: dt.date,
+    fares_dir: Path,
+) -> dict[str, RestrictionNote]:
+    """Every restriction in force on `travel_date`, as a lookup by code.
+
+    **`bars_return` is what makes a fare's conditionality answerable**, and it
+    has to come from the bands. The tempting test is the ticket's own name -
+    anything called "ANYTIME" is unrestricted - and it is wrong twice over: it
+    misses 78 of Euston's 2,108 destinations, and the description field is 15
+    characters, which is how "WEEKEND 1ST UPGRADE" arrived as `WEEKEND 1ST UPG`
+    and cost three separate bugs. A code with no `out_ret = 'R'` band cannot
+    bar the way home, whatever it is called.
+
+    It is deliberately a fact about the *code*, not about a journey. A
+    restriction whose return bands name stations nowhere near a particular pair
+    still counts as barring the return, so a consumer reading this can say "no
+    condition on coming back" and be right, but will sometimes fail to say it
+    where it happens to be true. That is the safe direction: the cost of the
+    first mistake is telling somebody a ticket is unconditional when it is not.
+    """
+    marker = marker_for(connection, travel_date)
+    rows = connection.execute(
+        f"""
+        with header as (
+            select restriction_code, description, desc_out, desc_ret
+            from read_parquet('{(fares_dir / "restriction_header.parquet").as_posix()}')
+            where cf_mkr = $marker
+        ),
+        -- One row per code, not per band: `exists` would need a correlated
+        -- subquery per header row where this scans the band file once.
+        -- Named `return_band` rather than the obvious `returning`, which is a
+        -- DuckDB keyword and fails to parse as a CTE name.
+        return_band as (
+            select distinct restriction_code
+            from read_parquet('{(fares_dir / "restriction_time.parquet").as_posix()}')
+            where cf_mkr = $marker and out_ret = 'R'
+        )
+        select h.restriction_code, h.description, h.desc_out, h.desc_ret,
+               r.restriction_code is not null as bars_return
+        from header h
+        left join return_band r using (restriction_code)
+        order by h.restriction_code
+        """,
+        {"marker": marker},
+    ).fetchall()
+
+    # The header file carries one row per code per marker, but say so by
+    # construction rather than trusting it - a duplicate would otherwise pick
+    # whichever row sorted last.
+    notes: dict[str, RestrictionNote] = {}
+    for code, description, out, ret, bars_return in rows:
+        notes.setdefault(code, RestrictionNote(
+            code=code,
+            description=(description or "").strip(),
+            note_out=(out or "").strip(),
+            note_return=(ret or "").strip(),
+            bars_return=bool(bars_return),
+        ))
+    return notes

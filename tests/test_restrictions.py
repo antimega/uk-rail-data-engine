@@ -16,7 +16,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from rail.model.restrictions import applicable_bands, build_restrictions, marker_for
+from rail.model.restrictions import (
+    applicable_bands,
+    build_restrictions,
+    marker_for,
+    restriction_notes,
+)
 
 CURRENT_START, CURRENT_END = dt.date(2026, 7, 5), dt.date(2026, 10, 31)
 FUTURE_START, FUTURE_END = dt.date(2026, 11, 1), dt.date(2999, 12, 31)
@@ -269,3 +274,82 @@ def test_a_band_carries_its_location_and_sense(restrictions):
     assert minimum_fare is False
     # 04:30 to 09:59 - the morning peak arrival ban into King's Cross.
     assert (frm, to) == (270, 599)
+
+
+# --- the header pool, for a consumer that wants a line of text ---------------
+#
+# `describe_restriction` renders every band of one code and comes to 18 KB.
+# `restriction_notes` is the header alone, for every code at once, and adds one
+# derived fact: whether the restriction has anything to say about the way home.
+
+
+def test_the_pool_carries_the_operators_own_prose(restrictions, tmp_path):
+    connection = restrictions(
+        bands=[band("9I", "0001", frm=270, to=565)],
+        headers=[{"cf_mkr": "C", "restriction_code": "9I", "description": "OFF-PEAK",
+                  "desc_out": "NO DEP FROM EUS PRE 0926", "desc_ret": "NO ARR IN LDN PRE 1130",
+                  "type_out": "N", "type_ret": "N", "change_ind": True}],
+    )
+    note = restriction_notes(connection, dt.date(2026, 8, 4), tmp_path / "fares")["9I"]
+
+    assert note.description == "OFF-PEAK"
+    assert note.note_out == "NO DEP FROM EUS PRE 0926"
+    assert note.note_return == "NO ARR IN LDN PRE 1130"
+
+
+def test_a_restriction_bars_the_return_only_when_it_has_a_return_band(
+        restrictions, tmp_path):
+    """The bands decide it, not the prose and not the ticket's name.
+
+    `1X` "IRELAND VIA CAIRNRYAN" says "VALID AT ANYTIME" in both notes and
+    carries no bands at all; `9I` says much the same thing twice over in prose
+    and carries 24 return bands. Only one of them may be shown to a passenger
+    as unconditional on the way back.
+    """
+    headers = [
+        {"cf_mkr": "C", "restriction_code": code, "description": "", "desc_out": "",
+         "desc_ret": "", "type_out": "N", "type_ret": "N", "change_ind": True}
+        for code in ("9I", "1X", "OO")
+    ]
+    connection = restrictions(
+        bands=[
+            band("9I", "0001", frm=270, to=565),
+            band("9I", "0002", frm=270, to=680, out_ret="R"),
+            # Outward bands only - a morning peak going out, nothing coming back.
+            band("OO", "0001", frm=270, to=565),
+            # `1X` gets no bands whatsoever.
+        ],
+        headers=headers,
+    )
+    notes = restriction_notes(connection, dt.date(2026, 8, 4), tmp_path / "fares")
+
+    assert notes["9I"].bars_return is True
+    assert notes["OO"].bars_return is False
+    assert notes["1X"].bars_return is False
+
+
+def test_the_pool_reads_the_marker_the_travel_date_selects(restrictions, tmp_path):
+    """The feed ships the current restrictions and the next set side by side.
+
+    A pool built for the wrong marker would put November's prose beside an
+    August fare, which reads as plausible and is wrong.
+    """
+    connection = restrictions(
+        bands=[band("9I", "0001", frm=270, to=565, out_ret="R", marker="F")],
+        headers=[
+            {"cf_mkr": "C", "restriction_code": "9I", "description": "NOW",
+             "desc_out": "", "desc_ret": "", "type_out": "N", "type_ret": "N",
+             "change_ind": True},
+            {"cf_mkr": "F", "restriction_code": "9I", "description": "NEXT",
+             "desc_out": "", "desc_ret": "", "type_out": "N", "type_ret": "N",
+             "change_ind": True},
+        ],
+    )
+    fares = tmp_path / "fares"
+
+    current = restriction_notes(connection, dt.date(2026, 8, 4), fares)["9I"]
+    future = restriction_notes(connection, dt.date(2026, 11, 15), fares)["9I"]
+
+    assert (current.description, current.bars_return) == ("NOW", False)
+    # The only return band in the file belongs to the future set.
+    assert (future.description, future.bars_return) == ("NEXT", True)
