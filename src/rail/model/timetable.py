@@ -58,6 +58,12 @@ DEFAULT_HORIZON_DAYS = 90
 #: can always be told apart afterwards.
 ZTR_SCHEDULE_OFFSET = 100_000_000
 
+#: ZTR uses 991231 as its open-ended "until further notice" date. The generic
+#: CIF short-date parser quite reasonably applies the 1960–2059 window and
+#: produces 1999-12-31, but that would put the end before every current ZTR
+#: start date. Normalise it where the file's special convention is known.
+ZTR_OPEN_END = "2099-12-31"
+
 
 @dataclass
 class TimetableCounts:
@@ -94,7 +100,9 @@ def build_timetable(
     ztr_schedules = f"""
         union all
         select s.line_no + {ZTR_SCHEDULE_OFFSET} as schedule_id,
-               s.train_uid, s.runs_from, s.runs_to,
+               s.train_uid, s.runs_from,
+               case when s.runs_to = date '1999-12-31'
+                    then date '{ZTR_OPEN_END}' else s.runs_to end as runs_to,
                s.monday, s.tuesday, s.wednesday, s.thursday,
                s.friday, s.saturday, s.sunday,
                s.bank_holiday_running,

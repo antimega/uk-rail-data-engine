@@ -360,6 +360,28 @@ def test_a_ztr_service_gets_running_dates_like_any_other(build):
         START + dt.timedelta(days=i) for i in range(5)]
 
 
+def test_ztr_991231_is_an_open_ended_date_not_1999(build):
+    """The live ZTR writes 991231 even for schedules starting in 2023–26.
+    Treating the generic short-date result literally makes runs_to precede
+    runs_from and silently removes every such service date."""
+    connection, _ = build(
+        [schedule(1, "A00001", "P", START, START)],
+        z_schedules=[
+            schedule(1, "Z00001", "P", START, dt.date(1999, 12, 31), status="B")
+        ],
+        z_extra=[{"line_no": 2, "atoc_code": "AW"}],
+        z_stops=[stop(2, "LO", "POR", depart=700)],
+    )
+
+    runs_to = connection.execute(
+        "select runs_to from train_schedule where train_uid = 'Z00001'"
+    ).fetchone()[0]
+    assert runs_to == dt.date(2099, 12, 31)
+    dates = dates_for(connection, "Z00001")
+    assert dates[0] == START
+    assert dates[-1] == START + dt.timedelta(days=11)
+
+
 def test_the_build_works_without_a_ztr_file(build):
     """Older snapshots have none, and an ingest could fail to write one. The
     main file must not depend on its being there."""
