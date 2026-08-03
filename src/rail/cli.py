@@ -227,6 +227,12 @@ def build(
     table.add_row("service_date", f"{timetable.service_dates:,}")
     table.add_row("fare_alias", f"{fares.aliases:,}")
     table.add_row(
+        "ticket_calendar_current",
+        f"{fares.calendar_bars:,}"
+        + (f" ({fares.calendar_unsettled:,} not judged)"
+           if fares.calendar_unsettled else ""),
+    )
+    table.add_row(
         "ticket_type_current",
         f"{fares.ticket_types:,} ({fares.walk_up:,} walk-up)",
     )

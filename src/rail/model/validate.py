@@ -264,6 +264,37 @@ def run_checks(
         "none" if not structural
         else f"{len(structural)}: {', '.join(sorted(structural)[:8])}")
 
+    # CA, the ticket calendars, guarded from both ends.
+    #
+    # The bar is silent by construction - a barred fare simply is not offered -
+    # so the failure to watch for is the table emptying, which looks exactly
+    # like a feed that ships no calendars. 611 current `I` records today, and
+    # what their absence buys is a `Weekend Return` quoted on a Tuesday.
+    calendars = connection.execute(
+        "select count(*) from ticket_calendar_current where cf_mkr = 'C'"
+    ).fetchone()[0]
+    add("fares", "ticket calendars are loaded", _band(calendars, 300, 1_500),
+        f"{calendars:,} current `I` records")
+
+    # And the other end: codes the calendar names that no ticket type has.
+    #
+    # **Six is the feed's own untidiness, not a parse error**, and asserting
+    # zero here fails on a correct build - `AAD`, `AAF`, `HEA`, `HEB`, `MID`
+    # and `WKC` appear in no TTY record at all and carry no fares. An orphan is
+    # provably inert, pricing joining `ticket_type_current`, so this is banded
+    # rather than absolute: what it watches for is the number climbing, which
+    # would mean one of the two parses had drifted and bars had stopped landing.
+    orphans = connection.execute("""
+        select list(distinct cal.ticket_code)
+        from ticket_calendar_current cal
+        left join ticket_type_current t using (ticket_code)
+        where t.ticket_code is null
+    """).fetchone()[0] or []
+    add("fares", "ticket calendars naming a code the feed never defines",
+        _band(len(orphans), 0, 20),
+        f"{len(orphans)}: {', '.join(sorted(orphans)[:8])}" if orphans
+        else "none")
+
     # The narrow Advance class, asserted as an outcome. `is_advance_fare` is a
     # residual - sellable and not a walk-up - so it collects things that are not
     # Advance tickets at all, and `is_real_advance` is what `--advance-only`

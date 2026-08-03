@@ -114,7 +114,7 @@ def fares(tmp_path):
                london_terminals=(), fns=(), toc_rules=(), validities=(),
                headers=(),
                rounding=((99999997, 5), (99999999, 1)), geography=(),
-               railcard_rules=(), counties=None, tocs=()):
+               railcard_rules=(), counties=None, tocs=(), calendars=()):
         pq.write_table(pa.Table.from_pylist(list(flows), schema=FLOW_SCHEMA),
                        directory / "flow.parquet")
         pq.write_table(pa.Table.from_pylist(list(fare_records), schema=FARE_SCHEMA),
@@ -175,7 +175,7 @@ def fares(tmp_path):
         _write_descriptions(directory, validities, headers, tocs)
         _write_routeing(connection, rgk_rules, london_marker, london_terminals,
                         toc_rules)
-        _write_restrictions(directory, bands)
+        _write_restrictions(directory, bands, calendars)
         _write_railcards(directory, railcards, minimums, fns, rounding,
                          geography, stations or [('AAA','1111','1111'),
                                                  ('BBB','2222','2222')],
@@ -669,7 +669,7 @@ TUESDAY = dt.date(2026, 8, 4)
 SATURDAY = dt.date(2026, 8, 1)
 
 
-def _write_restrictions(directory, bands):
+def _write_restrictions(directory, bands, calendars=()):
     """Minimal RST tables: the bands supplied, in force every weekday."""
     weekdays = {d: d not in ("saturday", "sunday") for d in DAYS}
     pq.write_table(
@@ -729,6 +729,115 @@ def _write_restrictions(directory, bands):
                 ("sequence_no", pa.string()), ("out_ret", pa.string()),
                 ("toc_code", pa.string())])),
         directory / "restriction_time_toc.parquet")
+    _write_calendars(directory, calendars)
+
+
+def _write_calendars(directory, calendars):
+    """CA, the ticket calendars. A calendar is (ticket, days) or
+    (ticket, days, route) or (ticket, days, route, cal_type), where `days` is
+    the spec's own seven-character mask starting on Monday - "YYYYYNN" for the
+    weekdays.
+
+    `cal_type` defaults to 'I', the only kind this feed ships and the only one
+    read: the days the ticket is *not* available.
+    """
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{"cf_mkr": "C", "ticket_code": code,
+              "cal_type": rest[1] if len(rest) > 1 else "I",
+              "route_code": rest[0] if rest else None, "country_code": None,
+              "date_from": "0101", "date_to": "1231",
+              **{d: days[n] == "Y" for n, d in enumerate(DAYS)}}
+             for code, days, *rest in calendars],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()), ("ticket_code", pa.string()),
+                ("cal_type", pa.string()), ("route_code", pa.string()),
+                ("country_code", pa.string()),
+                ("date_from", pa.string()), ("date_to", pa.string()),
+                *[(d, pa.bool_()) for d in DAYS]])),
+        directory / "restriction_ticket_calendar.parquet")
+
+
+def test_a_ticket_calendar_withdraws_a_fare_on_the_days_it_names(fares):
+    """RSPS5045 4.19.20: an `I` calendar names the days a ticket is *not*
+    available. `WKF Weekend Return` carries one covering Monday to Friday, and
+    was the cheapest walk-up on 96 of 21,805 fares priced on a Tuesday.
+
+    Unlike a restriction band this needs no journey - it is a fact about the
+    ticket and the date - so it applies whether or not the caller has routed
+    anything.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1510), fare(1, "WKF", 990)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("WKF", "Weekend Return")],
+        calendars=[("WKF", "YYYYYNN")],
+    )
+    cheapest = lambda day: {
+        r[0]: (r[1], r[3]) for r in cheapest_from(connection, directory, "AAA", day)
+    }["BBB"]
+
+    assert cheapest(TUESDAY) == ("SDS", 1510)
+    assert cheapest(SATURDAY) == ("WKF", 990)
+
+
+def test_reading_an_I_calendar_as_the_days_it_is_available_inverts_it(fares):
+    """The trap this rule exists to avoid, pinned as a test.
+
+    `I` looks like "included" and means the opposite. `SUA Sunday Single`
+    carries one record covering Monday to Saturday: read correctly it is a
+    Sunday ticket, and read as availability it is a Sunday ticket that cannot
+    be used on a Sunday. Both readings are internally consistent, so only the
+    spec - or this test - tells them apart.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1510), fare(1, "SUA", 990)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("SUA", "Sunday Single")],
+        calendars=[("SUA", "YYYYYYN")],
+    )
+    sunday = dt.date(2026, 8, 2)
+    priced = lambda day: sorted(
+        (r[1], r[3]) for r in fare_options(connection, directory, "AAA", day)
+        if r[0] == "BBB")
+
+    assert priced(sunday) == [("SDS", 1510), ("SUA", 990)]
+    assert priced(TUESDAY) == [("SDS", 1510)]
+
+
+def test_a_calendar_naming_a_route_bars_only_that_route(fares):
+    """`SOS ANYTIME S` carries one all-year, all-days record scoped to route
+    `00041`. Ignoring the scope withdraws it from every route in the feed - and
+    it is the retailer-verified £193.00 King's Cross to Manchester, so that
+    error is not a small one.
+    """
+    connection, directory = fares(
+        flows=[routed(1, "1111", "2222", "00041"),
+               routed(2, "1111", "2222", "00000")],
+        fare_records=[fare(1, "SOS", 990), fare(2, "SOS", 1930)],
+        tickets=[ticket("SOS", "ANYTIME S")],
+        calendars=[("SOS", "YYYYYYY", "00041")],
+    )
+    rows = [(r[3], r[5]) for r in fare_options(connection, directory, "AAA", TUESDAY)
+            if r[0] == "BBB"]
+
+    assert rows == [(1930, "00000")]
+
+
+def test_a_supplement_calendar_is_not_a_bar(fares):
+    """`'S'` is a supplement calendar and `'D'` means the ticket is *restricted*
+    on those dates - neither says the ticket is unavailable, and this feed
+    ships 58 of the first and none of the second. Only `'I'` is read.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "GCW", 990)],
+        tickets=[ticket("GCW", "OFF-PEAK DAY S")],
+        calendars=[("GCW", "YYYYYYY", None, "S")],
+    )
+    rows = [(r[1], r[3]) for r in cheapest_from(connection, directory, "AAA", TUESDAY)]
+
+    assert rows == [("GCW", 990)]
 
 
 def test_a_restricted_fare_disappears_at_a_banned_departure_time(fares):

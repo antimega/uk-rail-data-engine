@@ -461,6 +461,12 @@ class FaresCounts:
     rejected: list[tuple[str, int]] = field(default_factory=list)
     #: (reason, count) for every Advance-classified type that is not a real one.
     not_a_real_advance: list[tuple[str, int]] = field(default_factory=list)
+    #: `I` ticket-calendar records applied - the days a ticket is unavailable.
+    calendar_bars: int = 0
+    #: Calendar records this cannot judge, so that a feed generation growing one
+    #: shows rather than quietly stops barring. `'D'` calendars and any record
+    #: naming a country; both are empty today.
+    calendar_unsettled: int = 0
 
 
 def _load_flexi_products(
@@ -572,6 +578,53 @@ def build_fares_reference(
             where current_date between start_date and end_date
         ) where rn = 1
     """)
+
+    # CA, the ticket calendars: the days a ticket may not be used at all.
+    #
+    # **`cal_type = 'I'` is days the ticket is *not* available**, which 4.19.20
+    # states outright - "'I' type calendars indicate days on which a ticket is
+    # not available". The obvious reading of the letter is "included" and it
+    # inverts every answer while looking plausible doing it: read that way,
+    # `SUA Sunday Single` comes out unavailable on a Sunday and `G2S OFF-PEAK
+    # S` available only on Christmas Day. Read correctly the same two records
+    # say exactly what a passenger would expect - a Sunday ticket not valid
+    # Monday to Saturday, and an Off-Peak Single not valid on 25-26 December or
+    # New Year's Day.
+    #
+    # **The route scope is the part that is easy to drop**, and dropping it is
+    # not a small error. 140 of the 1,280 records name a route and the rest
+    # apply to all of them, so a query ignoring `route_code` withdraws `SOS
+    # ANYTIME S` - retailer-verified at £193.00 King's Cross to Manchester -
+    # from every route in the feed on the strength of one record scoped to
+    # `00041`. `7DS SEVEN DAY STD` is the same shape over three routes.
+    #
+    # Only `'I'` is kept. `'D'` ("restricted on those dates") and `'S'`
+    # (supplement calendars, 58 records) say something else, and this feed
+    # ships no `'D'` at all. `country_code` is space on all 1,280 records here;
+    # a record naming England or Scotland is counted rather than guessed at,
+    # because 4.19.20 leaves it ambiguous which end of the journey it means and
+    # both ways of resolving that are wrong in one direction.
+    calendar = fares_dir / "restriction_ticket_calendar.parquet"
+    if calendar.exists():
+        connection.execute(f"""
+            create or replace table ticket_calendar_current as
+            select cf_mkr, ticket_code, route_code, date_from, date_to,
+                   list_value(monday, tuesday, wednesday, thursday, friday,
+                              saturday, sunday) as days
+            from read_parquet('{calendar.as_posix()}')
+            where cal_type = 'I' and country_code is null
+        """)
+        unsettled = connection.execute(
+            f"select count(*) from read_parquet('{calendar.as_posix()}')"
+            " where cal_type = 'D' or country_code is not null").fetchone()[0]
+    else:
+        connection.execute("""
+            create or replace table ticket_calendar_current (
+                cf_mkr varchar, ticket_code varchar, route_code varchar,
+                date_from varchar, date_to varchar, days boolean[]
+            )
+        """)
+        unsettled = 0
 
     # Route conditions, as stations a journey must or must not pass through.
     # "VIA APPLEBY" includes APP; "NOT VIA CHELTNHM" excludes CNM. Only 627 of
@@ -901,6 +954,8 @@ def build_fares_reference(
         not_a_real_advance=connection.execute(
             "select reason, count(*) from advance_reject group by 1 order by 2 desc"
         ).fetchall(),
+        calendar_bars=scalar("select count(*) from ticket_calendar_current"),
+        calendar_unsettled=unsettled,
     )
 
 
@@ -1098,6 +1153,26 @@ sellable as (
       -- S single, R return. N is a season ticket and is priced differently.
       and t.tkt_type in ('S', 'R')
       and ($include_returns or t.tkt_type = 'S')
+      -- CA, the ticket calendar: days the ticket is not available at all.
+      -- Unlike a restriction band this needs no journey - it is a fact about
+      -- the ticket and the date, so it applies to every caller, routed or not.
+      --
+      -- The dates are MMDD like every other date band in RST, and the seven
+      -- day markers start on Monday, which `isodow` numbers from 1 - the same
+      -- indexing DuckDB's own lists use, so the lookup needs no arithmetic.
+      --
+      -- **A record naming a route bars only that route.** Dropping the scope
+      -- withdraws `SOS ANYTIME S` everywhere on the strength of one record
+      -- scoped to `00041`; see the table build for the rest of that case.
+      and not exists (
+          select 1 from ticket_calendar_current cal
+          where cal.ticket_code = c.ticket_code
+            and cal.cf_mkr = $marker
+            and (cal.route_code is null or cal.route_code = c.route_code)
+            and strftime($travel_date, '%m%d')
+                between cal.date_from and cal.date_to
+            and cal.days[isodow($travel_date)]
+      )
       -- A journey deliberately broken needs a ticket that allows it. TVL field
       -- 12 governs the outward leg and field 13 the return, and they differ:
       -- 651 of the 1,379 walk-up ticket types bar a break outward, 32 of the

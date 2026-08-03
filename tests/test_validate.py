@@ -116,6 +116,14 @@ def world(tmp_path):
             ('NAA', 'ADVANCE',        2, false, true,  true,  true,  'B', 'N')
         ) t(ticket_code, description, tkt_class, is_walk_up, is_advance_fare,
             is_real_advance, is_sellable, reservation_required, package_mkr)""")
+        # CA: the days a ticket is not available. Barred Monday to Friday, which
+        # is the shape most of the live feed's 611 records are - and named on a
+        # code `ticket_type_current` carries, so the orphan check reads zero
+        # here and a fixture that grew one would show.
+        c.execute("""create table ticket_calendar_current as select * from (values
+            ('C', 'SVR', null, '0101', '1231',
+             [true, true, true, true, true, false, false])
+        ) t(cf_mkr, ticket_code, route_code, date_from, date_to, days)""")
         c.execute("create table station_tiploc as select * from (values ('AAA','EUSTON')) t(crs, tiploc)")
         # is_rail_station is null unless `rail fetch --supplementary` has run.
         c.execute("""create table station as select * from
