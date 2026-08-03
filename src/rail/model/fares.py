@@ -180,6 +180,29 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     ("%ONBOARD%", "upgrade bought on board, not a fare on its own"),
     # Contactless pay-as-you-go records are informational.
     ("%INFO%", "pay-as-you-go information record"),
+    # **And the rest of pay-as-you-go, which is a price and not a ticket.**
+    #
+    # `%INFO%` caught TfL's two - `PAYG PEAK INFO` and `PAYG OFFPK INFO`, 50,907
+    # fares between them - because the feed names those informational outright.
+    # It caught none of the other 28, so Transport for Wales' `TFW PAYG Single`
+    # was a walk-up fare and **won as the cheapest on about 90 destinations from
+    # every South Wales origin**: Cardiff to Abergavenny came out £4.20 against
+    # a £17.70 Anytime Day Single, Newport to Glan Conwy £4.20 against £16.90.
+    # Nothing was lost by it - every one of those has an ordinary fare behind
+    # it - but the map claims to price tickets, and a contactless tap is not
+    # one.
+    #
+    # The same product was being answered two ways depending on which
+    # operator's naming happened to match a rule, which is the real fault. It
+    # is not discarded: `is_payg` keeps it, and a consumer that wants to show
+    # the tap price beside the ticket price can ask for it.
+    #
+    # Several are not even a journey price - `PAYG HERE-HERE` is touching in
+    # and out at one station, `PAYG UNSTARTED` and `PAYG INCOMPLETE` are what
+    # you are charged for not touching out, and the six `Cap` products are a
+    # ceiling on a day's spending rather than a fare.
+    ("%PAYG%", "pay as you go, a tap rather than a ticket"),
+    ("%OYSTER%", "pay as you go, a tap rather than a ticket"),
     # Inclusive Tour Excursion rates are sold to operators inside a package, so
     # the fare here is a nominal 5p.
     ("%ITX%", "inclusive tour rate, priced inside a package"),
@@ -791,7 +814,14 @@ def build_fares_reference(
                        and not every_fare_on_a_booked_train
                        and upper(description) not like '%ADV%')
                    and not ({_pseudo_advance_sql()})
-                   as is_real_advance
+                   as is_real_advance,
+               -- **Pay as you go, kept rather than discarded.** Excluded from
+               -- `is_walk_up` because a contactless tap is not a ticket, and
+               -- named here because it is still a real price somebody pays -
+               -- see the markers above for what that cost when the two halves
+               -- of the same product were answered differently.
+               (upper(description) like '%PAYG%'
+                or upper(description) like '%OYSTER%') as is_payg
         from booked_only
     """)
 
@@ -1042,9 +1072,18 @@ sellable as (
       -- `advance_only` *is* the answer, so it takes the narrow one - quoting
       -- `Transfer Fee` or a Highland Rover as "the cheapest Advance" would not
       -- be over-reporting, it would be wrong. See `is_real_advance`.
-      and (($advance_only and t.is_real_advance)
-           or (not $advance_only
-               and (t.is_walk_up or ($include_advance and t.is_advance_fare))))
+      --
+      -- **`payg_only` is a third question, not a wider answer.** A contactless
+      -- tap is a price rather than a ticket, so it is never mixed into a list
+      -- of walk-ups - a consumer that wants to show it does so beside them,
+      -- which is the only honest way round when the two are different products
+      -- bought different ways. It reaches TfL's `PAYG PEAK INFO` and `PAYG
+      -- OFFPK INFO` as well as the rest, 50,907 fares over 539 origins.
+      and (case
+             when $payg_only then t.is_payg
+             when $advance_only then t.is_real_advance
+             else t.is_walk_up or ($include_advance and t.is_advance_fare)
+           end)
       and ($ticket_class is null or t.tkt_class = $ticket_class)
       -- S single, R return. N is a season ticket and is priced differently.
       and t.tkt_type in ('S', 'R')
@@ -1781,6 +1820,7 @@ def fare_options(
     modes: dict[str, set[str]] | None = None,
     include_advance: bool = False,
     advance_only: bool = False,
+    payg_only: bool = False,
     #: One row per distinct price *per route* rather than per price. The
     #: default collapses a price offered on two routes into one row and names
     #: whichever route sorts first - right for "what is the cheapest fare",
@@ -1873,6 +1913,7 @@ def fare_options(
                 "railcard": railcard,
                 "include_advance": include_advance,
                 "advance_only": advance_only,
+                "payg_only": payg_only,
                 "per_route": per_route,
                 "check_routes": bool(paths),
                 "break_of_journey": break_of_journey,
@@ -1998,6 +2039,7 @@ def fares_between(
     railcard: str | None = None,
     include_advance: bool = False,
     advance_only: bool = False,
+    payg_only: bool = False,
     return_on: dt.date | None = None,
 ) -> list[dict]:
     """Every fare from `origin` to `destination`, with what governs its use.
@@ -2036,6 +2078,7 @@ def fares_between(
                 "railcard": railcard,
                 "include_advance": include_advance,
                 "advance_only": advance_only,
+                "payg_only": payg_only,
                 "check_routes": False,
                 "break_of_journey": False,
                 "break_returning": False,

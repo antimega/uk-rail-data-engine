@@ -3019,3 +3019,66 @@ def test_an_add_on_applies_when_the_flow_priced_through_a_cluster(fares):
     )
     # 1000 less 33.4% is 666, rounded down to 665, plus the £1.20 add-on.
     assert discounted(connection, directory) == {"BBB": 785}
+
+
+def test_a_contactless_tap_is_not_a_walk_up_fare(fares):
+    """**The same product was answered two ways, and that was the fault.**
+
+    TfL's `PAYG PEAK INFO` and `PAYG OFFPK INFO` were already excluded, because
+    the feed names those informational and `%INFO%` caught them. None of the
+    other 28 pay-as-you-go types matched anything, so Transport for Wales'
+    `TFW PAYG Single` was a walk-up fare and **won as the cheapest on about 90
+    destinations from every South Wales origin** - Cardiff to Abergavenny came
+    out £4.20 against a £17.70 Anytime Day Single.
+
+    Nothing is lost by excluding it: every one of those had an ordinary fare
+    behind it. But the map prices tickets, and a tap is not one.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1770), fare(1, "TFW", 420)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("TFW", "PAYG Single")],
+    )
+
+    assert [(r[1], r[3]) for r in fare_options(connection, directory, "AAA", TRAVEL)] \
+        == [("SDS", 1770)]
+
+
+def test_pay_as_you_go_is_kept_rather_than_discarded(fares):
+    """A tap is a price somebody really pays, so it is a *third* question -
+    never mixed into the walk-ups, which is the only honest way round when the
+    two are different products bought different ways.
+
+    Reaches TfL's records as well: their descriptions carry `PAYG` too, so the
+    50,907 fares behind `PAYG PEAK INFO` and `PAYG OFFPK INFO` come back here
+    even though `%INFO%` is what excludes them from the walk-ups.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1770), fare(1, "TFW", 420),
+                      fare(1, "POP", 310)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("TFW", "PAYG Single"),
+                 ticket("POP", "PAYG OFFPK INFO")],
+    )
+
+    tap = fare_options(connection, directory, "AAA", TRAVEL, payg_only=True)
+
+    assert sorted((r[1], r[3]) for r in tap) == [("POP", 310), ("TFW", 420)]
+    # And it is only the taps - a walk-up must not arrive through this door.
+    assert "SDS" not in {row[1] for row in tap}
+
+
+def test_a_daily_cap_is_not_a_fare(fares):
+    """`PAYG Daily Cap`, `PAYG HERE-HERE`, `PAYG UNSTARTED` and `PAYG
+    INCOMPLETE` are a ceiling on a day's spending, touching in and out at one
+    station, and two ways of not touching out. None is the price of a journey,
+    and all four were classified as walk-up fares."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1770), fare(1, "TFX", 370),
+                      fare(1, "PTH", 1000)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("TFX", "PAYG Daily Cap"),
+                 ticket("PTH", "PAYG HERE-HERE")],
+    )
+
+    assert [r[1] for r in fare_options(connection, directory, "AAA", TRAVEL)] == ["SDS"]

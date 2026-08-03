@@ -3781,7 +3781,8 @@
   },
   "CAP": {
    "description": "PAYG Cap Peak",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "CAS": {
    "description": "CARNET 5 STD",
@@ -4015,7 +4016,8 @@
   },
   "CP1": {
    "description": "DPAYG DAILY CAP",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "CP5": {
    "description": "CARNET PEAK 5",
@@ -4024,7 +4026,8 @@
   },
   "CP7": {
    "description": "PAYG 7DAY CAP",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "CPA": {
    "description": "CLUBAVANTI PREM",
@@ -4032,7 +4035,8 @@
   },
   "CPO": {
    "description": "PAYG Cap Off-Pk",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "CPR": {
    "description": "CHEAP PARK RIDE",
@@ -4040,7 +4044,8 @@
   },
   "CPW": {
    "description": "PAYG Cap Mo-Su",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "CR1": {
    "description": "CHARTER RTN 1ST",
@@ -9813,7 +9818,8 @@
   },
   "ORR": {
    "description": "OYSTER DATA",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "OS1": {
    "description": "ADVANCE",
@@ -9887,7 +9893,8 @@
   },
   "OTU": {
    "description": "OYSTER  PREPAY",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "OTW": {
    "description": "ONE TICKET WEEK",
@@ -9940,11 +9947,13 @@
   },
   "PA1": {
    "description": "PAYG ANYTIME S",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PA2": {
    "description": "PAYG OFF-PEAK S",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PAA": {
    "description": "Partner A",
@@ -9961,11 +9970,13 @@
   },
   "PAG": {
    "description": "PAYG ATT",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PAH": {
    "description": "PAYG",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PAP": {
    "description": "PAYG PEAK INFO",
@@ -10043,7 +10054,8 @@
   },
   "PEA": {
    "description": "PAYG PK DAY SGL",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PEB": {
    "description": "OFF PEAK DY SGL",
@@ -10051,7 +10063,8 @@
   },
   "PEC": {
    "description": "PAYG T DAY RTN",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PER": {
    "description": "Min Fare Return",
@@ -10185,11 +10198,13 @@
   },
   "PSJ": {
    "description": "DIGITAL PAYG",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PSK": {
    "description": "DIGITAL PAYG B",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PSO": {
    "description": "NOT FOR TRAVEL",
@@ -10254,15 +10269,18 @@
   },
   "PTH": {
    "description": "PAYG HERE-HERE",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PTI": {
    "description": "PAYG INCOMPLETE",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PTU": {
    "description": "PAYG UNSTARTED",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "PUG": {
    "description": "Std Plus Upgrde",
@@ -11851,12 +11869,13 @@
   },
   "SRC": {
    "description": "SR PAYG Anytime",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "SRD": {
    "description": "SR PAYG ANYTIME",
    "class": "rejected",
-   "reason": "family or group product"
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "SRF": {
    "description": "SEAT RESVTN FEE",
@@ -12292,11 +12311,13 @@
   },
   "TFA": {
    "description": "Daily Cap PAYG",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "TFB": {
    "description": "Weekly Cap PAYG",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "TFF": {
    "description": "2 FOR 1 1ST",
@@ -12318,15 +12339,18 @@
   },
   "TFW": {
    "description": "PAYG Single",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "TFX": {
    "description": "PAYG Daily Cap",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "TFY": {
    "description": "PAYG Weekly Cap",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "TGF": {
    "description": "Rev Inspect Chg",
@@ -14782,11 +14806,13 @@
   },
   "ZO1": {
    "description": "OYSTER REM STD",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "ZO2": {
    "description": "OYSTER REM 1ST",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "ZO3": {
    "description": "MAGSTRPCONV STD",
