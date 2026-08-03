@@ -1643,20 +1643,39 @@ _CHEAPEST_SQL = _PRICING_CTES + """
 -- price, and several products can sell it - and with parallel aggregation
 -- the arbitrary choice is not even stable between two runs on one database.
 -- Building the same origin twice produced payloads naming different tickets
--- at identical prices. So the ordering key is (ticket_code, route_code),
--- which is deterministic and picks the same winner every time.
+-- at identical prices. So the ordering key is deterministic and picks the same
+-- winner every time.
+--
+-- **And it prefers an ordinary ticket to a smartcard one.** `0AE SMART SDR` and
+-- `SDR ANYTIME DAY R` are the same product in two media - same price, route,
+-- restriction, validity, ticket group and discount category, differing only in
+-- how many flows carry them, 2,395 against 275,483. Ordering by code alone gave
+-- the smartcard one every time, digits sorting before letters, so Euston to
+-- Shepherd's Bush was quoted as "SMART SDR" when an identically priced paper
+-- ticket was there all along. **5,397 of the 5,462 price groups a SMART ticket
+-- wins have an ordinary twin at the same price**, and each twin is the same
+-- product: SDR ties ANYTIME DAY R, SDS ties ANYTIME DAY S, FDS ties ANYTIME DAY
+-- 1S. The other 65 are genuinely smartcard-only and keep their name.
+--
+-- **The tempting general rule is wrong and was measured before being
+-- discarded**: preferring whichever ticket sits on more flows would rename
+-- 63,028 groups, and the biggest families are 25,560 `OFF-PEAK DAY R` becoming
+-- `ANYTIME DAY R` and 14,477 `ANYTIME R` becoming `OFF-PEAK R` - different
+-- products that happen to cost the same, whose restrictions would then be
+-- described wrongly. So this is deliberately the narrow test, on a name, and
+-- the worst it can do is show one of two names for one ticket.
 select dest_crs,
-       min_by(ticket_code, (ticket_code, route_code)) as ticket_code,
-       min_by(description, (ticket_code, route_code)) as description,
+       min_by(ticket_code, (description like 'SMART %', ticket_code, route_code)) as ticket_code,
+       min_by(description, (description like 'SMART %', ticket_code, route_code)) as description,
        fare,
-       min_by(is_advance_fare, (ticket_code, route_code)) as is_advance,
+       min_by(is_advance_fare, (description like 'SMART %', ticket_code, route_code)) as is_advance,
        -- The route the fare is priced on, which is what settles an easement
        -- whose condition is "customers with tickets routed X".
-       min_by(route_code, (ticket_code, route_code)) as route_code,
+       min_by(route_code, (description like 'SMART %', ticket_code, route_code)) as route_code,
        -- TTY field 9: 'S' single, 'R' return, 'N' season. A return sometimes
        -- undercuts two singles and wins here, so the caller has to be able to
        -- say what it quoted.
-       min_by(tkt_type, (ticket_code, route_code)) as tkt_type,
+       min_by(tkt_type, (description like 'SMART %', ticket_code, route_code)) as tkt_type,
        -- **Who set this fare**, as an ATOC code where the feed's own crossref
        -- gives one and its internal id otherwise. RSPS5045's flow record
        -- carries it and nothing here read it until an Advance ladder turned out
@@ -1666,7 +1685,7 @@ select dest_crs,
        -- selling out, and reads as though it were.
        --
        -- Null on a non-derivable fare, which names no operator at all.
-       min_by(operator, (ticket_code, route_code)) as operator,
+       min_by(operator, (description like 'SMART %', ticket_code, route_code)) as operator,
        -- **The restriction that governs it, or null for none at all.** Null is
        -- the useful value: a fare with no restriction code is usable on any
        -- train, which is what an Anytime ticket is, and what a caller comparing
@@ -1679,7 +1698,7 @@ select dest_crs,
        -- meaning would silently shift `operator` by one - and an operator code
        -- read as a restriction is exactly the kind of wrong that still looks
        -- like a string.
-       min_by(restriction_code, (ticket_code, route_code)) as restriction_code
+       min_by(restriction_code, (description like 'SMART %', ticket_code, route_code)) as restriction_code
 from discounted
 where dest_crs <> $origin and fare is not null
 -- **One row per distinct price, or per price *per route* when asked.**

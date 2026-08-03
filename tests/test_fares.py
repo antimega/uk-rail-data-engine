@@ -3082,3 +3082,60 @@ def test_a_daily_cap_is_not_a_fare(fares):
     )
 
     assert [r[1] for r in fare_options(connection, directory, "AAA", TRAVEL)] == ["SDS"]
+
+
+def test_an_ordinary_ticket_beats_a_smartcard_one_at_the_same_price(fares):
+    """`0AE SMART SDR` and `SDR ANYTIME DAY R` are the same product in two
+    media - same price, route, restriction, validity, ticket group and discount
+    category, differing only in how many flows carry them, 2,395 against
+    275,483.
+
+    A price group names one ticket, and ordering by code alone gave the
+    smartcard one every time because digits sort before letters. Euston to
+    Shepherd's Bush read "SMART SDR" with an identically priced paper ticket
+    sitting beside it, which tells a reader they need a smartcard they do not.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "0AE", 840), fare(1, "SDR", 840)],
+        tickets=[ticket("0AE", "SMART SDR"), ticket("SDR", "ANYTIME DAY R")],
+    )
+
+    priced = fare_options(connection, directory, "AAA", TRAVEL)
+
+    # One row - they are one price - and it is the one anybody can buy.
+    assert [(r[1], r[2], r[3]) for r in priced] == [("SDR", "ANYTIME DAY R", 840)]
+
+
+def test_a_smartcard_only_fare_keeps_its_name(fares):
+    """65 of the 5,462 price groups a SMART ticket wins have no ordinary twin.
+    Renaming those would be inventing a ticket that is not sold."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "0AK", 2200)],
+        tickets=[ticket("0AK", "SMART CDR")],
+    )
+
+    assert [r[2] for r in fare_options(connection, directory, "AAA", TRAVEL)] \
+        == ["SMART CDR"]
+
+
+def test_the_tie_break_does_not_reach_for_the_commoner_ticket(fares):
+    """**The tempting general rule, measured and discarded.** Preferring
+    whichever ticket sits on more flows would rename 63,028 groups, and the
+    biggest families are 25,560 `OFF-PEAK DAY R` becoming `ANYTIME DAY R` and
+    14,477 `ANYTIME R` becoming `OFF-PEAK R` - different products that happen
+    to cost the same, whose restrictions the panel would then describe wrongly.
+
+    So two ordinary tickets at one price still tie on the code, as they always
+    did, and only the smartcard test is applied.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SVR", 3350), fare(1, "SOR", 3350)],
+        tickets=[ticket("SOR", "ANYTIME R"), ticket("SVR", "OFF-PEAK R")],
+    )
+
+    # `SOR` sorts first and wins, exactly as before - no reaching for the
+    # off-peak one because it happens to be the commoner product.
+    assert [r[1] for r in fare_options(connection, directory, "AAA", TRAVEL)] == ["SOR"]
