@@ -157,7 +157,9 @@ def _to_arrow(matrix: np.ndarray, field: Field) -> tuple[pa.Array, int]:
         minutes, minutes_ok = _digits_to_int(_column(matrix, field.start + 2, 2))
         half = _column(matrix, field.start + 4, 1) == b"H"
         valid = hours_ok & minutes_ok & (hours < 24) & (minutes < 60)
-        valid &= ~((hours == 0) & (minutes == 0))
+        # Bare 0000 is the absent-time sentinel. 0000H is a real working
+        # time—thirty seconds after midnight—and occurs in the live MCA feed.
+        valid &= ~((hours == 0) & (minutes == 0) & ~half)
         seconds = hours * 3600 + minutes * 60 + np.where(half, 30, 0)
         return pa.array(seconds.astype(np.int32), mask=~valid, type=pa.int32()), 0
 
