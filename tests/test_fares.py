@@ -332,6 +332,51 @@ def test_two_tickets_at_the_same_price_pick_the_same_winner_every_time(fares):
     assert winners == {("CDS",)}, f"tie broke inconsistently: {winners}"
 
 
+def test_one_ticket_under_two_restrictions_also_breaks_the_tie_repeatably(fares):
+    """**The same bug came back through a column added after the fix above.**
+
+    That tie-break is `(smart, ticket_code, route_code)`, which was total when
+    it was written and stopped being so the moment `restriction_code` was
+    selected beside it: one ticket, one route, one price, two restrictions, and
+    `min_by` with two equal keys takes either.
+
+    **It is the origin expansion showing through**, which is the same mechanism
+    this file already records for one fare listed twice. An origin is several
+    codes - its own NLC, its cluster, its group - and two of them can match
+    different flows selling the same ticket at the same price on the same
+    route. Real: `CDR OFF-PEAK DAY R` to Congleton is £13.20 on route `00325`
+    from `Q126` under `B3` and from `Q235` under `B1`, and three builds of one
+    fare group gave three different payloads - every price identical, the
+    restriction beside them flipping.
+
+    A tie-break is total against the columns that existed when it was written,
+    and adding a column is what makes it partial again.
+
+    **This asserts the rule rather than the behaviour, and that is a
+    concession worth stating.** The shape needs one ticket sold on *two* flows,
+    and this fixture cannot express it - two flows carrying the same ticket
+    code return no rows at all, with or without restrictions, which is a limit
+    of the tiny world here and nothing to do with the fix. Verified on the real
+    feed instead, three ways: the Congleton rows above exist; `fare_options`
+    returned a different row order on three consecutive runs before this and
+    the same order on three after; and a fare group built twice went from
+    differing to byte-identical.
+    """
+    from pathlib import Path
+
+    from rail.model import fares as fares_module
+
+    source = Path(fares_module.__file__).read_text(encoding="utf-8")
+
+    # Every tie-break that picks a column off a tied row carries the
+    # restriction, so none of them can be decided by which row arrives first.
+    picked = source.count("(description like 'SMART %', ticket_code, route_code,")
+    assert picked >= 7, f"only {picked} min_by tie-breaks name the restriction"
+    assert "coalesce(restriction_code, '')" in source
+    # And the partial form is gone rather than merely joined by a total one.
+    assert "(description like 'SMART %', ticket_code, route_code)" not in source
+
+
 # --- non-derivable fares -----------------------------------------------------
 
 

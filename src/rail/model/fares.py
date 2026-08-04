@@ -1777,17 +1777,22 @@ _CHEAPEST_SQL = _PRICING_CTES + """
 -- described wrongly. So this is deliberately the narrow test, on a name, and
 -- the worst it can do is show one of two names for one ticket.
 select dest_crs,
-       min_by(ticket_code, (description like 'SMART %', ticket_code, route_code)) as ticket_code,
-       min_by(description, (description like 'SMART %', ticket_code, route_code)) as description,
+       min_by(ticket_code, (description like 'SMART %', ticket_code, route_code,
+           coalesce(restriction_code, ''))) as ticket_code,
+       min_by(description, (description like 'SMART %', ticket_code, route_code,
+           coalesce(restriction_code, ''))) as description,
        fare,
-       min_by(is_advance_fare, (description like 'SMART %', ticket_code, route_code)) as is_advance,
+       min_by(is_advance_fare, (description like 'SMART %', ticket_code, route_code,
+           coalesce(restriction_code, ''))) as is_advance,
        -- The route the fare is priced on, which is what settles an easement
        -- whose condition is "customers with tickets routed X".
-       min_by(route_code, (description like 'SMART %', ticket_code, route_code)) as route_code,
+       min_by(route_code, (description like 'SMART %', ticket_code, route_code,
+           coalesce(restriction_code, ''))) as route_code,
        -- TTY field 9: 'S' single, 'R' return, 'N' season. A return sometimes
        -- undercuts two singles and wins here, so the caller has to be able to
        -- say what it quoted.
-       min_by(tkt_type, (description like 'SMART %', ticket_code, route_code)) as tkt_type,
+       min_by(tkt_type, (description like 'SMART %', ticket_code, route_code,
+           coalesce(restriction_code, ''))) as tkt_type,
        -- **Who set this fare**, as an ATOC code where the feed's own crossref
        -- gives one and its internal id otherwise. RSPS5045's flow record
        -- carries it and nothing here read it until an Advance ladder turned out
@@ -1797,7 +1802,8 @@ select dest_crs,
        -- selling out, and reads as though it were.
        --
        -- Null on a non-derivable fare, which names no operator at all.
-       min_by(operator, (description like 'SMART %', ticket_code, route_code)) as operator,
+       min_by(operator, (description like 'SMART %', ticket_code, route_code,
+           coalesce(restriction_code, ''))) as operator,
        -- **The restriction that governs it, or null for none at all.** Null is
        -- the useful value: a fare with no restriction code is usable on any
        -- train, which is what an Anytime ticket is, and what a caller comparing
@@ -1810,7 +1816,8 @@ select dest_crs,
        -- meaning would silently shift `operator` by one - and an operator code
        -- read as a restriction is exactly the kind of wrong that still looks
        -- like a string.
-       min_by(restriction_code, (description like 'SMART %', ticket_code, route_code)) as restriction_code
+       min_by(restriction_code, (description like 'SMART %', ticket_code, route_code,
+           coalesce(restriction_code, ''))) as restriction_code
 from discounted
 where dest_crs <> $origin and fare is not null
 -- **One row per distinct price, or per price *per route* when asked.**
@@ -1838,6 +1845,21 @@ group by dest_crs, fare, case when $per_route then route_code end
 -- and `ADVANCE PROMO` at one price. Naming the grouping columns here settles
 -- it once for every consumer, rather than leaving each to sort defensively and
 -- discover the need the hard way.
+--
+-- **And the same bug came back through a column added later.** The `min_by`
+-- tie-breaks above read `(smart, ticket_code, route_code)`, which was total
+-- until `restriction_code` was selected beside them: `CDR OFF-PEAK DAY R` to
+-- Congleton is £13.20 on route `00325` under *two* restrictions, `B1` and `B3`,
+-- so `min_by` had two rows with equal keys and took either. Three builds of one
+-- fare group gave three different payloads - every price identical throughout,
+-- and the restriction beside them flipping.
+--
+-- The lesson is the one this comment already carried, arriving from the other
+-- side: a tie-break is total against the columns that existed when it was
+-- written, and adding a column is what makes it partial again. `coalesce`
+-- because a null restriction is the commonest value there is - an Anytime
+-- ticket has none - and a null in an ordering key is the very ambiguity being
+-- removed.
 order by dest_crs, fare, ticket_code, route_code
 """
 
