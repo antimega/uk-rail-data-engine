@@ -3437,3 +3437,33 @@ def test_cpay_is_pay_as_you_go_under_another_name(fares):
     assert classified["PAC"] is True
     assert classified["PAT"] is False, "TEST is a pilot set, not a price"
     assert classified["SDS"] is False
+
+
+def test_the_code_family_says_which_cards_are_accepted(fares):
+    """Checked against RDG's contactless map: a station whose own NLC carries
+    PAYG is drawn yellow, "Oyster and contactless"; CPAY alone is light or dark
+    green, "Oyster is NOT valid". OTU is a top-up ladder, not a journey."""
+    connection, _ = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "PAP", 300), fare(1, "PAC", 400),
+                      fare(1, "PAT", 500), fare(1, "OTU", 600),
+                      fare(1, "SDS", 900)],
+        tickets=[ticket("PAP", "PAYG PEAK INFO"), ticket("PAC", "CPAY PEAK INFO"),
+                 ticket("PAT", "CPAY PEAK TEST"), ticket("OTU", "OYSTER  PREPAY"),
+                 ticket("SDS", "ANYTIME DAY S")],
+    )
+
+    rows = dict(connection.execute(
+        "select ticket_code, payg_family from ticket_type_current"
+    ).fetchall())
+    assert rows["PAP"] == "oyster"
+    assert rows["PAC"] == "contactless"
+    assert rows["PAT"] is None, "not enabled yet, so not a price"
+    assert rows["OTU"] == "topup", "the value loaded on a card, not a journey"
+    assert rows["SDS"] is None
+
+    payg = dict(connection.execute(
+        "select ticket_code, is_payg from ticket_type_current"
+    ).fetchall())
+    assert [payg[t] for t in ("PAP", "PAC", "PAT", "OTU", "SDS")] == [
+        True, True, False, False, False]

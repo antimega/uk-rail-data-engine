@@ -909,20 +909,58 @@ def build_fares_reference(
                -- prices that moved between two generations without ever
                -- reaching a payload.
                --
-               -- **One flag, two payment media, and a consumer must not read
-               -- it as "Oyster".** Oyster is limited to the TfL zonal area;
-               -- most of what Project Oval adds is payable by contactless bank
-               -- card or phone and by nothing else. So `is_payg` means "a tap
-               -- price rather than a ticket" and says nothing about what you
-               -- tap with - the code family is the only signal the feed gives
-               -- (`OYSTER`, `PAYG`, `CPAY`), and which media each accepts is
-               -- knowledge from outside it. Anything labelling these for a
-               -- reader should say contactless, not Oyster.
-               ((upper(description) like '%PAYG%'
-                 or upper(description) like '%OYSTER%'
-                 or upper(description) like '%CPAY%')
-                and upper(description) not like '%TEST%') as is_payg
+               -- **The code family says which cards are accepted**, and that
+               -- is checkable rather than assumed. Oyster stops at the TfL
+               -- area and most of what Oval adds needs a contactless bank card
+               -- or device, so the two are not interchangeable to a passenger.
+               --
+               -- Checked against RDG's "South East Rail Pay-As-You-Go with
+               -- Contactless Payments" map (March 2026), which draws exactly
+               -- this line, twenty stations sampled per colour and counted on
+               -- each station's **own NLC** - through a cluster a station
+               -- borrows its neighbours' records and the test says nothing:
+               --
+               --   map yellow, "Oyster and contactless"   19/20 carry PAYG,
+               --                                           none CPAY-only
+               --   map light green, "contactless now,
+               --   Oyster is NOT valid"                   20/20 CPAY, no PAYG
+               --   map dark green, "under Project Oval"   14/20 CPAY, no PAYG
+               --   map light blue, "expected later 2026"  mostly TEST only
+               --
+               -- Gatwick is *not* an exception, which is worth saying because
+               -- it looks like one: it carries PAYG records and the obvious
+               -- reading is that Oyster stops short of it. The map draws it
+               -- yellow, Oyster having reached Gatwick in January 2016.
+               --
+               -- **And the light-blue column is what `TEST` is.** Woking,
+               -- Weybridge, Guildford and Gravesend carry `PAT`/`POT` and
+               -- nothing live - Project Oval stations with prices loaded ahead
+               -- of activation, which is why they churn between generations
+               -- and barely overlap the INFO records. Not a price anyone can
+               -- pay yet, so out.
+               case
+                   -- `OTU` is one flow of ninety denominations, `Q498` to
+                   -- `J103`, where the route code *is* the amount: 30001 is
+                   -- £1.00 and 30090 is £90.00. It is the value you load onto
+                   -- a card rather than a journey, and no station answers to
+                   -- its destination, so it could never have been quoted.
+                   when upper(description) like '%OYSTER%PREPAY%' then 'topup'
+                   when upper(description) like '%CPAY%TEST%' then null
+                   when upper(description) like '%CPAY%' then 'contactless'
+                   when upper(description) like '%PAYG%'
+                     or upper(description) like '%OYSTER%' then 'oyster'
+               end as payg_family
         from booked_only
+    """)
+    # `is_payg` is "a tap price rather than a ticket", so it spans both media
+    # and excludes the top-up ladder and the not-yet-live set. A consumer that
+    # needs to tell a passenger what to tap with reads `payg_family`.
+    connection.execute("""
+        alter table ticket_type_current add column is_payg boolean
+    """)
+    connection.execute("""
+        update ticket_type_current
+        set is_payg = coalesce(payg_family in ('oyster', 'contactless'), false)
     """)
 
     # Why each Advance-classified type is not a *real* Advance, recorded rather
