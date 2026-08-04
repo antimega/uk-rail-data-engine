@@ -394,9 +394,15 @@ class RouteingGuide:
             row[0] for row in connection.execute("select crs from routeing_point").fetchall()
         }
 
+        # **Ordered, because both of these become lists that are displayed.**
+        # DuckDB aggregates in parallel and hands back groups in whatever order
+        # they finish, so an unordered `group by` gives a different chain order
+        # on every load - and `routings` prints them in that order. Two
+        # consecutive loads of the same database disagreed before this.
         station_points: dict[str, list[str]] = {}
         for crs, point in connection.execute(
             "select crs, routeing_point from station_routeing_point"
+            " order by crs, routeing_point"
         ).fetchall():
             station_points.setdefault(crs, []).append(point)
 
@@ -404,6 +410,7 @@ class RouteingGuide:
         for origin, destination, chain in connection.execute("""
             select origin, destination, list(map_code order by seq)
             from permitted_route group by origin, destination, route_id
+            order by origin, destination, route_id
         """).fetchall():
             routes.setdefault((origin, destination), []).append(tuple(chain))
 
@@ -498,8 +505,13 @@ class RouteingGuide:
                         start_point=start,
                         end_point=end,
                     ))
-        # The shortest path first, then London, then anything unwalkable.
-        found.sort(key=lambda r: (not r.walkable, r.via_london, len(r.points)))
+        # The shortest path first, then London, then anything unwalkable - and
+        # the maps last, so the key is **total**. Without it two routings of the
+        # same length tie and fall back to insertion order, which is the order
+        # `self.routes` was built in: a tie-break is total only until something
+        # ties inside it.
+        found.sort(key=lambda r: (
+            not r.walkable, r.via_london, len(r.points), r.maps))
         return found
 
     def _walk(self, chain: tuple[str, ...], start: str, end: str) -> list[str]:
@@ -512,6 +524,11 @@ class RouteingGuide:
         for code in chain:
             for source, target in self.map_links.get(code, ()):
                 adjacency.setdefault(source, set()).add(target)
+        # **Sorted, because several shortest paths are usually the same length.**
+        # `map_links` is a set of tuples and Python hashes strings differently in
+        # every process, so an unsorted walk picks a different one of the equally
+        # short paths from run to run - and this is what `rail routings` prints.
+        neighbours = {node: sorted(steps) for node, steps in adjacency.items()}
 
         came_from: dict[str, str | None] = {start: None}
         queue = deque([start])
@@ -519,7 +536,7 @@ class RouteingGuide:
             node = queue.popleft()
             if node == end:
                 break
-            for step in adjacency.get(node, ()):
+            for step in neighbours.get(node, ()):
                 if step not in came_from:
                     came_from[step] = node
                     queue.append(step)

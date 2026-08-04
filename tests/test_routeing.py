@@ -466,6 +466,40 @@ def test_a_pair_the_guide_does_not_list_has_no_routings():
     assert g.routings("AAA", "BBB") == []
 
 
+def test_routings_do_not_depend_on_the_order_the_chains_arrived_in():
+    """`load` reads the chains out of a parallel `group by`, which returns its
+    groups in whatever order they finish, so the same database gives a different
+    chain order on every load. Two routings of the same length then tie on the
+    sort key and fall back to insertion order, and `rail routings` prints a
+    different answer each run."""
+    def built(chains):
+        return guide(
+            points=["AAA", "DDD"], nodes=["AAA", "BBB", "CCC", "DDD"],
+            routes={("AAA", "DDD"): chains},
+            links={
+                "M1": [("AAA", "BBB"), ("BBB", "DDD")],
+                "M2": [("AAA", "CCC"), ("CCC", "DDD")],
+            },
+        )
+
+    one = [r.maps for r in built([("M1",), ("M2",)]).routings("AAA", "DDD")]
+    other = [r.maps for r in built([("M2",), ("M1",)]).routings("AAA", "DDD")]
+    assert one == other == [("M1",), ("M2",)]
+
+
+def test_the_walk_picks_the_same_one_of_two_equally_short_paths():
+    """`map_links` is a set of tuples and Python hashes strings differently in
+    every process, so an unsorted walk returns a different equally short path
+    from run to run."""
+    g = guide(
+        points=["AAA", "DDD"], nodes=["AAA", "BBB", "CCC", "DDD"],
+        routes={("AAA", "DDD"): [("M1",)]},
+        links={"M1": [("AAA", "BBB"), ("BBB", "DDD"),
+                      ("AAA", "CCC"), ("CCC", "DDD")]},
+    )
+    assert g._walk(("M1",), "AAA", "DDD") == ["AAA", "BBB", "DDD"]
+
+
 def test_a_group_routeing_point_is_named_by_its_main_station():
     """G02 means nothing to anyone; RGG says Birmingham New Street."""
     g = guide(points=["G02"], groups={"AST": "G02"})
