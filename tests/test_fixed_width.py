@@ -145,11 +145,22 @@ def test_public_time_is_minutes_and_0000_means_no_public_time(tmp_path):
 
 
 def test_working_time_keeps_the_half_minute(tmp_path):
-    path = write(tmp_path, "a.TIM", [make_line(20, p4="0730H"), make_line(20, p4="0730 ")])
+    path = write(
+        tmp_path,
+        "a.TIM",
+        [
+            make_line(20, p4="0730H"),
+            make_line(20, p4="0730 "),
+            make_line(20, p4="0000H"),
+            make_line(20, p4="0000 "),
+        ],
+    )
     rows = read_fixed_width(path, TIMES)[0]["times"].to_pylist()
 
     assert rows[0]["working"] == 7 * 3600 + 30 * 60 + 30
     assert rows[1]["working"] == 7 * 3600 + 30 * 60
+    assert rows[2]["working"] == 30
+    assert rows[3]["working"] is None
 
 
 @pytest.mark.parametrize(
