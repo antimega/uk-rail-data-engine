@@ -883,8 +883,45 @@ def build_fares_reference(
                -- named here because it is still a real price somebody pays -
                -- see the markers above for what that cost when the two halves
                -- of the same product were answered differently.
-               (upper(description) like '%PAYG%'
-                or upper(description) like '%OYSTER%') as is_payg
+               --
+               -- **`CPAY` is the same product under another name**, and reading
+               -- only `PAYG` answered TfL's records and not the Department for
+               -- Transport's Project Oval, which extends contactless to
+               -- National Rail beyond the Oyster area. `PAC`/`POC`
+               -- "CPAY PEAK/OffPK INFO" are the exact analogue of `PAP`/`POP`
+               -- and were falling through to the `is_walk_up` rejection, so
+               -- they counted as neither a ticket nor a tap and appeared
+               -- nowhere - while `fare_reject` recorded them, accurately and
+               -- contradictorily, as a "pay-as-you-go information record".
+               --
+               -- They are the same product structurally, not by name only:
+               -- both families price peak on `PF`/`PI` and off-peak on
+               -- `PG`/`PQ`, `PI`/`PQ` being the feed's own "PAYG CONTRA-PEAK".
+               -- CPAY leans on contra-peak nine times as heavily, which is
+               -- what commuting outside London looks like. Its geography is
+               -- Project Oval's: of the 191 stations carrying CPAY and not
+               -- PAYG, the operators are SW, TL, LE, GW, SE, LM, GN, CC, CH
+               -- and SN - Phase 1's six and Phase 2's four.
+               --
+               -- **`TEST` stays out.** `PAT`/`POT` are not shadows of the INFO
+               -- records - only 50 pairs carry both - so they are a separate
+               -- set for stations not yet live, and they are the 676 of 738
+               -- prices that moved between two generations without ever
+               -- reaching a payload.
+               --
+               -- **One flag, two payment media, and a consumer must not read
+               -- it as "Oyster".** Oyster is limited to the TfL zonal area;
+               -- most of what Project Oval adds is payable by contactless bank
+               -- card or phone and by nothing else. So `is_payg` means "a tap
+               -- price rather than a ticket" and says nothing about what you
+               -- tap with - the code family is the only signal the feed gives
+               -- (`OYSTER`, `PAYG`, `CPAY`), and which media each accepts is
+               -- knowledge from outside it. Anything labelling these for a
+               -- reader should say contactless, not Oyster.
+               ((upper(description) like '%PAYG%'
+                 or upper(description) like '%OYSTER%'
+                 or upper(description) like '%CPAY%')
+                and upper(description) not like '%TEST%') as is_payg
         from booked_only
     """)
 

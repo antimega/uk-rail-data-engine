@@ -3415,3 +3415,25 @@ def test_a_cluster_still_prices_a_ticket_the_own_nlc_flow_has_not_got(fares):
 
     rows = cheapest_from(connection, directory, "AAA", TUESDAY)
     assert {row[0]: row[3] for row in rows}["BBB"] == 2650
+
+
+def test_cpay_is_pay_as_you_go_under_another_name(fares):
+    """Project Oval extends contactless beyond the Oyster area and names its
+    records CPAY, not PAYG. Reading only PAYG answered TfL and left 191
+    stations with no tap at all - the reject table called them a
+    "pay-as-you-go information record" while is_payg said false."""
+    connection, _ = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "PAC", 880), fare(1, "PAT", 600),
+                      fare(1, "SDS", 900)],
+        tickets=[ticket("PAC", "CPAY PEAK INFO"),
+                 ticket("PAT", "CPAY PEAK TEST"),
+                 ticket("SDS", "ANYTIME DAY S")],
+    )
+
+    classified = dict(connection.execute(
+        "select ticket_code, is_payg from ticket_type_current"
+    ).fetchall())
+    assert classified["PAC"] is True
+    assert classified["PAT"] is False, "TEST is a pilot set, not a price"
+    assert classified["SDS"] is False
