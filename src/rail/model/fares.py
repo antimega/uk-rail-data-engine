@@ -1057,13 +1057,15 @@ flows as (
     -- usually agree, because an Advance is nearly always routed to its own
     -- operator: York to King's Cross is priced by Grand Central on route 00406
     -- `AP GC ONLY`, by LNER on 00027 `LNER ONLY`, and by Hull Trains on 01407.
-    select flow_id, destination_code as other_code, route_code, ns_disc_ind, toc
+    select flow_id, destination_code as other_code, origin_code as origin_end,
+           route_code, ns_disc_ind, toc
     from read_parquet($flow_path)
     where origin_code in (select code from origin_codes)
       and $travel_date between start_date and end_date
     union all
     -- "R" means the flow may be used in either direction.
-    select flow_id, origin_code, route_code, ns_disc_ind, toc
+    select flow_id, origin_code, destination_code as origin_end,
+           route_code, ns_disc_ind, toc
     from read_parquet($flow_path)
     where direction = 'R'
       and destination_code in (select code from origin_codes)
@@ -1071,10 +1073,14 @@ flows as (
 ),
 flow_fares as (
     select a.crs as dest_crs, f.other_code, f.route_code, f.ns_disc_ind,
-           r.ticket_code, r.fare, r.restriction_code, 'flow' as source, f.toc
+           r.ticket_code, r.fare, r.restriction_code, 'flow' as source, f.toc,
+           coalesce(f.origin_end = (select nlc from station_nlc
+                                    where crs = $origin)
+                    and f.other_code = dn.nlc, false) as is_own
     from flows f
     join read_parquet($fare_path) r using (flow_id)
     join fare_alias a on a.code = f.other_code
+    left join station_nlc dn on dn.crs = a.crs
     where r.fare is not null and r.fare > 0
 ),
 -- Non-derivable fares are stated directly against a code pair and override the
@@ -1105,9 +1111,13 @@ non_derivable_all as (
            -- NFO-sourced fare reports null, which a caller must read as "the
            -- feed does not say" and never as "no operator".
            null::varchar as toc,
+           coalesce(n.origin_code = (select nlc from station_nlc
+                                     where crs = $origin)
+                    and n.destination_code = dn.nlc, false) as is_own,
            n.railcard_code is not null as is_railcard_fare
     from read_parquet($ndf_path) n
     join fare_alias a on a.code = n.destination_code
+    left join station_nlc dn on dn.crs = a.crs
     where n.origin_code in (select code from origin_codes)
       and n.composite_indicator = 'Y'
       -- The generic adult fare, plus any stated for this railcard: those are
@@ -1124,7 +1134,7 @@ non_derivable as (
         from non_derivable_all
     ) where rn = 1
 ),
-combined as (
+every_code as (
     select * from non_derivable
     union all
     select f.*, false as is_railcard_fare from flow_fares f
@@ -1134,6 +1144,30 @@ combined as (
           and n.other_code = f.other_code
           and n.ticket_code = f.ticket_code
           and coalesce(n.route_code, '') = coalesce(f.route_code, '')
+    )
+),
+-- **A station's own NLC beats a cluster, even when the cluster is cheaper.**
+--
+-- A station is named by several codes and a flow may exist under more than one
+-- of them, at different prices. RSPS5045 ranks them nowhere - 4.1.2 says a flow
+-- endpoint "may be a cluster NLC", 4.2.2 that fares "may be set using the
+-- Cluster NLC instead of this NLC" - and taking the lower, which is what this
+-- did, is not what is sold. Eighteen rows over four pairs where the two
+-- disagree all go to the own-NLC price, the cluster being cheaper in eleven:
+-- Aldermaston to Overton sells a £136.60 first-class return against a £91.20
+-- cluster fare, and Amersham to Watford Junction £27.00 against £14.10.
+--
+-- **Only where the own-NLC flow prices that ticket on that route.** Where it
+-- does not, the cluster stands - Brighton to London Bridge prices Super
+-- Off-Peak from its own NLC and every other ticket from a cluster, and all of
+-- them are sold, so "ignore clusters where an own-NLC flow exists" would throw
+-- away real fares. The route is part of the key for the same reason: that
+-- pair's `00789` Thameslink-Only set is entirely cluster-priced and sold
+-- alongside the `00000` fares.
+combined as (
+    select * exclude (is_own) from every_code
+    qualify is_own or not bool_or(is_own) over (
+        partition by dest_crs, route_code, ticket_code
     )
 ),
 sellable as (

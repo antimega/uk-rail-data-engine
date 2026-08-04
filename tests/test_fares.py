@@ -3385,3 +3385,33 @@ def test_a_zone_priced_fare_still_departs_from_the_station(fares):
 
     assert price(depart_minutes=660) == {"BBB": ("CDS", 3000)}
     assert price(depart_minutes=450) == {"BBB": ("SDS", 5070)}
+
+
+def test_the_stations_own_nlc_beats_a_cheaper_cluster_fare(fares):
+    """RSPS5045 ranks the two nowhere and this file used to take the lower,
+    which is not what is sold: Aldermaston to Overton sells a £136.60
+    first-class return against a £91.20 cluster fare."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222"), flow(2, "C111", "C222")],
+        fare_records=[fare(1, "SDS", 3880), fare(2, "SDS", 2650)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+        clusters=[("C111", "1111"), ("C222", "2222")],
+    )
+
+    rows = cheapest_from(connection, directory, "AAA", TUESDAY)
+    assert {row[0]: row[3] for row in rows}["BBB"] == 3880
+
+
+def test_a_cluster_still_prices_a_ticket_the_own_nlc_flow_has_not_got(fares):
+    """Brighton to London Bridge prices Super Off-Peak from its own NLC and
+    every other ticket from a cluster, and a retailer sells all of them - so
+    the precedence is per ticket, not "ignore clusters"."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222"), flow(2, "C111", "C222")],
+        fare_records=[fare(1, "SDS", 3880), fare(2, "CDS", 2650)],
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("CDS", "OFF-PEAK DAY S")],
+        clusters=[("C111", "1111"), ("C222", "2222")],
+    )
+
+    rows = cheapest_from(connection, directory, "AAA", TUESDAY)
+    assert {row[0]: row[3] for row in rows}["BBB"] == 2650
