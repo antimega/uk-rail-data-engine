@@ -50,6 +50,10 @@ class RestrictionCounts:
     intermediate_bands: int
     #: Current restrictions barring a change of trains outright.
     no_change_allowed: int = 0
+    #: Band/operator relationships from TT. Counted because the failure is
+    #: silent: with none of them every qualified band bars every operator, and
+    #: the 16-17 Saver quietly discounts nothing anywhere.
+    toc_qualifiers: int = 0
 
 
 def build_restrictions(
@@ -173,6 +177,7 @@ def build_restrictions(
             "select count(*) from restriction_current "
             "where cf_mkr = 'C' and not change_allowed"
         ),
+        toc_qualifiers=scalar("select count(*) from restriction_band_toc"),
     )
 
 
@@ -230,7 +235,7 @@ from in_force i
 def applicable_bands(
     connection: duckdb.DuckDBPyConnection,
     travel_date: dt.date,
-) -> list[tuple[str, str, int, int, str, str]]:
+) -> list[tuple[str, str, int, int, str, str, bool, list[str] | None]]:
     """Every restriction band in force on `travel_date`.
 
     ``min_fare_flag`` comes back with them and changes what a band means:

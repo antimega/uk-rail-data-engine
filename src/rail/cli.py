@@ -236,7 +236,10 @@ def build(
         "ticket_type_current",
         f"{fares.ticket_types:,} ({fares.walk_up:,} walk-up)",
     )
-    table.add_row("restriction_band", f"{restrictions.bands:,}")
+    table.add_row(
+        "restriction_band",
+        f"{restrictions.bands:,} ({restrictions.toc_qualifiers:,} TOC-qualified)",
+    )
     table.add_row(
         "ticket_validity_current",
         f"{validities.codes:,} ({validities.returns:,} walk-up returns)",
