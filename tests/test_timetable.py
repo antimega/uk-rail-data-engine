@@ -102,9 +102,8 @@ def build(tmp_path):
                 "insert into tiploc_crs values (?, ?)",
                 [operational_crs, location],
             )
-            if location not in operational_only:
-                connection.execute("insert into station_tiploc values (?, ?)",
-                                   [location[:3], location])
+            connection.execute("insert into station_tiploc values (?, ?)",
+                               [operational_crs, location])
         counts = build_timetable(connection, directory, start=START,
                                  horizon_days=horizon_days)
         return connection, counts
@@ -352,7 +351,7 @@ def test_the_two_files_name_locations_differently_and_both_resolve(build):
     ]
 
 
-def test_operational_crs_does_not_turn_a_timing_point_into_a_station(build):
+def test_operational_crs_is_added_without_changing_the_existing_crs(build):
     connection, _ = build(
         [schedule(1, "A00001", "P", START, START)],
         [
@@ -364,7 +363,7 @@ def test_operational_crs_does_not_turn_a_timing_point_into_a_station(build):
 
     assert connection.execute(
         "select crs, operational_crs from schedule_stop where location = 'MILESPL'"
-    ).fetchone() == (None, "MLP")
+    ).fetchone() == ("MLP", "MLP")
 
 
 def test_a_ztr_service_gets_running_dates_like_any_other(build):

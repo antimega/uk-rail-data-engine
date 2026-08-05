@@ -127,10 +127,10 @@ def build_timetable(
     """)
 
     # **Location references are resolved here, not by every consumer.** The
-    # passenger `crs` comes only from MSN-backed `station_tiploc`, while
-    # `operational_crs` retains a TI three-letter reference for display and
-    # diagnostics. Keeping them separate prevents a junction or siding from
-    # becoming a journey-planning station merely because TI gives it a code.
+    # passenger `crs` retains the existing `station_tiploc` semantics, while
+    # `operational_crs` exposes the explicitly named crosswalk for display and
+    # diagnostics. This first, additive migration makes no reachability change;
+    # any later narrowing needs its own evidence and review.
     #
     # The two files name
     # locations differently - CIF by TIPLOC (`RYDEHOV`), ZTR by CRS (`XRD`) -

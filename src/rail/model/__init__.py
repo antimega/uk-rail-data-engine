@@ -106,7 +106,7 @@ __all__ = [
 # changes meaning - adding one is not a break. A consumer that pins it fails
 # loudly on a mismatch, which is the only cheap way to make a silent breakage
 # noisy.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
