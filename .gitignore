@@ -43,3 +43,7 @@ build/
 
 # Local doc-review tool. Reviews this repo; is not part of it.
 docreview/
+
+# Drafts of pull-request review comments. Working material for a conversation
+# that happens on GitHub - the posted comment is the artefact, not the draft.
+reviews/
