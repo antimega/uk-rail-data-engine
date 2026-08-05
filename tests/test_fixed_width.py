@@ -176,6 +176,21 @@ def test_cif_short_date_century_window(tmp_path, raw, expected):
     assert read_fixed_width(path, TIMES)[0]["times"].to_pylist()[0]["short"] == expected
 
 
+def test_ztr_open_end_is_normalised_without_changing_mca_dates(tmp_path):
+    from rail.layouts.timetable import MCA, ZTR
+
+    line = make_line(
+        80, p0="BS", p3="Z00001", p9="260625", p15="991231",
+        p21="1111100", p29="B", p79="P",
+    )
+
+    ztr = read_fixed_width(write(tmp_path, "a.ZTR", [line]), ZTR)[0]
+    mca = read_fixed_width(write(tmp_path, "a.MCA", [line]), MCA)[0]
+
+    assert ztr["z_schedule"].to_pylist()[0]["runs_to"] == dt.date(2999, 12, 31)
+    assert mca["schedule"].to_pylist()[0]["runs_to"] == dt.date(1999, 12, 31)
+
+
 # --- multi-record dispatch ---------------------------------------------------
 
 

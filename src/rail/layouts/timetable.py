@@ -11,7 +11,7 @@ passenger experiences. Journey-time analysis must use the public times.
 
 from __future__ import annotations
 
-from .spec import FileSpec, Kind, RecordSpec, fields
+from .spec import Field, FileSpec, Kind, RecordSpec, fields
 
 D = Kind.SHORT_DATE
 B = Kind.BOOL
@@ -53,6 +53,15 @@ _SCHEDULE_FIELDS = fields(
 )
 
 _schedule = RecordSpec("schedule", _SCHEDULE_FIELDS)
+
+# ZTR shares the CIF schedule layout, but not the meaning of its open-ended
+# `runs_to` sentinel. Give that one field its own conversion so the documented
+# Parquet query surface never contains an impossible runs_to < runs_from pair.
+_ZTR_SCHEDULE_FIELDS = (
+    *_SCHEDULE_FIELDS[:3],
+    Field("runs_to", 15, 6, Kind.ZTR_END_DATE),
+    *_SCHEDULE_FIELDS[4:],
+)
 
 _schedule_extra = RecordSpec(
     "schedule_extra",
@@ -252,7 +261,7 @@ ZTR = FileSpec(
     key_start=0,
     key_length=2,
     records={
-        "BS": RecordSpec("z_schedule", _SCHEDULE_FIELDS),
+        "BS": RecordSpec("z_schedule", _ZTR_SCHEDULE_FIELDS),
         "BX": RecordSpec("z_schedule_extra", fields(("atoc_code", 11, 2))),
         "LO": _z_stop(
             "LO",

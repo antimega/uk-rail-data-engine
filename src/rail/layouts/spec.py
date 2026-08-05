@@ -24,6 +24,9 @@ class Kind(str, Enum):
     DATE = "date"
     #: ``YYMMDD`` as used by CIF. Years >= 60 are 19xx, otherwise 20xx.
     SHORT_DATE = "short_date"
+    #: ZTR ``runs_to`` uses CIF dates except that ``991231`` means open-ended.
+    #: It becomes the repository-wide finite sentinel 2999-12-31 at ingest.
+    ZTR_END_DATE = "ztr_end_date"
     #: ``HHMM`` public timetable time, stored as minutes after midnight.
     #: CIF uses 0000 to mean "no public time", so that becomes null.
     PUBLIC_TIME = "public_time"

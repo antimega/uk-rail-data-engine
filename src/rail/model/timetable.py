@@ -58,7 +58,6 @@ DEFAULT_HORIZON_DAYS = 90
 #: can always be told apart afterwards.
 ZTR_SCHEDULE_OFFSET = 100_000_000
 
-
 @dataclass
 class TimetableCounts:
     schedules: int
@@ -233,6 +232,8 @@ def build_timetable(
         ),
         candidates as (
             select s.schedule_id, s.train_uid, s.stp_indicator, d.date,
+                   s.source = 'ztr'
+                       and s.runs_to = date '2999-12-31' as open_ended,
                    case s.stp_indicator
                        when 'C' then 4 when 'N' then 3
                        when 'O' then 2 when 'P' then 1 else 0
@@ -249,7 +250,10 @@ def build_timetable(
         ranked as (
             select *, row_number() over (
                 partition by train_uid, date
-                order by priority desc, schedule_id desc
+                -- A finite overlay is more specific than ZTR's until-further-
+                -- notice row. File order happened to choose it in the current
+                -- feed; make that semantic so an input reorder cannot flip it.
+                order by priority desc, open_ended asc, schedule_id desc
             ) as rn
             from candidates
         )
