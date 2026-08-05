@@ -16,6 +16,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from rail.model import build_timetable
+from rail.model.timetable import _activity_codes_sql
 
 START = dt.date(2026, 8, 3)  # a Monday
 WEEKDAYS = dict(monday=True, tuesday=True, wednesday=True, thursday=True,
@@ -216,13 +217,25 @@ def test_passing_points_are_not_public_stops(build):
     assert public == [("EUSTON",), ("BHAMNWS",)]
 
 
-def test_activity_codes_are_tokenized_not_searched_as_substrings(build):
+def test_activity_codes_are_split_as_six_fixed_width_slots():
+    connection = duckdb.connect()
+    sql = f"select {_activity_codes_sql('activity')} from (select ? as activity)"
+
+    assert connection.execute(sql, ["A X         "]).fetchone()[0] == ["A", "X"]
+    assert connection.execute(sql, ["T A X       "]).fetchone()[0] == [
+        "T", "A", "X",
+    ]
+    assert connection.execute(sql, ["T W         "]).fetchone()[0] == ["T", "W"]
+    assert connection.execute(sql, ["T S         "]).fetchone()[0] == ["T", "S"]
+
+
+def test_activity_codes_are_not_searched_as_substrings(build):
     connection, _ = build(
         [schedule(1, "A00001", "P", START, START)],
         [
-            stop(2, "LO", "ORIGIN", depart=450, activity="TB"),
+            stop(2, "LO", "ORIGIN", depart=450, activity="TBN"),
             stop(3, "LI", "PUBLIC1", arrive=480, activity="T A"),
-            stop(4, "LI", "PUBLIC2", arrive=490, activity="T -D RM A"),
+            stop(4, "LI", "PUBLIC2", arrive=490, activity="T -DRM A"),
             stop(5, "LI", "NOTADV1", arrive=500, activity="TBN"),
             stop(6, "LI", "NOTADV2", arrive=510, activity="RMN"),
             stop(7, "LT", "DEST", arrive=540, activity="TF"),
@@ -233,6 +246,8 @@ def test_activity_codes_are_tokenized_not_searched_as_substrings(build):
         "select location, is_public from schedule_stop order by seq"
     ).fetchall()
     assert calls == [
+        # N is retained as a separate token, but this PR deliberately does not
+        # assign it veto semantics: LO/TB remains an association anchor.
         ("ORIGIN", True),
         ("PUBLIC1", True),
         ("PUBLIC2", True),
