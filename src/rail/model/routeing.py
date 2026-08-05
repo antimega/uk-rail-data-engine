@@ -370,6 +370,12 @@ class RouteingGuide:
         self.station_group = station_group
         self.routes = routes
         self.map_links = map_links
+        # Map topology is immutable after loading and shared by many chains.
+        # Cache it per map code: rebuilding it once per chain/pair made the
+        # ordered check 10-63% slower in the review differential.
+        self._map_graph_cache: dict[
+            str, tuple[frozenset[str], dict[str, tuple[str, ...]]]
+        ] = {}
         #: Stations from or to which a cross-London transfer is permitted.
         self.cross_london: set[str] = set()
         #: Published exceptions to what the maps allow, from RGF.
@@ -792,18 +798,15 @@ class RouteingGuide:
         ]
         if not observed or observed[0] != start or observed[-1] != end:
             return []
+        # Consecutive copies arise when the endpoint is also the first/last
+        # observed node and were collapsed above. A later revisit is a real
+        # doubleback and cannot be hidden by state-progress bookkeeping.
+        if len(observed) != len(set(observed)):
+            return []
 
-        map_nodes = []
-        adjacency = []
-        for code in chain:
-            links = self.map_links.get(code, ())
-            nodes: set[str] = set()
-            neighbours: dict[str, set[str]] = {}
-            for source, target in links:
-                nodes.update((source, target))
-                neighbours.setdefault(source, set()).add(target)
-            map_nodes.append(nodes)
-            adjacency.append(neighbours)
+        graphs = [self._map_graph(code) for code in chain]
+        map_nodes = [nodes for nodes, _ in graphs]
+        adjacency = [neighbours for _, neighbours in graphs]
 
         # node, map index, number of required nodes already encountered
         initial = (start, 0, 1)
@@ -851,6 +854,26 @@ class RouteingGuide:
                 route.append(node)
             state = came_from[state]
         return list(reversed(route))
+
+    def _map_graph(
+        self, code: str
+    ) -> tuple[frozenset[str], dict[str, tuple[str, ...]]]:
+        """The cached nodes and deterministic directed adjacency of one map."""
+        cached = self._map_graph_cache.get(code)
+        if cached is not None:
+            return cached
+
+        nodes: set[str] = set()
+        neighbours: dict[str, set[str]] = {}
+        for source, target in self.map_links.get(code, ()):
+            nodes.update((source, target))
+            neighbours.setdefault(source, set()).add(target)
+        graph = (
+            frozenset(nodes),
+            {node: tuple(sorted(steps)) for node, steps in neighbours.items()},
+        )
+        self._map_graph_cache[code] = graph
+        return graph
 
     def _chain_covers(self, chain: tuple[str, ...], sequence: list[str]) -> bool:
         """Can the journey be traced across this chain of maps?

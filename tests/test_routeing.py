@@ -152,6 +152,52 @@ def test_a_chain_changes_maps_at_a_shared_node():
     assert g.permits("AAA", "DDD", ["AAA", "DDD"]) is True
 
 
+def test_a_chain_must_reach_its_destination_on_the_last_map():
+    """4.8.1.2 runs from the first map to the last map in sequence.
+
+    Merely reaching the destination on M1 cannot make a trailing, disconnected
+    M2 decorative. The destination has to be present at the final hand-off.
+    """
+    g = guide(
+        points=["AAA", "DDD"], nodes=["AAA", "DDD", "XXX", "YYY"],
+        routes={("AAA", "DDD"): [("M1", "M2")]},
+        links={"M1": [("AAA", "DDD")], "M2": [("XXX", "YYY")]},
+    )
+
+    assert g.permits("AAA", "DDD", ["AAA", "DDD"], changes=1) is False
+
+
+def test_only_consecutive_duplicate_observations_are_collapsed():
+    """A station revisited later is a doubleback, not duplicate input noise."""
+    g = guide(
+        points=["AAA", "DDD"], nodes=["AAA", "BBB", "CCC", "DDD"],
+        routes={("AAA", "DDD"): [("M1", "M2")]},
+        links={
+            "M1": [("AAA", "BBB"), ("BBB", "CCC"), ("CCC", "BBB")],
+            "M2": [("BBB", "DDD")],
+        },
+    )
+
+    assert g.permits(
+        "AAA", "DDD", ["AAA", "BBB", "CCC", "BBB", "DDD"], changes=1
+    ) is False
+
+
+def test_map_topology_is_cached_per_map_not_rebuilt_per_chain():
+    g = guide(
+        points=["AAA", "DDD"], nodes=["AAA", "BBB", "DDD"],
+        routes={("AAA", "DDD"): [("M1", "M2")]},
+        links={"M1": [("AAA", "BBB")], "M2": [("BBB", "DDD")]},
+    )
+
+    assert g._walk(("M1", "M2"), "AAA", "DDD") == ["AAA", "BBB", "DDD"]
+    cached = dict(g._map_graph_cache)
+    assert set(cached) == {"M1", "M2"}
+
+    assert g._chain_covers(("M1", "M2"), ["AAA", "BBB", "DDD"])
+    assert g._map_graph_cache == cached
+
+
 def test_a_pair_the_guide_does_not_list_gives_no_verdict():
     """None is "nothing to say", and must not be read as a refusal."""
     g = guide(points=["AAA", "BBB"], routes={})
