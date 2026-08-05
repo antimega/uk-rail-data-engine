@@ -28,6 +28,7 @@ ARROW_TYPES = {
     Kind.INT: pa.int64(),
     Kind.DATE: pa.date32(),
     Kind.SHORT_DATE: pa.date32(),
+    Kind.ZTR_END_DATE: pa.date32(),
     Kind.PUBLIC_TIME: pa.int32(),
     Kind.WORKING_TIME: pa.int32(),
     Kind.BOOL: pa.bool_(),
@@ -102,6 +103,9 @@ def _date_column(matrix: np.ndarray, field: Field) -> tuple[np.ndarray, np.ndarr
         day, day_ok = _digits_to_int(_column(matrix, field.start + 4, 2))
         # CIF convention: the window is 1960-2059.
         year = np.where(short_year >= 60, 1900 + short_year, 2000 + short_year)
+        if field.kind is Kind.ZTR_END_DATE:
+            open_ended = (short_year == 99) & (month == 12) & (day == 31)
+            year = np.where(open_ended, 2999, year)
 
     valid = (
         day_ok
@@ -137,7 +141,7 @@ def _to_arrow(matrix: np.ndarray, field: Field) -> tuple[pa.Array, int]:
         bad = int(np.count_nonzero(~valid & ~blank))
         return pa.array(values, mask=~valid, type=pa.int64()), bad
 
-    if field.kind in (Kind.DATE, Kind.SHORT_DATE):
+    if field.kind in (Kind.DATE, Kind.SHORT_DATE, Kind.ZTR_END_DATE):
         col = _column(matrix, field.start, field.length)
         values, valid = _date_column(matrix, field)
         blank = np.char.strip(col) == b""
