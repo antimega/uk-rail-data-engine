@@ -519,6 +519,8 @@ def reachable(
         paths=journey_paths if check_routes else None,
         operators=result.operators() if check_routes else None,
         modes=result.modes() if check_routes else None,
+        trains=None if ignore_restrictions else result.train_uids(),
+        train_calls=None if ignore_restrictions else result.train_calls(),
         return_on=back_on,
         # Unconditional, unlike the route conditions: a restriction barring a
         # change of trains is a property of the fare, not a stricter reading of
@@ -1584,6 +1586,12 @@ def stopover(
     whole_operators = (first.operators_to(stop)
                        | second.operators_to(destination.upper()))
     whole_modes = first.modes_to(stop) | second.modes_to(destination.upper())
+    whole_trains = (
+        first.train_uids_to(stop) | second.train_uids_to(destination.upper())
+    )
+    whole_train_calls = (
+        first.train_calls_to(stop) + second.train_calls_to(destination.upper())
+    )
 
     fares = cheapest_from(
         connection, snapshot_parquet_dir(config, Feed.FARES),
@@ -1593,6 +1601,8 @@ def stopover(
         paths={destination.upper(): whole_path},
         operators={destination.upper(): whole_operators},
         modes={destination.upper(): whole_modes},
+        trains={destination.upper(): whole_trains},
+        train_calls={destination.upper(): whole_train_calls},
         # Both halves, and the deliberate break between them is itself a change.
         changes={destination.upper(): first.changes_to(stop)
                  + second.changes_to(destination.upper()) + 1},
@@ -1828,7 +1838,9 @@ def roundtrip(
             return Leg(origin=frm, destination=to, date=on, depart=after,
                        arrive=first.arrival[index], path=first.path_to(to),
                        operators=first.operators_to(to), modes=first.modes_to(to),
-                       changes=first.changes_to(to), calls=first.calls_to(to))
+                       changes=first.changes_to(to), calls=first.calls_to(to),
+                       train_uids=first.train_uids_to(to),
+                       train_calls=first.train_calls_to(to))
 
         middle = network.index.get(stop, -1)
         if middle < 0 or first.arrival[middle] >= UNREACHABLE_SENTINEL:
@@ -1859,6 +1871,8 @@ def roundtrip(
             # The deliberate break is itself a change, however direct the halves.
             changes=first.changes_to(stop) + second.changes_to(to) + 1,
             calls=calls,
+            train_uids=first.train_uids_to(stop) | second.train_uids_to(to),
+            train_calls=first.train_calls_to(stop) + second.train_calls_to(to),
         )
 
     out_leg = route(a, b, out_date, _hhmm(depart), via.upper())

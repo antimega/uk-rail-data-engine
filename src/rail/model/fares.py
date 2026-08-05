@@ -1499,6 +1499,17 @@ sellable as (
           where rc.cf_mkr = $marker
             and rc.restriction_code = c.restriction_code
             and rc.type_out = 'P'
+            -- `P` describes how an SR list is applied; it does not promise
+            -- that an outward SR row exists. In the current feed 177 positive
+            -- headers have no outward list, and treating the empty set as an
+            -- allow-list withdraws every fare carrying those restrictions.
+            and exists (
+                select 1
+                from applicable_restriction_train listed
+                where listed.cf_mkr = rc.cf_mkr
+                  and listed.restriction_code = rc.restriction_code
+                  and listed.out_ret = 'O'
+            )
             and not exists (
                 select 1
                 from applicable_restriction_train rt
@@ -1526,8 +1537,10 @@ sellable as (
             and not exists (
                 select 1
                 from applicable_train_exception e
-                join journey_call k
-                  on k.crs = c.dest_crs and k.via_crs = e.location
+                join journey_train_call k
+                  on k.crs = c.dest_crs
+                 and k.train_no = e.train_no
+                 and k.via_crs = e.location
                 where e.cf_mkr = rt.cf_mkr
                   and e.restriction_code = rt.restriction_code
                   and e.train_no = rt.train_no
@@ -2031,7 +2044,7 @@ _BAND_COLUMNS = (
 def _register_journey_tables(
     connection, *, bands, arrivals, paths, operators=None, modes=None,
     changes=None, calls=None, trains=None, restriction_trains=(),
-    train_exceptions=(),
+    train_calls=None, train_exceptions=(),
 ) -> None:
     """The three per-query tables the shared pricing CTEs join to.
 
@@ -2102,6 +2115,26 @@ def _register_journey_tables(
         "crs": pa.array([d for d, _ in used_trains], type=pa.string()),
         "train_no": pa.array([t for _, t in used_trains], type=pa.string()),
     }))
+    timed_by_train = [
+        (dest, train_no, via, arrive, depart)
+        for dest, calls_for_dest in (train_calls or {}).items()
+        for train_no, via, arrive, depart in calls_for_dest
+    ]
+    connection.register("journey_train_call", pa.table({
+        "crs": pa.array([d for d, *_ in timed_by_train], type=pa.string()),
+        "train_no": pa.array(
+            [t for _d, t, *_ in timed_by_train], type=pa.string()
+        ),
+        "via_crs": pa.array(
+            [v for _d, _t, v, *_ in timed_by_train], type=pa.string()
+        ),
+        "arrive": pa.array(
+            [a for _d, _t, _v, a, _x in timed_by_train], type=pa.int32()
+        ),
+        "depart": pa.array(
+            [x for _d, _t, _v, _a, x in timed_by_train], type=pa.int32()
+        ),
+    }))
     train_columns = (
         "cf_mkr", "restriction_code", "train_no", "out_ret",
         "quota_ind", "sleeper_ind",
@@ -2142,7 +2175,8 @@ def _unregister_journey_tables(connection) -> None:
     for name in ("applicable_band", "applicable_band_toc", "journey_arrival",
                  "journey_path", "journey_call", "journey_operator",
                  "journey_mode",
-                 "journey_train", "applicable_restriction_train",
+                 "journey_train", "journey_train_call",
+                 "applicable_restriction_train",
                  "applicable_train_exception", "journey_changes"):
         connection.unregister(name)
 
@@ -2161,6 +2195,9 @@ def fare_options(
     paths: dict[str, list[str]] | None = None,
     operators: dict[str, set[str]] | None = None,
     trains: dict[str, set[str]] | None = None,
+    train_calls: dict[
+        str, list[tuple[str, str, int | None, int | None]]
+    ] | None = None,
     modes: dict[str, set[str]] | None = None,
     include_advance: bool = False,
     advance_only: bool = False,
@@ -2242,6 +2279,10 @@ def fare_options(
     supplied UID to appear on its positive list, while an `N` header bars a
     listed UID unless an SQ arrival/departure exception matches `calls`.
     Omitting train evidence gives no verdict and preserves the fare.
+
+    `train_calls` carries `(train UID, CRS, arrival, departure)` for each
+    destination. Keeping the UID on every call prevents a location reached on
+    one leg from satisfying an SQ exception attached to another train.
     """
     from .restrictions import marker_for
     from .returns import returnable_on
@@ -2263,6 +2304,7 @@ def fare_options(
     _register_journey_tables(connection, bands=bands, arrivals=arrivals,
                              paths=paths, operators=operators, modes=modes,
                              changes=changes, calls=calls, trains=trains,
+                             train_calls=train_calls,
                              restriction_trains=restriction_trains,
                              train_exceptions=train_exceptions)
     try:

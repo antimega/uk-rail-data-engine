@@ -983,6 +983,25 @@ def test_a_positive_train_list_distinguishes_listed_and_unlisted_trains(fares):
     assert price("G38875") == 9000
 
 
+def test_a_positive_header_without_an_sr_list_does_not_withdraw_the_fare(fares):
+    """TYPE_OUT=P controls an attached list; it does not create one."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "FSS", 6360, restriction="1D"),
+                      fare(1, "FOS", 9000)],
+        tickets=[ticket("FSS", "OFF-PEAK 1S", cls=1),
+                 ticket("FOS", "ANYTIME 1S", cls=1)],
+        headers=[("1D", "TIME RESTRICTION ONLY", True, "P")],
+    )
+
+    rows = cheapest_from(
+        connection, directory, "AAA", TUESDAY,
+        ticket_class=1, trains={"BBB": {"G38875"}},
+    )
+
+    assert {row[0]: row[3] for row in rows}["BBB"] == 6360
+
+
 def test_a_negative_train_list_honours_its_departure_exception(fares):
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],
@@ -1043,23 +1062,34 @@ def test_a_negative_train_list_honours_its_departure_exception(fares):
     )
     build_restrictions(connection, directory)
 
-    def price(train_no, calls):
+    def price(train_no, train_calls):
         rows = cheapest_from(
             connection,
             directory,
             "AAA",
             TUESDAY,
             trains={"BBB": {train_no}},
-            calls={"BBB": calls},
+            train_calls={"BBB": train_calls},
         )
         return {row[0]: row[3] for row in rows}["BBB"]
 
-    ordinary_calls = [("AAA", 480, 480, False), ("BBB", 600, 600, False)]
-    excepted_calls = [("CLT", 480, 480, False), ("BBB", 600, 600, False)]
+    ordinary_calls = [("C04660", "AAA", 480, 480),
+                      ("C04660", "BBB", 600, 600)]
+    excepted_calls = [("C04660", "CLT", 480, 480),
+                      ("C04660", "BBB", 600, 600)]
 
     assert price("C04660", ordinary_calls) == 9000
     assert price("C04660", excepted_calls) == 6360
     assert price("P66915", ordinary_calls) == 6360
+
+    # The SQ row says departure: an arrival at CLT is not interchangeable.
+    wrong_sense_calls = [("C04660", "CLT", 480, None),
+                         ("C04660", "BBB", 600, None)]
+    assert price("C04660", wrong_sense_calls) == 9000
+
+    # CLT on another leg cannot exempt the listed C04660 train.
+    wrong_leg_calls = ordinary_calls + [("P66915", "CLT", 550, 550)]
+    assert price("C04660", wrong_leg_calls) == 9000
 
 
 def test_a_band_bites_where_the_passenger_boards_not_only_at_the_ends(fares):

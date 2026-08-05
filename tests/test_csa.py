@@ -22,7 +22,7 @@ from rail.engine.network import Network, _load_footpaths
 
 
 def network(connections, *, stations, change=None, footpaths=None, associations=(),
-            operators=None, toc_change=None):
+            operators=None, toc_change=None, train_uids=None):
     """connections: (from, to, depart, arrive, trip) using station names.
 
     `operators` maps trip -> TOC code; `toc_change` is {(station, from, to):
@@ -69,6 +69,8 @@ def network(connections, *, stations, change=None, footpaths=None, associations=
     # stop the next connection leaves. `calls_to` reads these.
     trip_arr: list[list[int]] = [[] for _ in range(trips)]
     trip_dep: list[list[int]] = [[] for _ in range(trips)]
+    trip_call_arr: list[list[int | None]] = [[] for _ in range(trips)]
+    trip_call_dep: list[list[int | None]] = [[] for _ in range(trips)]
     for connection in ordered:
         source, target, depart, arrive, trip_index = connection[:5]
         seq = stops[trip_index]
@@ -76,12 +78,17 @@ def network(connections, *, stations, change=None, footpaths=None, associations=
             seq.append(index[source])
             trip_arr[trip_index].append(depart)
             trip_dep[trip_index].append(depart)
+            trip_call_arr[trip_index].append(None)
+            trip_call_dep[trip_index].append(depart)
             tocs[trip_index] = (operators or {}).get(trip_index)
         else:
             trip_dep[trip_index][-1] = depart
+            trip_call_dep[trip_index][-1] = depart
         seq.append(index[target])
         trip_arr[trip_index].append(arrive)
         trip_dep[trip_index].append(arrive)
+        trip_call_arr[trip_index].append(arrive)
+        trip_call_dep[trip_index].append(None)
     return Network(
         date=dt.date(2026, 8, 4),
         stations=list(stations),
@@ -103,9 +110,12 @@ def network(connections, *, stations, change=None, footpaths=None, associations=
         trip_stops=stops,
         trip_arrival=trip_arr,
         trip_departure=trip_dep,
+        trip_call_arrival=trip_call_arr,
+        trip_call_departure=trip_call_dep,
         assoc_stride=stride,
         trip_toc=tocs,
         trip_mode=modes_of,
+        trip_uid=[(train_uids or {}).get(trip, "") for trip in range(trips)],
     )
 
 
@@ -915,6 +925,23 @@ def test_the_journey_the_calling_points_and_the_changes_agree():
     assert result.trips_to("D") == [0, 1]
     assert result.changes_to("D") == 1
     assert result.operators_to("D") == {"CS", "SR"}
+
+
+def test_the_journey_exposes_fares_train_uids_and_leg_specific_calls():
+    net = network(
+        [("A", "B", 600, 610, 0), ("B", "C", 620, 630, 1)],
+        stations=["A", "B", "C"],
+        train_uids={0: "C04660", 1: "P66915"},
+    )
+    result = earliest_arrival(net, "A", 540)
+
+    assert result.train_uids_to("C") == {"C04660", "P66915"}
+    assert result.train_calls_to("C") == [
+        ("C04660", "A", None, 600),
+        ("C04660", "B", 610, None),
+        ("P66915", "B", None, 620),
+        ("P66915", "C", 630, None),
+    ]
 
 
 # --- profiling a window ------------------------------------------------------

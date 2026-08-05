@@ -87,6 +87,9 @@ class Network:
     #: which on a through journey is often not the train the passenger is on.
     trip_toc: list[str | None] = dc_field(default_factory=list)
     trip_mode: list[str] = dc_field(default_factory=list)
+    #: Six-character CIF Train UID per trip. Unlike the internal schedule and
+    #: trip indexes, this is the identity used by fares SR/SD/SQ records.
+    trip_uid: list[str] = dc_field(default_factory=list)
 
     #: The ordered station sequence of each trip, so a journey can be traced
     #: back along the train it was actually on. Walking back station by station
@@ -102,6 +105,11 @@ class Network:
     #: station's own earliest arrival does not give.
     trip_arrival: list[list[int]] = dc_field(default_factory=list)
     trip_departure: list[list[int]] = dc_field(default_factory=list)
+    #: Actual public fields, without the timing fallbacks above. SQ records
+    #: distinguish arrivals from departures, so a trip origin must not acquire
+    #: a synthetic arrival merely because its departure times the connection.
+    trip_call_arrival: list[list[int | None]] = dc_field(default_factory=list)
+    trip_call_departure: list[list[int | None]] = dc_field(default_factory=list)
 
     #: RSPS5046 5.12: the minimum interchange time when changing *between two
     #: particular operators* at a station, which overrides the station's own.
@@ -150,14 +158,15 @@ with running as (
     -- schedule dated D+1, so Euston at 21:00 could not reach Fort William,
     -- Aberdeen, Glasgow or Edinburgh at all. The next day's services are shifted
     -- by 1440 minutes so the clock keeps running past midnight.
-    select sd.schedule_id, s.atoc_code, s.train_status,
+    select sd.schedule_id, s.train_uid, s.atoc_code, s.train_status,
            case when sd.date = $date then 0 else 1440 end as day_shift
     from service_date sd
     join train_schedule s using (schedule_id)
     where sd.date in ($date, $date + 1) and s.is_passenger
 ),
 calls as (
-    select ss.schedule_id, running.atoc_code, running.train_status, ss.seq, ss.crs,
+    select ss.schedule_id, running.train_uid, running.atoc_code,
+           running.train_status, ss.seq, ss.crs,
            ss.arrival_minutes + running.day_shift as arrival_minutes,
            ss.departure_minutes + running.day_shift as departure_minutes,
            running.day_shift
@@ -167,6 +176,7 @@ calls as (
 )
 select schedule_id,
        day_shift,
+       train_uid,
        atoc_code,
        train_status,
        crs as from_crs,
@@ -184,6 +194,10 @@ select schedule_id,
        -- A public arrival with no public departure is a set-down stop: you may
        -- alight there and not board. Riding through is fine; boarding is not.
        departure_minutes is not null as boardable,
+       arrival_minutes as from_call_arrival,
+       departure_minutes as from_call_departure,
+       lead(arrival_minutes) over w as to_call_arrival,
+       lead(departure_minutes) over w as to_call_departure,
        -- A public call may carry a departure and no arrival: 10,144 mid-journey
        -- stops across 7,492 schedules do. Requiring the arrival severed the
        -- train there and made everything beyond it unreachable on that service -
@@ -288,10 +302,25 @@ def load_network(
     mode: list[str] = []
 
     boardable: list[bool] = []
-    for (schedule_id, day_shift, atoc_code, status, from_crs, to_crs, dep,
-         can_board, arr) in rows:
+    from_call_arrival: list[int | None] = []
+    from_call_departure: list[int | None] = []
+    to_call_arrival: list[int | None] = []
+    to_call_departure: list[int | None] = []
+    trip_uids: list[str] = []
+    for (schedule_id, day_shift, train_uid, atoc_code, status, from_crs, to_crs, dep,
+         can_board, from_arrive, from_depart, to_arrive, to_depart, arr) in rows:
         boardable.append(bool(can_board))
+        from_call_arrival.append(
+            None if from_arrive is None else int(from_arrive)
+        )
+        from_call_departure.append(
+            None if from_depart is None else int(from_depart)
+        )
+        to_call_arrival.append(None if to_arrive is None else int(to_arrive))
+        to_call_departure.append(None if to_depart is None else int(to_depart))
         trip_index = trip_ids.setdefault((schedule_id, day_shift), len(trip_ids))
+        if trip_index == len(trip_uids):
+            trip_uids.append(train_uid)
         from_station.append(station_id(from_crs))
         to_station.append(station_id(to_crs))
         departure.append(int(dep))
@@ -322,6 +351,12 @@ def load_network(
     # through journey is often not the moment this one went by.
     trip_arrival: list[list[int]] = [[] for _ in range(len(trip_ids))]
     trip_departure: list[list[int]] = [[] for _ in range(len(trip_ids))]
+    trip_call_arrival: list[list[int | None]] = [
+        [] for _ in range(len(trip_ids))
+    ]
+    trip_call_departure: list[list[int | None]] = [
+        [] for _ in range(len(trip_ids))
+    ]
     trip_toc: list[str | None] = [None] * len(trip_ids)
     trip_mode: list[str] = [TRAIN_MODE] * len(trip_ids)
     # One pass. The connection array is sorted by departure and a train only
@@ -334,6 +369,10 @@ def load_network(
             # Nothing arrives at the first stop; the train starts there.
             trip_arrival[trip_index].append(departure[position])
             trip_departure[trip_index].append(departure[position])
+            trip_call_arrival[trip_index].append(from_call_arrival[position])
+            trip_call_departure[trip_index].append(
+                from_call_departure[position]
+            )
             trip_toc[trip_index] = toc[position]
             trip_mode[trip_index] = mode[position]
         else:
@@ -347,6 +386,8 @@ def load_network(
         # Provisional: overwritten when the next connection leaves here, and
         # left as the arrival at the last stop, where the train goes no further.
         trip_departure[trip_index].append(arrival[position])
+        trip_call_arrival[trip_index].append(to_call_arrival[position])
+        trip_call_departure[trip_index].append(to_call_departure[position])
 
     return Network(
         date=date,
@@ -370,10 +411,13 @@ def load_network(
         trip_stops=trip_stops,
         trip_arrival=trip_arrival,
         trip_departure=trip_departure,
+        trip_call_arrival=trip_call_arrival,
+        trip_call_departure=trip_call_departure,
         boardable=boardable,
         assoc_stride=len(index) + 1,
         trip_toc=trip_toc,
         trip_mode=trip_mode,
+        trip_uid=trip_uids,
     )
 
 
