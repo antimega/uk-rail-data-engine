@@ -58,6 +58,22 @@ DEFAULT_HORIZON_DAYS = 90
 #: can always be told apart afterwards.
 ZTR_SCHEDULE_OFFSET = 100_000_000
 
+
+def _activity_codes_sql(value: str) -> str:
+    """Return SQL which splits CIF's six fixed-width activity slots.
+
+    Each activity field is ``6 x 2`` characters.  Splitting those slots is
+    deliberately structural: using a vocabulary would silently reinterpret a
+    future code, while deleting spaces can turn separate ``A``/``X`` slots into
+    the existing ``AX`` code.
+    """
+    slots = ", ".join(
+        f"trim(substr(coalesce({value}, ''), {start}, 2))"
+        for start in range(1, 13, 2)
+    )
+    return f"list_filter([{slots}], code -> code <> '')"
+
+
 @dataclass
 class TimetableCounts:
     schedules: int
@@ -161,6 +177,10 @@ def build_timetable(
             left join station_tiploc t on t.tiploc = st.location
             {ztr_stops}
         )
+        , classified as (
+            select *, {_activity_codes_sql("activity")} as activity_codes
+            from joined
+        )
         select schedule_id,
                row_number() over (
                    partition by schedule_id order by line_no
@@ -171,11 +191,14 @@ def build_timetable(
                platform, activity,
                -- A public time plus a boarding activity is what makes a stop
                -- usable by a passenger; everything else is a passing point.
-               (coalesce(public_arrival, public_departure) is not null
-                and list_any_value(
-                    [a for a in {list(PUBLIC_ACTIVITIES)} if contains(activity, a)]
-                ) is not null) as is_public
-        from joined
+               (coalesce(public_arrival, public_departure) is not null and (
+                    list_has_any(activity_codes, {list(PUBLIC_ACTIVITIES)})
+                    or (record_type = 'LO'
+                        and list_contains(activity_codes, 'TB'))
+                    or (record_type = 'LT'
+                        and list_contains(activity_codes, 'TF'))
+                )) as is_public
+        from classified
     """)
 
     # Public times are minutes after midnight and wrap on overnight services -
