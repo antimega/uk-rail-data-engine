@@ -65,6 +65,11 @@ class Leg:
     #: are inert here and `rail roundtrip` quietly disagrees with the map and
     #: with `rail reachable`, both of which supply them.
     calls: list[tuple[str, int, int, bool]] = dc_field(default_factory=list)
+    #: CIF Train UIDs and their own calls, for SR/SD/SQ restrictions.
+    train_uids: set[str] = dc_field(default_factory=set)
+    train_calls: list[tuple[str, str, int | None, int | None]] = dc_field(
+        default_factory=list
+    )
 
     @property
     def minutes(self) -> int:
@@ -169,6 +174,8 @@ def price_round_trip(
         # return leg's are scalars above, since a band on the way home needs
         # only when you left and when you got back.
         calls={out.destination: out.calls},
+        trains={out.destination: out.train_uids},
+        train_calls={out.destination: out.train_calls},
         **breaks,
         **common,
     )
@@ -192,6 +199,8 @@ def price_round_trip(
             modes={leg.destination: leg.modes} if check_routes else None,
             changes={leg.destination: leg.changes},
             calls={leg.destination: leg.calls},
+            trains={leg.destination: leg.train_uids},
+            train_calls={leg.destination: leg.train_calls},
             # Each single covers one leg, so it needs only that leg's
             # permission - and it needs it *outward*, since a single has no
             # return side whichever direction it is travelling.
