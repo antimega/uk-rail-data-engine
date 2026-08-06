@@ -86,6 +86,10 @@ def world(tmp_path):
                 "description": "SOMEWHERE", "start_date": PAST, "end_date": FOREVER}],
               pa.schema([("nlc", pa.string()), ("fare_group", pa.string()),
                          ("crs", pa.string()), ("description", pa.string()),
+                         # The London Travelcard zone and the wider zone/rover
+                         # product it names. Null outside London, which is
+                         # 2,785 of the feed's 3,430 current locations.
+                         ("zone_ind", pa.string()), ("zone_no", pa.string()),
                          ("start_date", pa.date32()), ("end_date", pa.date32())]))
         write(fares, "station_cluster", [{"cluster_id": "C001"}],
               pa.schema([("cluster_id", pa.string())]))
@@ -139,7 +143,16 @@ def world(tmp_path):
         c.execute("create table routeing_new_station (crs varchar, "
                   "equivalent_crs varchar)")
         c.execute("""create table station_nlc as select * from
-            (values ('AAA', '1111', '1111')) t(crs, nlc, fare_group)""")
+            (values ('AAA', '1111', '1111', null::integer))
+            t(crs, nlc, fare_group, travelcard_zone)""")
+        # The 21 London Travelcard zone ranges - every range from 1..1 to 6..6,
+        # which is C(6,2) + 6. Generated rather than listed because the count is
+        # what one of the checks asserts, and a fixture that hand-listed 21 rows
+        # would be asserting its own typing.
+        c.execute("""create table travelcard_zone_range as
+            select f as from_zone, t as to_zone,
+                   printf('%02d%02d', f, t) as nlc, 'ZONE' as description
+            from range(1, 7) a(f), range(1, 7) b(t) where f <= t""")
         c.execute("""create table station_group_member as select * from
             (values ('AAA', 'G02')) t(crs, group_code)""")
         # A Day Return and an open return, plus the one field that makes a
@@ -546,3 +559,29 @@ def test_a_routeing_feed_disagreement_over_the_fare_group_fails(world):
     checks = run_checks(connection, timetable, fares, naptan)
 
     assert status_of(checks, "routeing feed agrees on CRS to NLC") == "fail"
+
+
+def test_a_missing_travelcard_zone_range_fails(world):
+    """The 21 ranges are parsed out of the feed's own descriptions.
+
+    So a generation that renames or renumbers them leaves the table short, and
+    every station in a London zone quietly stops pricing - which looks exactly
+    like an ordinary absence of fares rather than like a parse that has drifted.
+    """
+    connection, timetable, fares, naptan = world()
+    connection.execute("delete from travelcard_zone_range where to_zone = 3")
+
+    checks = run_checks(connection, timetable, fares, naptan)
+
+    assert status_of(checks, "Travelcard zone ranges are all present") == "fail"
+
+
+def test_a_zoned_station_with_no_range_to_price_it_fails(world):
+    """A station's zone is only useful if the 1..n range covering it exists."""
+    connection, timetable, fares, naptan = world()
+    connection.execute("update station_nlc set travelcard_zone = 4")
+    connection.execute("delete from travelcard_zone_range where from_zone = 1")
+
+    checks = run_checks(connection, timetable, fares, naptan)
+
+    assert status_of(checks, "zoned station has a range to price it from") == "fail"

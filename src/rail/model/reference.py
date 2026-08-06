@@ -245,7 +245,22 @@ def build_reference(
     connection.execute(f"""
         create or replace table station_nlc as
         with current_records as (
-            select crs, nlc, uic, fare_group, start_date, end_date
+            -- **`zone_ind` is the Travelcard zone; `zone_no` is not.** They
+            -- agree perfectly where both are set (`1` against `0027 TRVCARD 1`
+            -- and so on, 646 stations), but 894 CRS carry a `zone_no` with no
+            -- `zone_ind`, and those name rover products - `HIGHLAND ROVER`,
+            -- `CHILTERN ROVER`, `RIDECORNWALL`. So `zone_no` means "a zone or
+            -- rover product this location belongs to" and only `zone_ind`
+            -- answers "which London Travelcard zone is this station in".
+            --
+            -- Filtered to `'1'`-`'6'` explicitly rather than on null, because
+            -- the field also takes `'R'` (24 current rows) and `'U'` (1).
+            -- Those sit on non-CRS rows today, so `crs is not null` hides
+            -- them - a fact about this generation, not about the field, and
+            -- exactly the shape of claim the PlusBus marker below expired on.
+            select crs, nlc, uic, fare_group, start_date, end_date,
+                   case when zone_ind between '1' and '6'
+                        then try_cast(zone_ind as integer) end as travelcard_zone
             from read_parquet('{location}')
             where crs is not null and nlc is not null
               and regexp_matches(crs, '^[A-Z]{{3}}$')
@@ -265,7 +280,7 @@ def build_reference(
             ) as rn
             from current_records
         )
-        select crs, nlc, uic, fare_group
+        select crs, nlc, uic, fare_group, travelcard_zone
         from ranked where rn = 1
         order by crs
     """)
@@ -275,6 +290,49 @@ def build_reference(
         select distinct cluster_id, cluster_nlc
         from read_parquet('{cluster}')
         where current_date between start_date and end_date
+    """)
+
+    # --- the London Travelcard zone ranges -----------------------------------
+    # RSPS5045 4.1.2's third endpoint form. 21 locations, `ZONE U1*` through
+    # `ZONE U56`, carrying *through* fares from a London Underground zone - a
+    # fare that includes the Underground, which is why `origin_zone` replaces a
+    # station's own codes rather than joining them. See `model/fares.py`.
+    #
+    # **The digits are a range, first to last, not a set.** `U1245` is zones
+    # 1 to 5 and `U1256` is 1 to 6 - the field is six characters and the full
+    # `U12345`/`U123456` will not fit, so the middle is dropped. That reading
+    # is what makes the 21 come out exactly right: C(6,2) + 6 = 21, every range
+    # from 1..1 to 5..6 present and nothing left over.
+    #
+    # **Parsed rather than written down.** Six constants would work today and
+    # would rot silently the first time a generation renumbers these locations,
+    # which is the mistake the PlusBus marker above records. Anything that does
+    # not parse lands in `reference_reject`, so a rename is loud.
+    connection.execute(f"""
+        create or replace table travelcard_zone_range as
+        with zones as (
+            select nlc, description,
+                   regexp_extract(description, 'ZONE U([0-9]+)', 1) as digits
+            from read_parquet('{location}')
+            where description like 'ZONE U%'
+              and current_date between start_date and end_date
+        )
+        select distinct
+            try_cast(digits[1] as integer) as from_zone,
+            try_cast(digits[-1] as integer) as to_zone,
+            nlc, description
+        from zones
+        where length(digits) > 0
+        order by from_zone, to_zone
+    """)
+
+    connection.execute(f"""
+        insert into reference_reject
+        select 'fares', nlc, 'ZONE location whose range could not be parsed'
+        from read_parquet('{location}')
+        where description like 'ZONE U%'
+          and current_date between start_date and end_date
+          and length(regexp_extract(description, 'ZONE U([0-9]+)', 1)) = 0
     """)
 
     # A station in the timetable with no fares NLC cannot be priced. That is a

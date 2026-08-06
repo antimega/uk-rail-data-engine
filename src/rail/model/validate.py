@@ -384,6 +384,47 @@ def run_checks(
         "ok" if not zones else "fail",
         "none" if not zones else f"{len(zones)}: {', '.join(sorted(zones)[:8])}")
 
+    # A London Travelcard zone is RSPS5045 4.1.2's third flow endpoint, and a
+    # station in one is priced from the 1..n range rather than from its own
+    # codes. Two things have to hold for that to mean anything, and both are
+    # silent when they stop.
+    #
+    # The ranges are parsed out of the descriptions rather than written down,
+    # so a generation that renames or renumbers them leaves the table short and
+    # every zoned station quietly stops pricing - which looks exactly like an
+    # ordinary absence of fares.
+    ranges = scalar("select count(*) from travelcard_zone_range")
+    add("fares", "the Travelcard zone ranges are all present",
+        "ok" if ranges == 21 else "fail",
+        f"{ranges} of 21 - every range from 1..1 to 6..6")
+
+    # And a station's zone is only useful if the range covering it exists. This
+    # is the join `travelcard_zone_codes` makes, asserted as an outcome.
+    unreachable = scalar("""
+        select count(*) from station_nlc n
+        where n.travelcard_zone is not null
+          and not exists (select 1 from travelcard_zone_range r
+                           where r.from_zone = 1 and r.to_zone = n.travelcard_zone)
+    """)
+    zoned = scalar("select count(*) from station_nlc where travelcard_zone is not null")
+    add("fares", "every zoned station has a range to price it from",
+        "ok" if unreachable == 0 else "fail",
+        f"{zoned:,} stations in a zone, {unreachable} with no range")
+
+    # `zone_ind` is the Travelcard zone and `zone_no` is a wider "zone or rover
+    # product" field - `HIGHLAND ROVER`, `CHILTERN ROVER`. They agree wherever
+    # both are set, and reading the wrong one would put 894 rover stations into
+    # a London zone. Watch the agreement rather than the field.
+    disagree = scalar(f"""
+        select count(*) from read_parquet('{path(fares_dir, "location")}')
+        where crs is not null and zone_ind between '1' and '6'
+          and current_date between start_date and end_date
+          and zone_no not in ('0027', '0028', '0029', '0030', '0031', '0071')
+    """)
+    add("fares", "the Travelcard zone agrees with the zone product it names",
+        "ok" if disagree == 0 else "fail",
+        f"{disagree} disagree with their TRVCARD location")
+
     # The rule is selected by measurement, not by the feed, so its content is
     # worth watching: if RSP changes rule 01 away from 5p, every discounted
     # fare moves and nothing else here would notice.

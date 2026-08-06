@@ -19,6 +19,7 @@ from .fares import (
     build_fares_reference,
     cheapest_from,
     fare_options,
+    travelcard_zone_codes,
 )
 from .geo import LatLon, compare_with_naptan, grid_to_latlon, separation_metres
 from .railcards import RailcardCounts, build_railcards, eligible_railcards
@@ -89,6 +90,7 @@ __all__ = [
     "accept_tickets",
     "classify_tickets",
     "fare_options",
+    "travelcard_zone_codes",
     "review_tickets",
     "run_checks",
     "eligible_railcards",

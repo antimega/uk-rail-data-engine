@@ -2066,6 +2066,42 @@ def _unregister_journey_tables(connection) -> None:
         connection.unregister(name)
 
 
+def travelcard_zone_codes(
+    connection: duckdb.DuckDBPyConnection,
+) -> dict[str, str]:
+    """Every station in a London Travelcard zone, against the zone code to
+    price it from - the value `origin_zone` wants.
+
+    **The range is 1 to the station's own zone, not the zone alone.** A
+    passenger starting in zone 3 and travelling out passes through zones 2 and
+    1 to reach a National Rail terminal, so the fare that covers the journey is
+    the 1-3 range. The single-zone codes exist for journeys that never touch
+    zone 1 and carry two orders of magnitude fewer flows - 365 on `ZONE U3*`
+    against 3,058 on `ZONE U123*`.
+
+    The ladder that follows is the check on that reading: pricing one origin on
+    each range in turn gives strictly more destinations and strictly higher
+    fares as the range widens, which is what an add-on for more Underground
+    should do.
+
+    Returns `{}` where the engine that built the database predates
+    `station_nlc.travelcard_zone`; the caller then behaves as it did before.
+    Adding a column is not a schema break, so `SCHEMA_VERSION` cannot warn
+    about it and the absence has to be tolerated here.
+    """
+    try:
+        rows = connection.execute("""
+            select n.crs, r.nlc
+            from station_nlc n
+            join travelcard_zone_range r
+              on r.from_zone = 1 and r.to_zone = n.travelcard_zone
+            where n.travelcard_zone is not null
+        """).fetchall()
+    except duckdb.Error:
+        return {}
+    return {crs: nlc for crs, nlc in rows}
+
+
 def fare_options(
     connection: duckdb.DuckDBPyConnection,
     fares_dir: Path,

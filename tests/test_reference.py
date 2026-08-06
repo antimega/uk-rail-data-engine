@@ -51,6 +51,9 @@ LOCATION_SCHEMA = pa.schema(
         ("fare_group", pa.string()),
         # PlusBus zones name themselves "BATH+BUS" and are excluded by it.
         ("description", pa.string()),
+        # The London Travelcard zone, '1'-'6'. Null on nearly every row: only
+        # 645 of 3,430 current locations are in a zone at all.
+        ("zone_ind", pa.string()),
         ("start_date", pa.date32()),
         ("end_date", pa.date32()),
     ]
@@ -481,3 +484,116 @@ def test_station_alias_exists_even_when_msn_carried_no_l_records(tmp_path):
     counts = build_reference(connection, timetable, fares)
     assert counts.aliases == 0
     assert connection.execute("select count(*) from station_alias").fetchone() == (0,)
+
+
+# --- the London Travelcard zone ------------------------------------------
+# RSPS5045 4.1.2's third flow endpoint is a zone code, and pricing through one
+# needs two facts the feed states and nothing used to read: which zone a
+# station is in, and which of the 21 `ZONE U*` locations covers a given range.
+
+
+def _zoned(tmp_path, rows):
+    """Build a reference database from LOC rows carrying a `zone_ind`."""
+    timetable = tmp_path / "timetable"
+    fares = tmp_path / "fares"
+    timetable.mkdir()
+    fares.mkdir()
+    write(timetable / "physical_station.parquet", [], MSN_SCHEMA)
+    write(timetable / "tiploc.parquet", [], TIPLOC_SCHEMA)
+    write(fares / "location.parquet", rows, LOCATION_SCHEMA)
+    write(fares / "station_cluster.parquet", [], CLUSTER_SCHEMA)
+    connection = duckdb.connect()
+    build_reference(connection, timetable, fares)
+    return connection
+
+
+def _loc(crs, nlc, *, zone=None, description=None, start=None, end=None):
+    return {"crs": crs, "nlc": nlc, "uic": f"70{nlc}0", "fare_group": nlc,
+            "description": description, "zone_ind": zone,
+            "start_date": start or LONG_AGO, "end_date": end or FAR_FUTURE}
+
+
+def test_the_travelcard_zone_is_read_from_the_feed(tmp_path):
+    connection = _zoned(tmp_path, [
+        _loc("EUS", "1444", zone="1"),
+        _loc("CLJ", "5595", zone="2"),
+        _loc("YRK", "8263"),
+    ])
+    assert connection.execute(
+        "select crs, travelcard_zone from station_nlc order by crs"
+    ).fetchall() == [("CLJ", 2), ("EUS", 1), ("YRK", None)]
+
+
+def test_a_station_outside_the_zones_has_no_zone_not_a_zero(tmp_path):
+    """Null is the absence. Zero would be a zone, and there is no zone 0."""
+    connection = _zoned(tmp_path, [_loc("YRK", "8263")])
+    assert connection.execute(
+        "select travelcard_zone from station_nlc where crs = 'YRK'"
+    ).fetchone() == (None,)
+
+
+def test_only_zone_ind_one_to_six_is_a_travelcard_zone(tmp_path):
+    """The field also takes `R` and `U`, on non-CRS rows *today*.
+
+    That is a fact about this generation rather than about the field, and it is
+    the same shape of claim the PlusBus zones expired on - they carried no CRS
+    until a feed generation gave four of them one. So the filter is stated
+    rather than relied upon: a future `R` on a CRS row must not become a
+    `1..R` range lookup that silently matches nothing.
+    """
+    connection = _zoned(tmp_path, [
+        _loc("AAA", "1111", zone="R"),
+        _loc("BBB", "2222", zone="U"),
+        _loc("CCC", "3333", zone="6"),
+    ])
+    assert connection.execute(
+        "select crs, travelcard_zone from station_nlc order by crs"
+    ).fetchall() == [("AAA", None), ("BBB", None), ("CCC", 6)]
+
+
+def test_the_zone_comes_from_the_currently_valid_record(tmp_path):
+    """A superseded record must not supply the zone the current one dropped."""
+    connection = _zoned(tmp_path, [
+        _loc("EUS", "1444", zone="3", end=dt.date(2020, 1, 1)),
+        _loc("EUS", "1444", zone="1", start=dt.date(2024, 1, 1)),
+    ])
+    assert connection.execute(
+        "select travelcard_zone from station_nlc where crs = 'EUS'"
+    ).fetchone() == (1,)
+
+
+def test_the_zone_digits_are_a_range_not_a_set(tmp_path):
+    """`ZONE U1245` is zones 1 to 5, not zones 1, 2, 4 and 5.
+
+    The description field is six characters and `U12345` will not fit, so the
+    middle is dropped and the first and last digits are what survive. Reading
+    it as a set gives 1, 2, 4, 5 - which looks plausible, names a
+    non-contiguous fare that does not exist, and leaves zone 3 unreachable.
+
+    The count is what settles it: read as ranges the 21 locations are exactly
+    C(6,2) + 6, every range from 1..1 to 6..6 present once and nothing over.
+    """
+    connection = _zoned(tmp_path, [
+        _loc("ZZA", "0065", description="ZONE U1245 LONDN"),
+        _loc("ZZB", "0786", description="ZONE U1256 LONDN"),
+        _loc("ZZC", "0785", description="ZONE U1*   LONDN"),
+    ])
+    assert connection.execute(
+        "select from_zone, to_zone, nlc from travelcard_zone_range"
+        " order by from_zone, to_zone"
+    ).fetchall() == [(1, 1, "0785"), (1, 5, "0065"), (1, 6, "0786")]
+
+
+def test_a_zone_location_that_does_not_parse_is_recorded_not_dropped(tmp_path):
+    """A renumbered or renamed generation must be loud.
+
+    Six hardcoded constants would work today and go stale in silence; parsing
+    them means a rename shows up as a reject rather than as a station that
+    quietly stops pricing.
+    """
+    connection = _zoned(tmp_path, [_loc("ZZZ", "0999", description="ZONE UXY  LONDN")])
+    assert connection.execute("select count(*) from travelcard_zone_range").fetchone() == (0,)
+    assert connection.execute(
+        "select reason from reference_reject where source = 'fares'"
+        " and reason like '%ZONE%'"
+    ).fetchall() == [("ZONE location whose range could not be parsed",)]
