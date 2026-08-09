@@ -266,6 +266,79 @@ class ScanResult:
         """The trains the journey to `crs` is made of, in order."""
         return [trip for trip, _ in self._segments(crs) if trip is not None]
 
+    def train_uids_to(self, crs: str) -> set[str]:
+        """The CIF Train UIDs used to reach ``crs``.
+
+        Trip indexes are deliberately internal to one loaded network. SR fare
+        restrictions name the six-character UID instead, so callers must not
+        pass :meth:`trips_to` into fare pricing.
+        """
+        return {
+            self.network.trip_uid[trip]
+            for trip in self.trips_to(crs)
+            if trip < len(self.network.trip_uid) and self.network.trip_uid[trip]
+        }
+
+    def train_uids(self) -> dict[str, set[str]]:
+        """Train UIDs used to reach every station reached."""
+        return {
+            journey.crs: self.train_uids_to(journey.crs)
+            for journey in self.reached()
+        }
+
+    def train_calls_to(
+        self, crs: str
+    ) -> list[tuple[str, str, int | None, int | None]]:
+        """Calls to ``crs`` keyed to the Train UID that made each one.
+
+        SQ location qualifiers belong to one SR train row. A destination-wide
+        call list is insufficient on a multi-train journey because a call made
+        by a different leg could otherwise satisfy the qualifier.
+        """
+        calls: list[tuple[str, str, int | None, int | None]] = []
+        for trip, stops in self._segments(crs):
+            if trip is None or trip >= len(self.network.trip_uid):
+                continue
+            timetable = self.network.trip_stops[trip]
+            start = next(
+                (
+                    at for at in range(len(timetable) - len(stops) + 1)
+                    if timetable[at:at + len(stops)] == stops
+                ),
+                None,
+            )
+            if start is None:
+                continue
+            uid = self.network.trip_uid[trip]
+            actual_arrivals = (
+                self.network.trip_call_arrival[trip]
+                if trip < len(self.network.trip_call_arrival)
+                else self.network.trip_arrival[trip]
+            )
+            actual_departures = (
+                self.network.trip_call_departure[trip]
+                if trip < len(self.network.trip_call_departure)
+                else self.network.trip_departure[trip]
+            )
+            for offset, station in enumerate(stops):
+                at = start + offset
+                calls.append((
+                    uid,
+                    self.network.stations[station],
+                    actual_arrivals[at],
+                    actual_departures[at],
+                ))
+        return calls
+
+    def train_calls(
+        self,
+    ) -> dict[str, list[tuple[str, str, int | None, int | None]]]:
+        """UID-specific calls for every station reached."""
+        return {
+            journey.crs: self.train_calls_to(journey.crs)
+            for journey in self.reached()
+        }
+
     def changes_to(self, crs: str) -> int:
         """How many times the journey to `crs` changes train.
 

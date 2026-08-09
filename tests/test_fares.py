@@ -931,6 +931,167 @@ def test_an_arrival_side_restriction_uses_the_arrival_time(fares):
     assert cheapest(depart_minutes=660, arrivals={"BBB": 780}) == ("CDS", 990)   # arrives 13:00
 
 
+def test_a_positive_train_list_distinguishes_listed_and_unlisted_trains(fares):
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "FSS", 6360, restriction="FF"),
+                      fare(1, "FOS", 9000)],
+        tickets=[ticket("FSS", "TFW WEEKDAY 1ST", cls=1),
+                 ticket("FOS", "ANYTIME 1S", cls=1)],
+        headers=[(
+            "FF",
+            "VALID ON CERTAIN TRAINS MONDAY-FRIDAY",
+            True,
+            "P",
+        )],
+    )
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "FF",
+                "train_no": "G38870",
+                "out_ret": "O",
+                "quota_ind": "N",
+                "sleeper_ind": "N",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("train_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("quota_ind", pa.string()),
+                ("sleeper_ind", pa.string()),
+            ]),
+        ),
+        directory / "restriction_train.parquet",
+    )
+    build_restrictions(connection, directory)
+
+    def price(train_no):
+        rows = cheapest_from(
+            connection,
+            directory,
+            "AAA",
+            TUESDAY,
+            ticket_class=1,
+            trains={"BBB": {train_no}},
+        )
+        return {row[0]: row[3] for row in rows}["BBB"]
+
+    assert price("G38870") == 6360
+    assert price("G38875") == 9000
+
+
+def test_a_positive_header_without_an_sr_list_does_not_withdraw_the_fare(fares):
+    """TYPE_OUT=P controls an attached list; it does not create one."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "FSS", 6360, restriction="1D"),
+                      fare(1, "FOS", 9000)],
+        tickets=[ticket("FSS", "OFF-PEAK 1S", cls=1),
+                 ticket("FOS", "ANYTIME 1S", cls=1)],
+        headers=[("1D", "TIME RESTRICTION ONLY", True, "P")],
+    )
+
+    rows = cheapest_from(
+        connection, directory, "AAA", TUESDAY,
+        ticket_class=1, trains={"BBB": {"G38875"}},
+    )
+
+    assert {row[0]: row[3] for row in rows}["BBB"] == 6360
+
+
+def test_a_negative_train_list_honours_its_departure_exception(fares):
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SSS", 6360, restriction="1A"),
+                      fare(1, "SDS", 9000)],
+        tickets=[ticket("SSS", "SUPER OFFPEAK S"),
+                 ticket("SDS", "ANYTIME DAY S")],
+        headers=[(
+            "1A",
+            "NOT VALID ON CERTAIN TRAINS MON-FRI",
+            True,
+            "N",
+        )],
+    )
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "1A",
+                "train_no": "C04660",
+                "out_ret": "O",
+                "quota_ind": "N",
+                "sleeper_ind": "N",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("train_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("quota_ind", pa.string()),
+                ("sleeper_ind", pa.string()),
+            ]),
+        ),
+        directory / "restriction_train.parquet",
+    )
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{
+                "cf_mkr": "C",
+                "restriction_code": "1A",
+                "train_no": "C04660",
+                "out_ret": "O",
+                "location": "CLT",
+                "quota_ind": "",
+                "arr_dep": "D",
+            }],
+            schema=pa.schema([
+                ("cf_mkr", pa.string()),
+                ("restriction_code", pa.string()),
+                ("train_no", pa.string()),
+                ("out_ret", pa.string()),
+                ("location", pa.string()),
+                ("quota_ind", pa.string()),
+                ("arr_dep", pa.string()),
+            ]),
+        ),
+        directory / "restriction_train_quota.parquet",
+    )
+    build_restrictions(connection, directory)
+
+    def price(train_no, train_calls):
+        rows = cheapest_from(
+            connection,
+            directory,
+            "AAA",
+            TUESDAY,
+            trains={"BBB": {train_no}},
+            train_calls={"BBB": train_calls},
+        )
+        return {row[0]: row[3] for row in rows}["BBB"]
+
+    ordinary_calls = [("C04660", "AAA", 480, 480),
+                      ("C04660", "BBB", 600, 600)]
+    excepted_calls = [("C04660", "CLT", 480, 480),
+                      ("C04660", "BBB", 600, 600)]
+
+    assert price("C04660", ordinary_calls) == 9000
+    assert price("C04660", excepted_calls) == 6360
+    assert price("P66915", ordinary_calls) == 6360
+
+    # The SQ row says departure: an arrival at CLT is not interchangeable.
+    wrong_sense_calls = [("C04660", "CLT", 480, None),
+                         ("C04660", "BBB", 600, None)]
+    assert price("C04660", wrong_sense_calls) == 9000
+
+    # CLT on another leg cannot exempt the listed C04660 train.
+    wrong_leg_calls = ordinary_calls + [("P66915", "CLT", 550, 550)]
+    assert price("C04660", wrong_leg_calls) == 9000
+
+
 def test_a_band_bites_where_the_passenger_boards_not_only_at_the_ends(fares):
     """**A station band bites where you board or alight, changes included.**
 
@@ -1112,6 +1273,7 @@ def _write_descriptions(directory, validities=(), headers=(), tocs=()):
         ("restriction_header", pa.schema([
             ("cf_mkr", pa.string()), ("restriction_code", pa.string()),
             ("description", pa.string()), ("desc_out", pa.string()),
+            ("type_out", pa.string()), ("type_ret", pa.string()),
             ("change_ind", pa.bool_())])),
     ):
         rows = [
@@ -1128,8 +1290,11 @@ def _write_descriptions(directory, validities=(), headers=(), tocs=()):
             # (code, description, change_ind) - whether a change of trains is
             # allowed at all, which no time band can express.
             {"cf_mkr": "C", "restriction_code": code, "description": description,
-             "desc_out": description, "change_ind": change_allowed}
-            for code, description, change_allowed in headers
+             "desc_out": description,
+             "type_out": types[0] if types else "N",
+             "type_ret": types[1] if len(types) > 1 else (types[0] if types else "N"),
+             "change_ind": change_allowed}
+            for code, description, change_allowed, *types in headers
         ] if name == "restriction_header" else []
         pq.write_table(pa.Table.from_pylist(rows, schema=schema),
                        directory / f"{name}.parquet")
