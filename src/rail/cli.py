@@ -535,7 +535,7 @@ def reachable(
         # Supplied unconditionally, so this command and any other caller that
         # routes agree about which bands apply.
         boardings=None if ignore_restrictions else {
-            crs: [(leg.board, leg.operator or "")
+            crs: [(leg.board, leg.operator or "", leg.alight)
                   for leg in (result.legs_to(crs) or [])]
             for crs in result.paths()},
     )
@@ -1842,7 +1842,7 @@ def roundtrip(
                        arrive=first.arrival[index], path=first.path_to(to),
                        operators=first.operators_to(to), modes=first.modes_to(to),
                        changes=first.changes_to(to), calls=first.calls_to(to),
-                       boardings=[(leg.board, leg.operator or "")
+                       boardings=[(leg.board, leg.operator or "", leg.alight)
                                   for leg in (first.legs_to(to) or [])])
 
         middle = network.index.get(stop, -1)
@@ -1871,7 +1871,7 @@ def roundtrip(
             path=first.path_to(stop) + second.path_to(to)[1:],
             operators=first.operators_to(stop) | second.operators_to(to),
             modes=first.modes_to(stop) | second.modes_to(to),
-            boardings=[(leg.board, leg.operator or "")
+            boardings=[(leg.board, leg.operator or "", leg.alight)
                        for leg in ((first.legs_to(stop) or [])
                                    + (second.legs_to(to) or []))],
             # The deliberate break is itself a change, however direct the halves.

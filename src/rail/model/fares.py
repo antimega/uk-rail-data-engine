@@ -1610,9 +1610,34 @@ sellable as (
                     and (
                         not exists (select 1 from journey_boarding jb
                                      where jb.crs = c.dest_crs)
-                        or exists (select 1 from journey_boarding jb
-                                    where jb.crs = c.dest_crs
-                                      and jb.at_crs = b.location)
+                        or (exists (select 1 from journey_boarding jb
+                                     where jb.crs = c.dest_crs
+                                       and jb.at_crs = b.location)
+                            -- **And the passenger has to have arrived by
+                            -- train, or be at their origin.** Walking from the
+                            -- origin to the station where the first train is
+                            -- caught is still starting the journey, not
+                            -- changing at that station - so a band naming it
+                            -- speaks to somebody who *begins* there.
+                            --
+                            -- West Ham to York walks to Stratford and takes a
+                            -- London Overground local across town to catch
+                            -- LNER at King's Cross. Band 0086 of `9D` bars
+                            -- departures from Stratford before 09:34 and was
+                            -- withdrawing the £78.50 Super Off-Peak a retailer
+                            -- sells, leaving £175.80.
+                            --
+                            -- A caller that supplies boardings without
+                            -- alightings knows only half of this, and the half
+                            -- it knows must not silently withdraw bands: with
+                            -- no alighting recorded for the destination at
+                            -- all, the test falls back to today's answer.
+                            and (b.location = $origin
+                                 or not exists (select 1 from journey_alighting
+                                                 ja where ja.crs = c.dest_crs)
+                                 or exists (select 1 from journey_alighting ja
+                                             where ja.crs = c.dest_crs
+                                               and ja.at_crs = b.location)))
                     ))
                     or
                     (b.arr_dep_via = 'A' and b.location is not null and exists (
@@ -2103,9 +2128,18 @@ def _register_journey_tables(
     #
     # Absent entirely, the qualifier falls back to the journey-wide test, so a
     # caller that does not supply this gets exactly today's answers.
-    boarded = [(dest, at, toc)
+    boarded = [(dest, leg[0], leg[1])
                for dest, legs in (boardings or {}).items()
-               for at, toc in legs if toc]
+               for leg in legs if leg[1]]
+    # And where a train was *alighted from*, which is the other half of the
+    # question a departure band asks - see the clause in `_PRICING_CTES`.
+    # A three-tuple carries it; a two-tuple is the older shape and leaves the
+    # alighting side empty, which reads as "arrived on foot" and is right for
+    # a caller that only knows boardings.
+    alighted = [(dest, off, toc)
+                for dest, legs in (boardings or {}).items()
+                for leg in legs if len(leg) > 2
+                for off, toc in [(leg[2], leg[1])] if toc and off]
     # One row per (destination station, zone code that covers it). Empty
     # unless a caller supplies it, and then the destination expansion gains
     # RSPS5045 4.1.2's zone endpoint - see `combined` in the pricing CTEs.
@@ -2119,6 +2153,11 @@ def _register_journey_tables(
         "crs": pa.array([d for d, _a, _t in boarded], type=pa.string()),
         "at_crs": pa.array([a for _d, a, _t in boarded], type=pa.string()),
         "toc": pa.array([t for _d, _a, t in boarded], type=pa.string()),
+    }))
+    connection.register("journey_alighting", pa.table({
+        "crs": pa.array([d for d, _a, _t in alighted], type=pa.string()),
+        "at_crs": pa.array([a for _d, a, _t in alighted], type=pa.string()),
+        "toc": pa.array([t for _d, _a, t in alighted], type=pa.string()),
     }))
     # One row per (destination, operator whose train the journey there uses).
     used = [(dest, toc) for dest, tocs in (operators or {}).items() for toc in tocs]
@@ -2144,7 +2183,7 @@ def _register_journey_tables(
 
 def _unregister_journey_tables(connection) -> None:
     for name in ("applicable_band", "applicable_band_toc", "journey_arrival",
-                 "journey_boarding", "destination_zone",
+                 "journey_boarding", "journey_alighting", "destination_zone",
                  "journey_path", "journey_call", "journey_operator",
                  "journey_mode", "journey_changes"):
         connection.unregister(name)
