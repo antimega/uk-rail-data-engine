@@ -1658,7 +1658,24 @@ sellable as (
                           and k.via_crs = b.location
                           and k.is_change
                           and k.arrive % 1440 between b.time_from and b.time_to
-                    ))
+                    )
+                    -- **Arriving on foot is not arriving**, which is the
+                    -- departure side's rule read the other way round. A
+                    -- passenger who walks to a terminal to *start* a journey
+                    -- out of London has not arrived there in the sense an
+                    -- arrival band means, and `LG` band 0052 bars arrivals into
+                    -- Euston until 12:59 - so Highbury & Islington to Lichfield
+                    -- lost its £40.10 Super Off-Peak on a journey that leaves
+                    -- Euston at 11:46. A retailer sells it.
+                    --
+                    -- `journey_alighting` carries only legs with an operator,
+                    -- so a fixed link contributes nothing and this is one
+                    -- lookup. Absent, the band applies as it always did.
+                    and (not exists (select 1 from journey_alighting ja
+                                      where ja.crs = c.dest_crs)
+                         or exists (select 1 from journey_alighting ja
+                                     where ja.crs = c.dest_crs
+                                       and ja.at_crs = b.location)))
                     or
                     -- `V` says "changing at" outright (4.19.8 field 9), so it
                     -- needs no station-is-an-end test. Three are in force and

@@ -1779,6 +1779,42 @@ def test_all_of_the_named_stations_must_be_on_the_journey(fares):
     assert cheapest(paths={"BBB": ["AAA", "CCC", "BBB"]}) == 1500
 
 
+def test_an_arrival_band_needs_a_train_alighted_from(fares):
+    """**Arriving on foot is not arriving**, the departure rule read backwards.
+
+    A passenger who crosses London by tube to *start* a journey out of it has
+    not arrived at the terminal in the sense an arrival band means. `LG` band
+    0052 bars arrivals into Euston until 12:59, and it was withdrawing Highbury
+    & Islington to Lichfield's £40.10 Super Off-Peak on a journey that leaves
+    Euston at 11:46 - which a retailer sells.
+
+    The mirror of the boarding gate: `journey_alighting` carries only legs with
+    an operator, so a fixed link contributes nothing.
+    """
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SVS", 4010, restriction="R1"),
+                      fare(1, "SOS", 9000)],
+        tickets=[ticket("SVS", "OFF-PEAK S"), ticket("SOS", "ANYTIME S")],
+        # Not valid arriving CCC 02:30-12:59, which is `LG` band 0052's shape.
+        bands=[("R1", 150, 779, "A", "CCC")],
+    )
+
+    calls = {"BBB": [("CCC", 700, 706, True), ("BBB", 794, 794, False)]}
+
+    def cheapest(boardings):
+        return {r[0]: r[3] for r in cheapest_from(
+            connection, directory, "AAA", TUESDAY, depart_minutes=660,
+            calls=calls, boardings=boardings)}["BBB"]
+
+    # Reached CCC on foot and boarded a train there: the band must not bite.
+    assert cheapest({"BBB": [("AAA", "", "CCC"), ("CCC", "LM", "BBB")]}) == 4010
+    # Reached CCC *by train* and changed there: it must.
+    assert cheapest({"BBB": [("AAA", "GW", "CCC"), ("CCC", "LM", "BBB")]}) == 9000
+    # A caller that knows no alightings gets the old answer, not a lifted band.
+    assert cheapest({"BBB": [("AAA", "GW"), ("CCC", "LM")]}) == 9000
+
+
 def test_an_all_of_condition_on_a_group_takes_any_one_member(fares):
     """**`A` is all-of over *conditions*, not over rows.**
 

@@ -353,6 +353,44 @@ verdict. It was found by listing every member of every download and diffing that
 against what the code actually opens - a check worth repeating whenever a feed
 version changes, because nothing else will tell you.
 
+## Arriving on foot is not arriving
+
+RSPS5045 4.19.8 field 9 makes a band apply to "arrivals at, departures from or
+changing at" a location. The departure side is bounded three ways - a `D` band
+applies where a train is **boarded**, and only where the passenger is at their
+origin or reached that station **by train**. The arrival side wants the mirror
+and did not have it: an `A` band applied wherever the journey changed, however it
+got there.
+
+A passenger who crosses London on foot or by tube to *start* a journey out of it
+has not arrived at that terminal in any sense an arrival band means. `LG` band
+0052 bars arrivals into Euston until 12:59:
+
+```
+Highbury & Islington 11:00 → Euston (tube, no train) → Lichfield Trent Valley
+                     Euston departure 11:46, well clear of the bar
+                     £40.10 Super Off-Peak withdrawn; a retailer sells it
+Paddington 11:00 → Euston (tube) → Northampton
+                     £34.30 → £20.60, the same shape
+```
+
+So an `A` band applies where a train is **alighted from**: the destination, or a
+station the journey reached by train and changed at. `journey_alighting` carries
+only legs with an operator, so a fixed link contributes nothing and the test is
+one lookup. **Absent, every band applies as it always did** - a caller that
+supplies no alighting information gets today's answers rather than a lifted band,
+which is the same guard the boarding gate and the TOC qualifier use.
+
+The rule now reads, in full:
+
+```
+a D band applies where a train is boarded, and the passenger is at their
+  origin or arrived there by train
+an A band applies where a train is alighted from
+neither applies where the train merely passes through, or where the
+  passenger walked
+```
+
 ## An all-of route condition naming a group takes any one member
 
 RSPS5047 4.12 gives a route condition three senses: `A` all-of, `I` any-of, `E`
