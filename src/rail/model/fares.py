@@ -1245,6 +1245,34 @@ combined as (
     qualify is_own or not bool_or(is_own) over (
         partition by dest_crs, route_code, ticket_code
     )
+    union all
+    -- **The destination side of RSPS5045 4.1.2's zone endpoint, unioned in
+    -- after the precedence rather than inside it.**
+    --
+    -- A zone code is a different *product*, not another code for the same
+    -- station, so it must not compete with the station's own NLC the way a
+    -- cluster does. Colwall to Paddington shows why a retailer offers both
+    -- side by side: `4876 -> 1072` LONDON TERMINALS from £44.50, and
+    -- `4876 -> 0785` ZONE U1 from £25.60. Ranked against each other the
+    -- cheaper would be dropped wherever the own NLC happened to price the
+    -- same ticket on the same route.
+    --
+    -- **A union rather than a substitution**, which is the opposite of
+    -- `origin_zone`. There the zone *replaces* the station's codes, because a
+    -- tube-inclusive fare must not win for a journey that never touches the
+    -- tube. Here the ticket is simply valid: a zone-`n` station is inside the
+    -- `1..n` range, so a passenger holding one may travel to it. It can
+    -- therefore only ever make a price cheaper.
+    --
+    -- `destination_zone` is empty unless the caller registers it, so every
+    -- answer is unchanged until something asks for this.
+    select z.crs as dest_crs, f.other_code, f.route_code, f.ns_disc_ind,
+           r.ticket_code, r.fare, r.restriction_code, 'zone' as source, f.toc,
+           false as is_railcard_fare
+    from flows f
+    join read_parquet($fare_path) r using (flow_id)
+    join destination_zone z on z.code = f.other_code
+    where r.fare is not null and r.fare > 0
 ),
 sellable as (
     select c.dest_crs, c.other_code, c.ns_disc_ind, c.toc,
@@ -2010,7 +2038,7 @@ _BAND_COLUMNS = (
 
 def _register_journey_tables(
     connection, *, bands, arrivals, paths, operators=None, modes=None,
-    changes=None, calls=None, boardings=None,
+    changes=None, calls=None, boardings=None, destination_zones=None,
 ) -> None:
     """The three per-query tables the shared pricing CTEs join to.
 
@@ -2078,6 +2106,15 @@ def _register_journey_tables(
     boarded = [(dest, at, toc)
                for dest, legs in (boardings or {}).items()
                for at, toc in legs if toc]
+    # One row per (destination station, zone code that covers it). Empty
+    # unless a caller supplies it, and then the destination expansion gains
+    # RSPS5045 4.1.2's zone endpoint - see `combined` in the pricing CTEs.
+    zoned = [(crs, code) for crs, codes in (destination_zones or {}).items()
+             for code in ([codes] if isinstance(codes, str) else codes)]
+    connection.register("destination_zone", pa.table({
+        "crs": pa.array([c for c, _ in zoned], type=pa.string()),
+        "code": pa.array([z for _, z in zoned], type=pa.string()),
+    }))
     connection.register("journey_boarding", pa.table({
         "crs": pa.array([d for d, _a, _t in boarded], type=pa.string()),
         "at_crs": pa.array([a for _d, a, _t in boarded], type=pa.string()),
@@ -2107,7 +2144,7 @@ def _register_journey_tables(
 
 def _unregister_journey_tables(connection) -> None:
     for name in ("applicable_band", "applicable_band_toc", "journey_arrival",
-                 "journey_boarding",
+                 "journey_boarding", "destination_zone",
                  "journey_path", "journey_call", "journey_operator",
                  "journey_mode", "journey_changes"):
         connection.unregister(name)
@@ -2172,6 +2209,10 @@ def fare_options(
     #: the band's own station. **Absent, the qualifier falls back to the
     #: journey-wide test and every answer is unchanged.**
     boardings: dict[str, list[tuple[str, str]]] | None = None,
+    #: `{destination crs: zone code}` - the zone whose range covers that
+    #: station, so a fare priced to the zone is offered *alongside* the fares
+    #: priced to the station. The opposite of `origin_zone`, which replaces.
+    destination_zones: dict[str, str] | None = None,
     #: Price from a London Underground zone code instead of the
     #: station's own - RSPS5045 4.1.2's third endpoint form. For a
     #: journey that begins or ends on the Underground, where the
@@ -2257,7 +2298,8 @@ def fare_options(
     _register_journey_tables(connection, bands=bands, arrivals=arrivals,
                              paths=paths, operators=operators, modes=modes,
                              changes=changes, calls=calls,
-                             boardings=boardings)
+                             boardings=boardings,
+                             destination_zones=destination_zones)
     try:
         rows = connection.execute(
             _CHEAPEST_SQL,
