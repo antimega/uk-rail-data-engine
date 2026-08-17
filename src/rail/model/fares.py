@@ -1367,15 +1367,27 @@ sellable as (
             on p.crs = c.dest_crs and p.via_crs = r.crs
           where r.route_code = c.route_code and r.entry_type = 'E'
       )
-      -- 'A' - every one of these must appear.
+      -- 'A' - every one of these conditions must be satisfied, and a condition
+      -- naming a routeing group is satisfied by **any** of its members. The
+      -- all-of is over `condition_crs`, not over the rows: a group expands to
+      -- one row per member, so testing the rows demanded that a journey call at
+      -- every station in Manchester or all eight in Liverpool, and no journey
+      -- does. See `_build_route_rules`.
       and (
           not $check_routes
           or not exists (
-              select 1 from route_rule r
-              where r.route_code = c.route_code and r.entry_type = 'A'
+              select 1 from (
+                  select distinct route_code, condition_crs from route_rule
+                  where entry_type = 'A'
+              ) g
+              where g.route_code = c.route_code
                 and not exists (
-                    select 1 from journey_path p
-                    where p.crs = c.dest_crs and p.via_crs = r.crs
+                    select 1 from route_rule r
+                    join journey_path p
+                      on p.crs = c.dest_crs and p.via_crs = r.crs
+                    where r.route_code = g.route_code
+                      and r.entry_type = 'A'
+                      and r.condition_crs = g.condition_crs
                 )
           )
       )

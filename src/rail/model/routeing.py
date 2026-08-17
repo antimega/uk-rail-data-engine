@@ -317,7 +317,7 @@ LOCATION_ENTRY_TYPES = ("A", "I", "E")
 
 
 def _build_route_rules(connection: duckdb.DuckDBPyConnection) -> None:
-    """Flatten RGK's route conditions into (route, sense, station) triples.
+    """Flatten RGK's route conditions into (route, sense, condition, station).
 
     ``is_group`` says the CRS stands for one station of a routeing guide group
     and the whole group is meant - so "not via Birmingham" excludes Aston and
@@ -326,12 +326,34 @@ def _build_route_rules(connection: duckdb.DuckDBPyConnection) -> None:
 
     The left joins matter: a condition that is not a group, or whose group has
     no members listed, still has to keep its own station.
+
+    **``condition_crs`` is what stops the expansion changing an ``A``
+    condition's meaning**, and it was missing for a long time. ``A`` is all-of,
+    so five rows read flat demand all five stations - and expanding a *group*
+    produces exactly that. Route 00312 ``VIA MANCHESTER`` is one
+    ``A MAN (group)`` condition and became five all-of rows, requiring a journey
+    to call at Piccadilly, Victoria, Oxford Road, Deansgate **and** Salford
+    Central; route 00311 ``VIA LIVERPOOL`` demanded all eight Liverpool
+    stations. No journey satisfies either, so every fare on those routes was
+    withdrawn from every itinerary. A retailer sells Llanelli to Huddersfield at
+    £122.40 on 00312 where we quoted £204.50.
+
+    The group's members are one condition and the sense is per condition, not
+    per row: **any member satisfies an ``A`` group, all conditions must be
+    satisfied.** Grouping on the condition's own CRS says so without a synthetic
+    key, since RGK cannot carry the same location twice in one sense on one
+    route - asserted by `rail validate`.
+
+    ``I`` and ``E`` are unaffected either way. Any-of over a group is any-of over
+    its members, and none-of over a group is none-of over each - which is the
+    reading the docstring above already described and the only one it described.
     """
     connection.execute(f"""
         create or replace table route_rule as
         select distinct
                c.route_code,
                c.entry_type,
+               c.crs as condition_crs,
                coalesce(m2.crs, c.crs) as crs
         from route_condition c
         left join station_group_member m1

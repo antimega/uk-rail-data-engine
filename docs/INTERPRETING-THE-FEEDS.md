@@ -352,3 +352,40 @@ for a long time and turned out to carry 993 rows that materially changed a
 verdict. It was found by listing every member of every download and diffing that
 against what the code actually opens - a check worth repeating whenever a feed
 version changes, because nothing else will tell you.
+
+## An all-of route condition naming a group takes any one member
+
+RSPS5047 4.12 gives a route condition three senses: `A` all-of, `I` any-of, `E`
+none-of. A condition may name a **routeing group** rather than a station, and the
+group is expanded to its members at build time so the query is a plain join.
+
+**Expanding a group is right for `I` and `E` and wrong for `A`**, and the reason
+is that the sense belongs to the condition rather than to the row. Any-of over a
+group is any-of over its members; none-of over a group is none-of over each. But
+all-of over the *members* of a group demands a journey call at every one of
+them, which no journey does:
+
+```
+route 00312  VIA MANCHESTER   one condition, A MAN (group)
+             expands to  MAN · MCV · MCO · DGT · SFD
+             flat all-of demands Piccadilly AND Victoria AND Oxford Road
+             AND Deansgate AND Salford Central
+route 00311  VIA LIVERPOOL    one condition, expanding to eight stations
+```
+
+Read that way every fare on such a route is withdrawn from every itinerary. **30
+route/condition pairs are affected**, and on a weekday sweep of twelve origins
+by three departures **2,030 of 92,231 cheapest fares** were dearer than they
+should have been - always dearer, since a withdrawn fare can only be replaced by
+one above it.
+
+`route_rule` therefore carries `condition_crs`, the CRS of the condition a row
+was expanded from, and the all-of runs over those rather than over the rows:
+**every condition must be satisfied, and a condition is satisfied by any of its
+rows.** Grouping on the condition's own CRS needs no synthetic key, since RGK
+cannot name the same location twice in one sense on one route.
+
+A consumer applying a flat all-of over `route_rule` gets the old answer, so the
+column is additive rather than a schema break - but the reading has changed and
+the table is not usable without it.
+

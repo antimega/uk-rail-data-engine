@@ -1141,10 +1141,17 @@ def _write_routeing(connection, rgk_rules, london_marker, london_terminals,
     RGK. Empty here unless a test asks for them, so the fares feed's RTE
     records stay in charge exactly as they do for a route RGK never mentions."""
     connection.execute(
-        "create table route_rule (route_code varchar, entry_type varchar, crs varchar)")
-    for route_code, entry_type, crs in rgk_rules:
-        connection.execute("insert into route_rule values (?, ?, ?)",
-                           [route_code, entry_type, crs])
+        "create table route_rule (route_code varchar, entry_type varchar, "
+        "condition_crs varchar, crs varchar)")
+    for rule in rgk_rules:
+        # A three-tuple is one station standing for its own condition, which is
+        # every case here bar the group tests: `_build_route_rules` sets
+        # `condition_crs` to the condition's own CRS and the expansion to its
+        # members, and an `A` group is satisfied by any one of them.
+        route_code, entry_type, crs = rule[0], rule[1], rule[-1]
+        condition_crs = rule[2] if len(rule) == 4 else crs
+        connection.execute("insert into route_rule values (?, ?, ?, ?)",
+                           [route_code, entry_type, condition_crs, crs])
     # RGK's TOC conditions live on the raw table, not the expanded location one.
     connection.execute("""create table route_condition (
         route_code varchar, entry_type varchar, crs varchar,
@@ -1770,6 +1777,44 @@ def test_all_of_the_named_stations_must_be_on_the_journey(fares):
     assert cheapest(paths={"BBB": ["AAA", "CCC", "DDD", "BBB"]}) == 900
     # Only one of the two: an ANY-of reading would wrongly allow this.
     assert cheapest(paths={"BBB": ["AAA", "CCC", "BBB"]}) == 1500
+
+
+def test_an_all_of_condition_on_a_group_takes_any_one_member(fares):
+    """**`A` is all-of over *conditions*, not over rows.**
+
+    A routeing group expands to one row per member, so a flat all-of demands the
+    journey call at every station in the group. Route 00312 `VIA MANCHESTER` is
+    a single `A MAN (group)` condition covering Piccadilly, Victoria, Oxford
+    Road, Deansgate and Salford Central; 00311 `VIA LIVERPOOL` covers eight. No
+    journey calls at all of them, so every fare on those 30 routes was withdrawn
+    from every itinerary - and a retailer sells Llanelli to Huddersfield at
+    £122.40 on 00312 where we quoted £204.50.
+
+    Both halves are asserted, because only the pair tells the fix apart from
+    deleting the rule: any one member satisfies the group, **and** a second
+    condition still has to be met.
+    """
+    connection, directory = fares(
+        flows=[routed(1, "1111", "2222", "00007"), routed(2, "1111", "2222", "00000")],
+        fare_records=[fare(1, "SDS", 900), fare(2, "SDS", 1500)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+        # One condition on a two-member group, and one standing alone. The
+        # four-tuple is what `_build_route_rules` writes: the condition's own
+        # CRS, then the member it expanded to.
+        rgk_rules=[("00007", "A", "CCC", "CCC"), ("00007", "A", "CCC", "DDD"),
+                   ("00007", "A", "EEE", "EEE")],
+    )
+    cheapest = lambda **kw: {
+        r[0]: r[3] for r in cheapest_from(connection, directory, "AAA", TRAVEL, **kw)
+    }["BBB"]
+
+    # Either member satisfies the group, with the separate condition also met.
+    assert cheapest(paths={"BBB": ["AAA", "CCC", "EEE", "BBB"]}) == 900
+    assert cheapest(paths={"BBB": ["AAA", "DDD", "EEE", "BBB"]}) == 900
+    # The group is met and the second condition is not.
+    assert cheapest(paths={"BBB": ["AAA", "CCC", "DDD", "BBB"]}) == 1500
+    # The second is met and the group is not.
+    assert cheapest(paths={"BBB": ["AAA", "EEE", "BBB"]}) == 1500
 
 
 def test_any_one_of_the_named_stations_is_enough(fares):
