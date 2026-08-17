@@ -1361,6 +1361,15 @@ sellable as (
       -- for the routes RGK is silent on.
       --
       -- 'E' - none of these may appear on the journey.
+      --
+      -- **`journey_path`, not `journey_via`**, and deliberately: the positive
+      -- senses ask "does this journey go via X", which the line of route
+      -- answers, and an exclude asks "does it touch X", which for retail
+      -- purposes means calling there. Reading the line of route here would
+      -- withdraw a "NOT VIA BIRMINGHAM" fare from a train that runs through
+      -- without stopping, which is a fare that is sold. Positive senses can
+      -- only gain permissions from the wider set; this one could only lose
+      -- them, so it is left alone until something asks for it.
       and not exists (
           select 1 from route_rule r
           join journey_path p
@@ -1383,7 +1392,7 @@ sellable as (
               where g.route_code = c.route_code
                 and not exists (
                     select 1 from route_rule r
-                    join journey_path p
+                    join journey_via p
                       on p.crs = c.dest_crs and p.via_crs = r.crs
                     where r.route_code = g.route_code
                       and r.entry_type = 'A'
@@ -1400,7 +1409,7 @@ sellable as (
           )
           or exists (
               select 1 from route_rule r
-              join journey_path p
+              join journey_via p
                 on p.crs = c.dest_crs and p.via_crs = r.crs
               where r.route_code = c.route_code and r.entry_type = 'I'
           )
@@ -1507,7 +1516,7 @@ sellable as (
           )
           or exists (
               select 1 from route_via v
-              join journey_path p
+              join journey_via p
                 on p.crs = c.dest_crs and p.via_crs = v.crs
               where v.route_code = c.route_code and v.incl_excl = 'I'
           )
@@ -2093,6 +2102,7 @@ _BAND_COLUMNS = (
 def _register_journey_tables(
     connection, *, bands, arrivals, paths, operators=None, modes=None,
     changes=None, calls=None, boardings=None, destination_zones=None,
+    passes=None,
 ) -> None:
     """The three per-query tables the shared pricing CTEs join to.
 
@@ -2142,11 +2152,36 @@ def _register_journey_tables(
         "depart": pa.array([x for _d, _v, _a, x, _c in timed], type=pa.int32()),
         "is_change": pa.array([c for *_, c in timed], type=pa.bool_()),
     }))
-    # One row per (destination, station passed through on the way there).
+    # One row per (destination, station **called at** on the way there).
     pairs = [(dest, via) for dest, route in paths.items() for via in route]
     connection.register("journey_path", pa.table({
         "crs": pa.array([d for d, _ in pairs], type=pa.string()),
         "via_crs": pa.array([v for _, v in pairs], type=pa.string()),
+    }))
+    # And one row per (destination, station on the **line of route**), which is
+    # a superset: every call, plus the stations the train runs through without
+    # stopping.
+    #
+    # **A via condition names the line of route, not the timetable.** "VIA
+    # LANCASTER" is what you buy for a train that goes via Lancaster, and Rogart
+    # to Wigan runs `… FKG · PRE · WGN` past Lancaster without calling - so
+    # judging route 00307 on the calls alone refused a £138.90 fare a retailer
+    # sells. `Distances.stations_passed` walks it from RGD.
+    #
+    # **Only the positive senses read this.** `A` and `I` ask "does the journey
+    # go via X", which the line of route answers; `E` asks "does it touch X",
+    # which for retail purposes means calling there. Since this set contains
+    # `journey_path`, the positive senses can only ever *gain* permissions from
+    # it - which is what makes it cheap to be wrong about.
+    #
+    # Falling back to the calls when a caller supplies none means every existing
+    # answer is unchanged until something asks for this.
+    via_pairs = [(dest, via)
+                 for dest, route in ((passes or paths) or {}).items()
+                 for via in route]
+    connection.register("journey_via", pa.table({
+        "crs": pa.array([d for d, _ in via_pairs], type=pa.string()),
+        "via_crs": pa.array([v for _, v in via_pairs], type=pa.string()),
     }))
     # One row per (destination, station, operator boarded *there*).
     #
@@ -2213,7 +2248,8 @@ def _register_journey_tables(
 def _unregister_journey_tables(connection) -> None:
     for name in ("applicable_band", "applicable_band_toc", "journey_arrival",
                  "journey_boarding", "journey_alighting", "destination_zone",
-                 "journey_path", "journey_call", "journey_operator",
+                 "journey_path", "journey_via", "journey_call",
+                 "journey_operator",
                  "journey_mode", "journey_changes"):
         connection.unregister(name)
 
@@ -2286,6 +2322,11 @@ def fare_options(
     #: journey that begins or ends on the Underground, where the
     #: station's own fare does not cover the hop. See `_PRICING_CTES`.
     origin_zone: str | None = None,
+    #: Per destination, the stations on the **line of route** - every call plus
+    #: those run through without stopping, from `Distances.stations_passed`.
+    #: Read by the positive route conditions only, and falling back to `paths`
+    #: when absent, so a caller that does not supply it gets today's answers.
+    passes: dict[str, list[str]] | None = None,
     #: One row per distinct price *per route* rather than per price. The
     #: default collapses a price offered on two routes into one row and names
     #: whichever route sorts first - right for "what is the cheapest fare",
@@ -2367,7 +2408,8 @@ def fare_options(
                              paths=paths, operators=operators, modes=modes,
                              changes=changes, calls=calls,
                              boardings=boardings,
-                             destination_zones=destination_zones)
+                             destination_zones=destination_zones,
+                             passes=passes)
     try:
         rows = connection.execute(
             _CHEAPEST_SQL,
@@ -2513,6 +2555,11 @@ def fares_between(
     #: journey that begins or ends on the Underground, where the
     #: station's own fare does not cover the hop. See `_PRICING_CTES`.
     origin_zone: str | None = None,
+    #: Per destination, the stations on the **line of route** - every call plus
+    #: those run through without stopping, from `Distances.stations_passed`.
+    #: Read by the positive route conditions only, and falling back to `paths`
+    #: when absent, so a caller that does not supply it gets today's answers.
+    passes: dict[str, list[str]] | None = None,
     return_on: dt.date | None = None,
 ) -> list[dict]:
     """Every fare from `origin` to `destination`, with what governs its use.

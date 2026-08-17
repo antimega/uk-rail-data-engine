@@ -1779,6 +1779,67 @@ def test_all_of_the_named_stations_must_be_on_the_journey(fares):
     assert cheapest(paths={"BBB": ["AAA", "CCC", "BBB"]}) == 1500
 
 
+def test_a_via_condition_follows_the_line_of_route(fares):
+    """**"VIA LANCASTER" is what you buy for a train that goes via Lancaster**,
+    whether or not it stops there.
+
+    Route 00307 `VIA LANCASTER` is a plain `A LAN`, and Rogart to Wigan runs
+    `… FKG · PRE · WGN` past Lancaster without calling - so judging the condition
+    on the calling points refused the £138.90 a retailer sells and quoted £215.50
+    instead.
+
+    Only the positive senses read the line of route. `E` keeps the calls, because
+    an exclude asks "does it touch X" and reading the wider set there would
+    withdraw a "NOT VIA BIRMINGHAM" fare from a train that runs through without
+    stopping. The asymmetry is asserted here, since it is the half that could
+    lose a fare rather than gain one.
+    """
+    connection, directory = fares(
+        flows=[routed(1, "1111", "2222", "00007"), routed(2, "1111", "2222", "00000")],
+        fare_records=[fare(1, "SDS", 900), fare(2, "SDS", 1500)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+        rgk_rules=[("00007", "A", "CCC", "CCC")],
+    )
+    cheapest = lambda **kw: {
+        r[0]: r[3] for r in cheapest_from(connection, directory, "AAA", TRAVEL, **kw)
+    }["BBB"]
+
+    calls = ["AAA", "BBB"]                 # CCC is run through, not called at
+    line = ["AAA", "CCC", "BBB"]
+
+    # Judged on the calls, the via condition refuses and the dear fare wins.
+    assert cheapest(paths={"BBB": calls}) == 1500
+    # Judged on the line of route it is satisfied.
+    assert cheapest(paths={"BBB": calls}, passes={"BBB": line}) == 900
+    # A caller that supplies no line of route gets the old answer, not the new.
+    assert cheapest(paths={"BBB": calls}, passes=None) == 1500
+
+
+def test_an_exclude_condition_keeps_the_calling_points(fares):
+    """The other half of the asymmetry, and the one that could lose a fare.
+
+    Passing through a barred station without stopping is not "via" it for retail
+    purposes, so `E` must not read the line of route - otherwise a fare that is
+    sold would be withdrawn.
+    """
+    connection, directory = fares(
+        flows=[routed(1, "1111", "2222", "00007"), routed(2, "1111", "2222", "00000")],
+        fare_records=[fare(1, "SDS", 900), fare(2, "SDS", 1500)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+        rgk_rules=[("00007", "E", "CCC", "CCC")],
+    )
+    cheapest = lambda **kw: {
+        r[0]: r[3] for r in cheapest_from(connection, directory, "AAA", TRAVEL, **kw)
+    }["BBB"]
+
+    # CCC is on the line of route and not called at: the cheap fare survives.
+    assert cheapest(paths={"BBB": ["AAA", "BBB"]},
+                    passes={"BBB": ["AAA", "CCC", "BBB"]}) == 900
+    # Called at, and it is correctly withdrawn.
+    assert cheapest(paths={"BBB": ["AAA", "CCC", "BBB"]},
+                    passes={"BBB": ["AAA", "CCC", "BBB"]}) == 1500
+
+
 def test_an_arrival_band_needs_a_train_alighted_from(fares):
     """**Arriving on foot is not arriving**, the departure rule read backwards.
 

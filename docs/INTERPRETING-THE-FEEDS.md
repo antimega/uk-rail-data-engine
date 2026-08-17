@@ -353,6 +353,46 @@ verdict. It was found by listing every member of every download and diffing that
 against what the code actually opens - a check worth repeating whenever a feed
 version changes, because nothing else will tell you.
 
+## A via condition follows the line of route, not the timetable
+
+RSPS5047 4.12's `A` and `I` name stations a journey must go via. **A "VIA
+LANCASTER" ticket is what you buy for a train that goes via Lancaster**, whether
+or not it calls there - and the conditions were judged against the calling
+points, which is a different question.
+
+```
+route 00307  VIA LANCASTER    a plain A LAN, no group
+Rogart -> Wigan North Western runs  … FKG · PRE · WGN
+  the WCML between Falkirk and Preston runs through Lancaster
+  called at Lancaster: no      on the line of route: yes
+```
+
+So the fare was refused and £215.50 quoted where a retailer sells **£138.90**.
+
+`Distances.stations_passed` walks it from RGD: for each consecutive pair of
+calling points, the stations on the shortest rail route between them.
+`journey_via` carries the result, and it is a **superset** of `journey_path` -
+every call, plus what is run through.
+
+**Only the positive senses read it.** `A` and `I` ask "does the journey go via
+X", which the line of route answers. `E` asks "does it touch X", which for retail
+purposes means calling there - reading the wider set there would withdraw a "NOT
+VIA BIRMINGHAM" fare from a train that runs through without stopping, and that is
+a fare which is sold. Since the set contains the calls, the positive senses can
+only ever *gain* permissions from it, which is what makes the change cheap to be
+wrong about; the exclude could only lose them, so it is left alone.
+
+Two caveats inherited from `journey_miles`, which walks the same graph. The
+shortest route between two calls is not necessarily the one taken, so a train
+going the long way contributes the wrong stations - that names **fewer** stations
+than the journey really passes, so a via condition can still wrongly refuse and
+never wrongly allow. And **cross-London is nonsense in RGD**: Euston to
+Marylebone is 1.26 miles apart and 31.47 by rail, so a leg between two London
+terminals drags in the whole North London Line.
+
+Absent, every existing answer is unchanged: the registration falls back to the
+calling points when a caller supplies no line of route.
+
 ## Arriving on foot is not arriving
 
 RSPS5045 4.19.8 field 9 makes a band apply to "arrivals at, departures from or

@@ -139,6 +139,70 @@ class Distances:
                     heapq.heappush(queue, (through, neighbour))
         return best
 
+    def shortest_path(self, origin: str, destination: str) -> list[str] | None:
+        """The stations along the shortest rail route, ends included.
+
+        Same Dijkstra as `shortest_from`, keeping the predecessor so the route
+        can be walked back. `None` where the pair is unreachable in RGD, which
+        6.1.6.2 says is every bus, ferry and Elizabeth Line station.
+        """
+        if origin == destination:
+            return [origin]
+        if origin not in self.adjacent:
+            return None
+        best: dict[str, float] = {origin: 0.0}
+        came_from: dict[str, str] = {}
+        queue: list[tuple[float, str]] = [(0.0, origin)]
+        settled: set[str] = set()
+        while queue:
+            distance, station = heapq.heappop(queue)
+            if station in settled:
+                continue
+            settled.add(station)
+            if station == destination:
+                route = [station]
+                while route[-1] != origin:
+                    route.append(came_from[route[-1]])
+                return route[::-1]
+            for neighbour, miles in self.adjacent.get(station, ()):
+                through = distance + miles
+                if through < best.get(neighbour, math.inf):
+                    best[neighbour] = through
+                    came_from[neighbour] = station
+                    heapq.heappush(queue, (through, neighbour))
+        return None
+
+    def stations_passed(self, path: list[str]) -> set[str]:
+        """Every station the journey along `path` runs **through**, called at or
+        not.
+
+        A route condition names the line of route, not the timetable: a "VIA
+        LANCASTER" ticket is what you buy for a train that goes via Lancaster,
+        whether or not it stops there. Rogart to Wigan runs
+        `… FKG · PRE · WGN` and passes Lancaster without calling, so testing the
+        calling points alone refuses the fare a retailer sells.
+
+        Built the way `journey_miles` is built, and inherits its caveat: the
+        shortest route between two calls is not necessarily the one taken, so a
+        train going the long way between them contributes the wrong stations.
+        That errs towards **naming fewer** stations than the journey really
+        passes, which for a via condition is the permissive-in-neither-direction
+        answer - it can wrongly refuse, never wrongly allow.
+
+        **Cross-London is nonsense here**, as the distance notes record: Euston
+        to Marylebone is 1.26 miles apart and 31.47 by rail, so a leg between two
+        London terminals would drag in the whole of the North London Line. Legs
+        whose ends are both in `terminals` are skipped rather than walked.
+        """
+        passed: set[str] = set(path)
+        for start, end in zip(path, path[1:]):
+            if start == end:
+                continue
+            route = self.shortest_path(start, end)
+            if route:
+                passed.update(route)
+        return passed
+
     def journey_miles(self, path: list[str]) -> float | None:
         """How long the journey along `path` is, in rail miles.
 
