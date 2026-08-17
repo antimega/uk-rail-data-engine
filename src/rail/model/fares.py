@@ -217,10 +217,25 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     # the fare here is a nominal 5p.
     ("%ITX%", "inclusive tour rate, priced inside a package"),
     ("TOUROPS%", "inclusive tour rate, priced inside a package"),
+    # A conference package: travel plus admission, which is what `PACKAGE_MKR`
+    # exists to exclude - and these two carry `'N'`, so the structural test
+    # misses them. Restriction `TQ` names "TORQUAY CONFERENCE CENTRE" outright
+    # and the destination is `K787 PLYMOUTH CONF`, neither of them a station.
+    # **Rejected rather than reclassified**, because `reservation_required` of
+    # `'B'` would otherwise file them as Advance, and a package is not a fare at
+    # any price - the same reasoning the 45 `TPK` codes are rejected under.
+    ("%CONF PACKAGE%", "conference package, travel plus admission"),
     # Family products price several people. Most are caught by max_passengers,
     # but at least one claims to carry a single passenger at 5p.
     ("%FAM&FRIENDS%", "family product priced for several people"),
     ("%FAMILY%", "family product priced for several people"),
+    # `F & F` is the same product abbreviated, and nothing structural marks it:
+    # `NORTHERN F & F` is `tkt_type = 'S'`, one passenger, no reservation and no
+    # package marker - an ordinary adult single in every field but its name.
+    # Three types carry it and none moves a price: `GFF` was already rejected as
+    # a flat rate, `NCH` has no fares at all, and `NFR` prices only the
+    # `QNO -> QND` boundary-marker flow.
+    ("%F & F%", "family product priced for several people"),
     # And so do group products - GroupSave, party rates, school groups. All 58
     # of them declare `max_passengers = 1`, which is how they slipped past the
     # family check: the price is per person *within a group*, meaningless for
@@ -228,6 +243,17 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     # Central to 358 of its 2,748 destinations.
     ("%GROUP%", "group product, priced per person within a party"),
     ("%GRP%", "group product, priced per person within a party"),
+    # Northern's own scheme fares, which the operator retails through channels a
+    # station window is not. `S LEAG` is Super League - a match-day fare bought
+    # with a code rather than sold over a counter, so it is not a walk-up by
+    # definition. `PARTNR` is a partner scheme; note the spelling, which is what
+    # keeps it clear of the seven public `PARTNER` offers the notes measured and
+    # deliberately left alone. `MMD` is undecoded and excluded on its company:
+    # all four sit on one template flow between Northern's boundary markers at
+    # £10, £10, £10 and £8, which is not the shape of a distance-based fare.
+    ("%S LEAG%", "event fare bought with a code, not sold over a counter"),
+    ("%PARTNR%", "operator partner scheme, not sold to the public"),
+    ("%MMD%", "Northern scheme fare on a template flow, product undecoded"),
     # Concessionary fares need the passenger to be eligible, exactly as a
     # railcard does - but they are separate ticket types rather than a discount,
     # so nothing else here catches them. `CCS SCR CONCESS SGL` at £1.05 became

@@ -1,7 +1,7 @@
 {
  "note": "What each ticket code was classified as when somebody last looked. Written by `rail tickets --accept`; see rail/model/tickets.py for why this is not an override.",
  "source": "Ticket codes and descriptions from the RDG fares feed. Contains information from National Rail Enquiries, licensed under the NRE Developer Terms and Conditions v3.0 - https://opendata.nationalrail.co.uk/terms. The `class` field is this project's own classification, not part of the feed.",
- "snapshot": "RJFAF840",
+ "snapshot": "RJFAF854",
  "tickets": {
   "0AA": {
    "description": "SMART TKS",
@@ -4289,6 +4289,11 @@
    "class": "rejected",
    "reason": "family product priced for several people"
   },
+  "D5G": {
+   "description": "Transfer Fee",
+   "class": "rejected",
+   "reason": "a fee to change a ticket, not a fare"
+  },
   "DAA": {
    "description": "DTPR PLUS",
    "class": "walk-up"
@@ -6041,7 +6046,8 @@
   },
   "FTS": {
    "description": "FCCTFL_PRIV",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "privilege rate, not sold to the public"
   },
   "FTT": {
    "description": "GTW VALID FOR2S",
@@ -6621,7 +6627,7 @@
   "GFF": {
    "description": "GA F & F OP Rtn",
    "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "reason": "family product priced for several people"
   },
   "GFR": {
    "description": "ANYTIME 1R",
@@ -7289,7 +7295,7 @@
    "reason": "family or group product"
   },
   "HX8": {
-   "description": "DAY RTN PREM +",
+   "description": "DAY RTN PREM+",
    "class": "rejected",
    "reason": "family or group product"
   },
@@ -7304,7 +7310,7 @@
    "reason": "test data in the feed"
   },
   "HZ0": {
-   "description": "SGL PREMIER +",
+   "description": "SGL PREMIER+",
    "class": "rejected",
    "reason": "family or group product"
   },
@@ -7329,7 +7335,7 @@
    "reason": "bundle of journeys, not a single fare"
   },
   "HZ6": {
-   "description": "RTN PREMIER +",
+   "description": "RETURN PREMIER+",
    "class": "rejected",
    "reason": "family or group product"
   },
@@ -8618,7 +8624,7 @@
   "MAD": {
    "description": "NORTHERN MMD",
    "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "reason": "Northern scheme fare on a template flow, product undecoded"
   },
   "MAF": {
    "description": "ADVANCE 1ST",
@@ -9048,7 +9054,8 @@
   },
   "NCH": {
    "description": "CHILTERN F & F",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "family product priced for several people"
   },
   "NCU": {
    "description": "ADVANCE 1ST",
@@ -9187,7 +9194,7 @@
   "NFR": {
    "description": "NORTHERN F & F",
    "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "reason": "family product priced for several people"
   },
   "NFS": {
    "description": "FLEXIDAY SEASON",
@@ -9313,7 +9320,7 @@
   "NPO": {
    "description": "NORTHERN PARTNR",
    "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "reason": "operator partner scheme, not sold to the public"
   },
   "NPU": {
    "description": "1st ADV Promo",
@@ -9376,7 +9383,7 @@
   "NSL": {
    "description": "NORTHERN S LEAG",
    "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "reason": "event fare bought with a code, not sold over a counter"
   },
   "NT3": {
    "description": "NTRAIN 3MONTH",
@@ -12445,11 +12452,13 @@
   },
   "TQ1": {
    "description": "CONF PACKAGE 1",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "conference package, travel plus admission"
   },
   "TQ2": {
    "description": "CONF PACKAGE",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "conference package, travel plus admission"
   },
   "TRF": {
    "description": "TRAVELCARD  1ST",
@@ -13975,6 +13984,11 @@
    "class": "rejected",
    "reason": "complimentary, not sold"
   },
+  "WCP": {
+   "description": "GWR COMP STD RT",
+   "class": "rejected",
+   "reason": "complimentary, not sold"
+  },
   "WCS": {
    "description": "ADVANCE",
    "class": "advance"
@@ -14013,6 +14027,11 @@
   },
   "WFO": {
    "description": "GWR COMP 1ST",
+   "class": "rejected",
+   "reason": "complimentary, not sold"
+  },
+  "WFP": {
+   "description": "GWR COMP 1ST RT",
    "class": "rejected",
    "reason": "complimentary, not sold"
   },
