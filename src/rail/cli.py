@@ -529,6 +529,15 @@ def reachable(
         # the 33,216 current bands name a station - and the journey is routed
         # either way.
         calls=None if ignore_restrictions else result.calls(),
+        # And where each train is boarded, for the same reason again. A
+        # departure band bars *trains*, so a station the journey leaves on foot
+        # is not one it can bite at - `is_change` alone is true there too.
+        # Supplied unconditionally, so this command and any other caller that
+        # routes agree about which bands apply.
+        boardings=None if ignore_restrictions else {
+            crs: [(leg.board, leg.operator or "")
+                  for leg in (result.legs_to(crs) or [])]
+            for crs in result.paths()},
     )
     options: dict[str, list] = {}
     for row in priced:
@@ -1596,6 +1605,10 @@ def stopover(
         # Both halves, and the deliberate break between them is itself a change.
         changes={destination.upper(): first.changes_to(stop)
                  + second.changes_to(destination.upper()) + 1},
+        boardings={destination.upper(): [
+            (leg.board, leg.operator or "")
+            for leg in ((first.legs_to(stop) or [])
+                        + (second.legs_to(destination.upper()) or []))]},
         break_of_journey=True,
     )
     fare = next((r for r in fares if r[0] == destination.upper()), None)
@@ -1828,7 +1841,9 @@ def roundtrip(
             return Leg(origin=frm, destination=to, date=on, depart=after,
                        arrive=first.arrival[index], path=first.path_to(to),
                        operators=first.operators_to(to), modes=first.modes_to(to),
-                       changes=first.changes_to(to), calls=first.calls_to(to))
+                       changes=first.changes_to(to), calls=first.calls_to(to),
+                       boardings=[(leg.board, leg.operator or "")
+                                  for leg in (first.legs_to(to) or [])])
 
         middle = network.index.get(stop, -1)
         if middle < 0 or first.arrival[middle] >= UNREACHABLE_SENTINEL:
@@ -1856,6 +1871,9 @@ def roundtrip(
             path=first.path_to(stop) + second.path_to(to)[1:],
             operators=first.operators_to(stop) | second.operators_to(to),
             modes=first.modes_to(stop) | second.modes_to(to),
+            boardings=[(leg.board, leg.operator or "")
+                       for leg in ((first.legs_to(stop) or [])
+                                   + (second.legs_to(to) or []))],
             # The deliberate break is itself a change, however direct the halves.
             changes=first.changes_to(stop) + second.changes_to(to) + 1,
             calls=calls,

@@ -43,6 +43,14 @@ with its restriction named, not removed from it.
 Spells the time bands out in English. Every band is a bar rather than a
 permission, which is the thing most often got backwards.
 
+A band naming a station bites wherever the passenger **boards or alights** -
+the journey's own ends, and every station it changes trains at. Judging one only
+at the ends holds an off-peak fare through a morning peak on any journey that
+joins the barred train part-way; judging it at every change fires at stations
+the passenger leaves on foot, where no train is caught at all. `rail reachable`,
+`rail roundtrip` and `rail stopover` all supply the journey's legs so the two
+readings cannot drift apart between commands. See INTERPRETING-THE-FEEDS.md.
+
 **Return versus two singles.**
 `rail roundtrip --from YRK --to KGX --date 2026-08-04 --return-on 2026-08-06`
 Neither product reliably wins, which is why this needs its own command. Across a

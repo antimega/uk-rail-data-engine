@@ -65,6 +65,12 @@ class Leg:
     #: are inert here and `rail roundtrip` quietly disagrees with the map and
     #: with `rail reachable`, both of which supply them.
     calls: list[tuple[str, int, int, bool]] = dc_field(default_factory=list)
+    #: `(station, operator)` for each leg boarded, from `ScanResult.legs_to`,
+    #: with a fixed link carrying an empty operator. A departure band bars
+    #: *trains*, so a station the journey leaves on foot is not one it can bite
+    #: at - and `calls` alone cannot say which is which, `is_change` being true
+    #: for a change onto a walk as much as onto a train.
+    boardings: list[tuple[str, str]] = dc_field(default_factory=list)
 
     @property
     def minutes(self) -> int:
@@ -169,6 +175,7 @@ def price_round_trip(
         # return leg's are scalars above, since a band on the way home needs
         # only when you left and when you got back.
         calls={out.destination: out.calls},
+        boardings={out.destination: out.boardings + back.boardings},
         **breaks,
         **common,
     )
@@ -192,6 +199,7 @@ def price_round_trip(
             modes={leg.destination: leg.modes} if check_routes else None,
             changes={leg.destination: leg.changes},
             calls={leg.destination: leg.calls},
+            boardings={leg.destination: leg.boardings},
             # Each single covers one leg, so it needs only that leg's
             # permission - and it needs it *outward*, since a single has no
             # return side whichever direction it is travelling.

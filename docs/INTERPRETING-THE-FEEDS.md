@@ -155,6 +155,43 @@ inside the second band. If these named *trains*, the two would contradict each
 other - one train, allowed at one station and barred at the next. As per-origin
 rules they are perfectly consistent.
 
+**But "not the middle" is not the same as "the ends only", and that took a
+second correction.** The specification's own wording is arrivals at, departures
+from *or changing at* - so a band bites wherever the passenger **boards or
+alights**, which includes every station the journey changes trains at.
+
+A retailer settles this one. On a journey that changes at a major terminus, a
+departure band there bars the cheaper fares on an early connection and releases
+them twenty minutes later, and the step falls at the terminus departure rather
+than at the journey's own. The same shape appears at an ordinary interchange
+well outside London, so the rule is about boarding rather than about terminals.
+Reading it as "the ends only" held an off-peak fare straight through a morning
+peak on any journey that joined the barred train part-way.
+
+**And a third: changing onto a walk is not departing on a train.** A journey
+that arrives at one station and continues on foot - or by underground - to
+another has *changed* there, so a naive change test fires; but a departure band
+bars trains, and nobody boards one. A journey reaching a London terminus at
+09:07 and walking to a second terminus for a 10:03 departure is governed by the
+band at the station it actually departs from, where the window has long closed.
+Applying the first station's band instead withdrew a Super Off-Peak Single a
+retailer sells and quoted more than double.
+
+So the test is **whether a train is boarded there**, which needs the journey's
+legs and not merely its calling points - a change flag cannot tell a train from
+a footpath. `fare_options` takes this as `boardings`, and omitting it leaves
+every answer as it was.
+
+**It is not "which operator was boarded", which is a tempting refinement and is
+wrong.** Some bands carry an operator qualifier (RSPS5045 4.19.10, field 7),
+and judging that qualifier against the train boarded at the band's own station
+lifts bands a retailer keeps: one journey boards a local operator at an
+interchange where the band names a different one, another boards an inter-city
+train at its origin where a station-less band names the operator it joins forty
+minutes later. Both readings release fares nobody sells. The qualifier stays a
+question about the journey's trains as a whole; the boarding test is a separate
+question about the place.
+
 **Doubleback locations are indexed, despite a note saying they need not be.**
 (RSPS5047 4.10.3.) The specification defines a location modifier naming where a
 doubleback is permitted, and adds a note promising that a matching "via" record
