@@ -3467,3 +3467,56 @@ def test_the_code_family_says_which_cards_are_accepted(fares):
     ).fetchall())
     assert [payg[t] for t in ("PAP", "PAC", "PAT", "OTU", "SDS")] == [
         True, True, False, False, False]
+
+
+def test_a_departure_band_needs_a_train_boarded_there_not_merely_a_change(fares):
+    """**Changing onto a walk is not departing on a train.**
+
+    `is_change` is true wherever the journey changes, and that includes
+    changing onto a fixed link - a tube hop or a walk between stations. A
+    departure band bars *trains*, so a station the passenger leaves on foot is
+    not somewhere it can bite.
+
+    Canary Wharf to York reaches Liverpool Street at 09:07 on the Elizabeth
+    line and walks to King's Cross for the 10:03. `4R` band 0077 bars
+    departures from Liverpool Street before 09:29; applied there it withdrew
+    the £78.50 Super Off-Peak a retailer sells and left £176.00. Custom House
+    to Aberdeen and Brighton to Banbury confirm the fix at £119.20 and £60.80.
+
+    **Judged on the operator boarded rather than on whether one was, and it is
+    refuted twice**: Brighton to Witley boards South Western at Havant where
+    the band names Southern, and York to Cambridge boards LNER at York where
+    the band names CrossCountry - a retailer keeps both bands. So the test is
+    "was a train boarded here", and the TOC qualifier stays journey-wide.
+    """
+    world = dict(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 17600), fare(1, "SSS", 7850, restriction="PB")],
+        tickets=[ticket("SDS", "ANYTIME S"), ticket("SSS", "SUPER OFFPEAK S")],
+        stations=[("AAA", "1111", "1111"), ("BBB", "2222", "2222"),
+                  ("MID", "3333", "3333")],
+    )
+    # Changes at MID, leaving there at 11:40 - inside the band below.
+    changing = {"BBB": [("AAA", 484, 484, False), ("MID", 603, 700, True),
+                        ("BBB", 972, 972, False)]}
+    ask = lambda **kw: {
+        r[0]: (r[1], r[3]) for r in cheapest_from(connection, directory, "AAA",
+                                                  TUESDAY, **kw)}["BBB"]
+    run = lambda **kw: ask(depart_minutes=480, arrivals={"BBB": 972},
+                           calls=changing, **kw)
+
+    connection, directory = fares(**world, bands=[("PB", 690, 720, "D", "MID")])
+
+    # No boardings supplied - unchanged, so no existing caller moves.
+    assert run() == ("SDS", 17600)
+
+    # A train is boarded at MID: the band still bites.
+    assert run(boardings={"BBB": [("AAA", "GR"), ("MID", "GW")]}) == ("SDS", 17600)
+
+    # The passenger leaves MID on foot - the fixed link carries no operator, so
+    # there is no boarding there and the band has nothing to speak to.
+    assert run(boardings={"BBB": [("AAA", "GR"), ("MID", "")]}) == ("SSS", 7850)
+
+    # And the operator boarded is *not* the test: a band naming nobody in
+    # particular still bites where a train is caught.
+    assert run(boardings={"BBB": [("AAA", "GR"), ("MID", "XC")]}) == ("SDS", 17600)

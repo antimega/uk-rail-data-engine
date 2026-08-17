@@ -1091,6 +1091,7 @@ def _band_toc_applies(band: str, dest: str) -> str:
         )
     )"""
 
+
 #: Flow fares for one origin, expanded out to destination stations, with
 #: non-derivable fares (NFO) overriding them on the same
 #: origin/destination/route/ticket. Adult, no railcard.
@@ -1556,6 +1557,34 @@ sellable as (
                           and k.via_crs = b.location
                           and k.is_change
                           and k.depart % 1440 between b.time_from and b.time_to
+                    )
+                    -- **And a train has to be boarded there.** `is_change` is
+                    -- true wherever the journey changes, including where it
+                    -- changes onto a walk or a tube hop - and a departure band
+                    -- bars *trains*, so a station the passenger leaves on foot
+                    -- is not somewhere it can bite.
+                    --
+                    -- Canary Wharf to York reaches Liverpool Street at 09:07
+                    -- on the Elizabeth line and walks to King's Cross for the
+                    -- 10:03. `4R` band 0077 bars departures from Liverpool
+                    -- Street before 09:29, and applying it there withdrew the
+                    -- £78.50 Super Off-Peak a retailer sells, leaving £176.00.
+                    --
+                    -- **Judged on the train boarded and not on its operator**,
+                    -- which was the first attempt and is refuted twice over:
+                    -- Brighton to Witley boards South Western at Havant where
+                    -- `UT` band 0077 names Southern, and the retailer keeps
+                    -- the band; York to Cambridge boards LNER at York where
+                    -- `1L` band 0001 names CrossCountry, joined later at
+                    -- Peterborough, and the retailer keeps that too. Twenty-one
+                    -- fares moved on the operator reading and every one was a
+                    -- price nobody sells.
+                    and (
+                        not exists (select 1 from journey_boarding jb
+                                     where jb.crs = c.dest_crs)
+                        or exists (select 1 from journey_boarding jb
+                                    where jb.crs = c.dest_crs
+                                      and jb.at_crs = b.location)
                     ))
                     or
                     (b.arr_dep_via = 'A' and b.location is not null and exists (
@@ -1981,7 +2010,7 @@ _BAND_COLUMNS = (
 
 def _register_journey_tables(
     connection, *, bands, arrivals, paths, operators=None, modes=None,
-    changes=None, calls=None,
+    changes=None, calls=None, boardings=None,
 ) -> None:
     """The three per-query tables the shared pricing CTEs join to.
 
@@ -2037,6 +2066,23 @@ def _register_journey_tables(
         "crs": pa.array([d for d, _ in pairs], type=pa.string()),
         "via_crs": pa.array([v for _, v in pairs], type=pa.string()),
     }))
+    # One row per (destination, station, operator boarded *there*).
+    #
+    # **A fixed link contributes nothing**, deliberately: a station where the
+    # passenger starts a walk or a tube transfer has no row, so a TOC-qualified
+    # band naming that station finds no operator and lifts. That is the whole
+    # of the Canary Wharf fix - see `_band_toc_applies`.
+    #
+    # Absent entirely, the qualifier falls back to the journey-wide test, so a
+    # caller that does not supply this gets exactly today's answers.
+    boarded = [(dest, at, toc)
+               for dest, legs in (boardings or {}).items()
+               for at, toc in legs if toc]
+    connection.register("journey_boarding", pa.table({
+        "crs": pa.array([d for d, _a, _t in boarded], type=pa.string()),
+        "at_crs": pa.array([a for _d, a, _t in boarded], type=pa.string()),
+        "toc": pa.array([t for _d, _a, t in boarded], type=pa.string()),
+    }))
     # One row per (destination, operator whose train the journey there uses).
     used = [(dest, toc) for dest, tocs in (operators or {}).items() for toc in tocs]
     connection.register("journey_operator", pa.table({
@@ -2061,6 +2107,7 @@ def _register_journey_tables(
 
 def _unregister_journey_tables(connection) -> None:
     for name in ("applicable_band", "applicable_band_toc", "journey_arrival",
+                 "journey_boarding",
                  "journey_path", "journey_call", "journey_operator",
                  "journey_mode", "journey_changes"):
         connection.unregister(name)
@@ -2119,6 +2166,12 @@ def fare_options(
     include_advance: bool = False,
     advance_only: bool = False,
     payg_only: bool = False,
+    #: Per destination, `[(station, operator)]` for each leg boarded on the way
+    #: there - a fixed link contributing nothing. Only the TOC qualifier on
+    #: restriction bands reads it, and only to ask which train was boarded at
+    #: the band's own station. **Absent, the qualifier falls back to the
+    #: journey-wide test and every answer is unchanged.**
+    boardings: dict[str, list[tuple[str, str]]] | None = None,
     #: Price from a London Underground zone code instead of the
     #: station's own - RSPS5045 4.1.2's third endpoint form. For a
     #: journey that begins or ends on the Underground, where the
@@ -2203,7 +2256,8 @@ def fare_options(
 
     _register_journey_tables(connection, bands=bands, arrivals=arrivals,
                              paths=paths, operators=operators, modes=modes,
-                             changes=changes, calls=calls)
+                             changes=changes, calls=calls,
+                             boardings=boardings)
     try:
         rows = connection.execute(
             _CHEAPEST_SQL,
