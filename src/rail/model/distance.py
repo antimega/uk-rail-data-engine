@@ -67,6 +67,9 @@ SHORTEST_ROUTE_MARGIN_MILES = 3.0
 #: used for crow-flies figures, never for a routeing decision.
 _METRES_PER_MILE = 1609.344
 
+#: Sentinel, so a cached `None` - an unreachable pair - is not recomputed.
+_MISSING = object()
+
 
 @dataclass
 class Distances:
@@ -76,6 +79,16 @@ class Distances:
     adjacent: dict[str, list[tuple[str, float]]] = field(default_factory=dict)
     #: CRS -> (easting, northing) in OS metres, where known.
     grid: dict[str, tuple[int, int]] = field(default_factory=dict)
+    #: `(from, to)` -> the shortest route between them, memoised.
+    #:
+    #: **The graph is immutable once loaded, so this is a pure function being
+    #: cached**, and it is what makes a line-of-route walk affordable at all.
+    #: Consecutive calling-point pairs repeat enormously between journeys -
+    #: 3,249 distinct pairs across York's 2,721 paths - so without it every
+    #: journey re-runs the same Dijkstra, which is the trap `journey_miles`
+    #: already records against its own distance walk.
+    _routes: dict[tuple[str, str], list[str] | None] = field(
+        default_factory=dict, repr=False, compare=False)
 
     @classmethod
     def load(cls, connection: duckdb.DuckDBPyConnection) -> "Distances":
@@ -148,7 +161,11 @@ class Distances:
         """
         if origin == destination:
             return [origin]
+        cached = self._routes.get((origin, destination), _MISSING)
+        if cached is not _MISSING:
+            return cached
         if origin not in self.adjacent:
+            self._routes[(origin, destination)] = None
             return None
         best: dict[str, float] = {origin: 0.0}
         came_from: dict[str, str] = {}
@@ -163,13 +180,16 @@ class Distances:
                 route = [station]
                 while route[-1] != origin:
                     route.append(came_from[route[-1]])
-                return route[::-1]
+                route = route[::-1]
+                self._routes[(origin, destination)] = route
+                return route
             for neighbour, miles in self.adjacent.get(station, ()):
                 through = distance + miles
                 if through < best.get(neighbour, math.inf):
                     best[neighbour] = through
                     came_from[neighbour] = station
                     heapq.heappush(queue, (through, neighbour))
+        self._routes[(origin, destination)] = None
         return None
 
     def stations_passed(self, path: list[str]) -> set[str]:
