@@ -141,7 +141,13 @@ def build_timetable(
         {ztr_schedules}
     """)
 
-    # **`crs` is resolved here, not by every consumer.** The two files name
+    # **Location references are resolved here, not by every consumer.** The
+    # passenger `crs` retains the existing `station_tiploc` semantics, while
+    # `operational_crs` exposes the explicitly named crosswalk for display and
+    # diagnostics. This first, additive migration makes no reachability change;
+    # any later narrowing needs its own evidence and review.
+    #
+    # The two files name
     # locations differently - CIF by TIPLOC (`RYDEHOV`), ZTR by CRS (`XRD`) -
     # and that difference must be spent once, at the join, rather than left for
     # the network and `classify_locations` to trip over separately. A naive
@@ -155,6 +161,7 @@ def build_timetable(
         union all
         select z.line_no + {ZTR_SCHEDULE_OFFSET} as schedule_id, st.line_no,
                st.record_type, st.location, st.location as crs,
+               st.location as operational_crs,
                st.public_arrival, st.public_departure,
                st.scheduled_arrival, st.scheduled_departure,
                st.platform, st.activity
@@ -168,6 +175,7 @@ def build_timetable(
         with joined as (
             select sch.schedule_id, st.line_no,
                    st.record_type, st.location, t.crs,
+                   o.crs as operational_crs,
                    st.public_arrival, st.public_departure,
                    st.scheduled_arrival, st.scheduled_departure,
                    st.platform, st.activity
@@ -175,6 +183,7 @@ def build_timetable(
             asof join (select * from train_schedule where source = 'cif') sch
               on st.line_no >= sch.schedule_id
             left join station_tiploc t on t.tiploc = st.location
+            left join tiploc_crs o on o.tiploc = st.location
             {ztr_stops}
         )
         , classified as (
@@ -185,7 +194,7 @@ def build_timetable(
                row_number() over (
                    partition by schedule_id order by line_no
                ) as seq,
-               record_type, location, crs,
+               record_type, location, crs, operational_crs,
                public_arrival, public_departure,
                scheduled_arrival, scheduled_departure,
                platform, activity,

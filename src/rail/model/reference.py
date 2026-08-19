@@ -159,8 +159,11 @@ def build_reference(
 
     _add_rail_station_flag(connection, supplementary_dir)
 
-    # Every TIPLOC that belongs to a station, from MSN and from the timetable's
-    # own TIPLOC records, so a stop at either York TIPLOC resolves to York.
+    # Resolve the best three-letter reference for each TIPLOC from MSN and the
+    # timetable's own TI records, so a stop at either York TIPLOC resolves to
+    # York.  ``station_tiploc`` deliberately keeps the existing broad mapping:
+    # TI-only passenger calls include Tyne & Wear Metro, London Underground and
+    # CalMac services, so MSN membership is not a safe boarding filter.
     #
     # A TIPLOC must map to exactly one CRS or it duplicates rows downstream and
     # corrupts the lead()/lag() that builds connections. Around 38 TIPLOCs carry
@@ -187,9 +190,16 @@ def build_reference(
         ) as rn
         from candidates
     """)
+    # Add an explicitly named operational crosswalk without changing the legacy
+    # passenger crosswalk. Consumers may start distinguishing the meanings, but
+    # this migration itself must not remove any currently reachable location.
+    connection.execute("""
+        create or replace table tiploc_crs as
+        select crs, tiploc from tiploc_ranked where rn = 1 order by crs, tiploc
+    """)
     connection.execute("""
         create or replace table station_tiploc as
-        select crs, tiploc from tiploc_ranked where rn = 1 order by crs, tiploc
+        select crs, tiploc from tiploc_crs order by crs, tiploc
     """)
     connection.execute("""
         insert into reference_reject
