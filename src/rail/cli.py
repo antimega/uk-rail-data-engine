@@ -1019,7 +1019,7 @@ def refresh(
     horizon: int = typer.Option(90, "--horizon"),
 ) -> None:
     """Fetch, ingest what changed, rebuild, and report - for scheduled runs."""
-    from .refresh import refresh as run_refresh
+    from .refresh import current_trigger, refresh as run_refresh
 
     config = load_config()
     try:
@@ -1029,10 +1029,12 @@ def refresh(
         raise typer.Exit(1)
 
     stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    console.print(f"[bold]refresh[/bold] {stamp}")
+    trigger = current_trigger()
+    console.print(f"[bold]refresh[/bold] {stamp} ({trigger})")
     result = run_refresh(
         config, force=force, rebuild_anyway=rebuild, horizon_days=horizon,
         log=lambda message: console.print(f"  {message}"),
+        trigger=trigger,
     )
 
     for error in result.errors:
@@ -1094,6 +1096,23 @@ def status() -> None:
         console.print(
             f"[green]{elapsed:.1f} days[/green] since the last successful fetch; "
             f"about {remaining:.0f} days of account margin."
+        )
+
+    # The account can be perfectly safe while the schedule is dead, because a
+    # fetch by hand renews one and not the other. Reported separately for that
+    # reason, and only when it says something the line above does not.
+    scheduled = days_since_last_success(config, scheduled_only=True)
+    if scheduled is None:
+        console.print(
+            "[yellow]No scheduled refresh has ever succeeded.[/yellow] Either the "
+            "agent has never run or it predates this being recorded - check with "
+            "`launchctl print gui/$(id -u)/<label>`."
+        )
+    elif scheduled >= ACCOUNT_WARNING_DAYS:
+        console.print(
+            f"[red]{scheduled:.0f} days since the last scheduled refresh.[/red] "
+            "The feeds may be current because somebody fetched by hand; the "
+            "schedule is not running. Check the agent is loaded."
         )
 
 

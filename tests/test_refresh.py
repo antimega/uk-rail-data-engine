@@ -9,12 +9,22 @@ portal, and treating it as success would let the account quietly lapse.
 from __future__ import annotations
 
 import datetime as dt
+import json
 
 import pytest
 
 from rail.acquire import Feed, FetchResult, PollTooSoon
 from rail.config import Config
-from rail.refresh import days_since_last_success, read_status, refresh
+from rail.refresh import (
+    MANUAL,
+    SCHEDULED,
+    TRIGGER_ENV,
+    current_trigger,
+    days_since_last_success,
+    history_path,
+    read_status,
+    refresh,
+)
 
 
 class FakeSource:
@@ -45,8 +55,10 @@ def config(tmp_path):
     return Config(data_dir=tmp_path, nrdp_username="u", nrdp_password="p")
 
 
-def run(config, behaviour):
-    return refresh(config, source=FakeSource(behaviour), log=lambda _: None)
+def run(config, behaviour, trigger=MANUAL):
+    return refresh(
+        config, source=FakeSource(behaviour), log=lambda _: None, trigger=trigger
+    )
 
 
 def test_reaching_the_portal_is_success_even_with_nothing_to_download(config):
@@ -126,6 +138,100 @@ def test_dates_in_the_status_file_are_utc_isoformat(config):
 
     parsed = dt.datetime.fromisoformat(stamp)
     assert parsed.tzinfo is not None
+
+
+# --- what started the run, which is a different question from whether it worked
+
+
+def test_an_unset_environment_means_manual(monkeypatch):
+    """The safe default: a scheduled run wrongly called manual makes somebody
+    look, where the reverse hides a dead agent behind their own typing."""
+    monkeypatch.delenv(TRIGGER_ENV, raising=False)
+    assert current_trigger() == MANUAL
+
+
+def test_only_the_exact_value_counts_as_scheduled(monkeypatch):
+    monkeypatch.setenv(TRIGGER_ENV, SCHEDULED)
+    assert current_trigger() == SCHEDULED
+
+    for near_miss in ["Scheduled", "1", "true", "", "launchd"]:
+        monkeypatch.setenv(TRIGGER_ENV, near_miss)
+        assert current_trigger() == MANUAL, near_miss
+
+
+def test_a_manual_fetch_does_not_renew_the_scheduled_clock(config):
+    """The whole point. The agent was unloaded for 26 days while the account
+    stayed healthy, because somebody had fetched by hand in the middle."""
+    first = run(config, {}, trigger=SCHEDULED)
+    scheduled = read_status(config)["last_scheduled_success"]
+    assert scheduled == first.finished_at
+
+    second = run(config, {}, trigger=MANUAL)
+    status = read_status(config)
+
+    assert status["last_success"] == second.finished_at   # the account is fine
+    assert status["last_scheduled_success"] == scheduled  # the schedule is not
+
+
+def test_a_failed_scheduled_run_does_not_renew_it_either(config):
+    run(config, {}, trigger=SCHEDULED)
+    first = read_status(config)["last_scheduled_success"]
+
+    run(config, {feed: "error" for feed in Feed}, trigger=SCHEDULED)
+
+    assert read_status(config)["last_scheduled_success"] == first
+
+
+def test_the_two_clocks_are_asked_separately(config):
+    run(config, {}, trigger=MANUAL)
+
+    assert days_since_last_success(config) is not None
+    assert days_since_last_success(config, scheduled_only=True) is None
+
+
+def test_a_status_file_predating_this_reads_as_never_scheduled(config):
+    """An older engine wrote no such key. Absent must not read as fresh."""
+    run(config, {})
+    status = read_status(config)
+    del status["last_scheduled_success"]
+    (config.data_dir / "refresh-status.json").write_text(json.dumps(status))
+
+    assert days_since_last_success(config, scheduled_only=True) is None
+
+
+# --- the ledger, which is every run rather than the launchd ones -------------
+
+
+def test_every_run_is_appended_whoever_started_it(config):
+    run(config, {}, trigger=SCHEDULED)
+    run(config, {}, trigger=MANUAL)
+    run(config, {feed: "error" for feed in Feed}, trigger=MANUAL)
+
+    lines = history_path(config).read_text().strip().splitlines()
+    entries = [json.loads(line) for line in lines]
+
+    assert [entry["trigger"] for entry in entries] == [SCHEDULED, MANUAL, MANUAL]
+    assert [entry["ok"] for entry in entries] == [True, True, False]
+
+
+def test_the_ledger_is_not_the_launchd_log(config):
+    """`refresh.log` is the agent's StandardOutPath. A second writer to it
+    would double every scheduled line - a bug this project has shipped once."""
+    run(config, {})
+
+    assert history_path(config).name != "refresh.log"
+    assert not (config.log_dir / "refresh.log").exists()
+
+
+def test_a_ledger_that_cannot_be_written_does_not_break_the_refresh(config):
+    """Recording the run matters less than the run."""
+    config.log_dir.parent.mkdir(parents=True, exist_ok=True)
+    config.log_dir.write_text("not a directory")
+
+    result = run(config, {})
+
+    assert result.ok
+    assert read_status(config)["last_success"]
 
 
 # --- one build sequence, not two ---------------------------------------------

@@ -54,6 +54,10 @@ class Config:
     def db_path(self) -> Path:
         return self.data_dir / "rail.duckdb"
 
+    @property
+    def log_dir(self) -> Path:
+        return self.data_dir / "logs"
+
     def require_credentials(self) -> tuple[str, str]:
         if not self.nrdp_username or not self.nrdp_password:
             raise RuntimeError(

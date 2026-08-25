@@ -61,6 +61,18 @@
     <key>RunAtLoad</key>
     <false/>
 
+    <!-- What makes `last_scheduled_success` mean anything. Without it a run
+         started here is indistinguishable from somebody typing `rail refresh`,
+         which is how this agent stayed unloaded from 29 July to 24 August 2026
+         with the status file reporting a healthy seven days throughout. Absent,
+         runs record as "manual" and the schedule reads as stale - the safe way
+         round, but update the plist rather than living with it. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RAIL_REFRESH_TRIGGER</key>
+        <string>scheduled</string>
+    </dict>
+
     <key>StandardOutPath</key>
     <string>__PROJECT_ROOT__/data/logs/refresh.log</string>
     <key>StandardErrorPath</key>
