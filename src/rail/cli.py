@@ -176,7 +176,15 @@ def ingest(
         }
         if unknown:
             console.print(f"[yellow]Unrecognised record types: {unknown}[/yellow]")
-        console.print(f"[green]{report.total_rows:,} rows → {report.output_dir}[/green]")
+        if report.writes_nothing:
+            console.print(
+                "[green]no file here has a layout - this feed is read from its "
+                "ZIP by `rail build`[/green]"
+            )
+        else:
+            console.print(
+                f"[green]{report.total_rows:,} rows → {report.output_dir}[/green]"
+            )
 
 
 @app.command()
