@@ -116,10 +116,10 @@ EASEMENT_DETAIL = pa.schema([
 #: RGH, "easement TOC" - one row per easement per operator it is tied to.
 #:
 #: This is where the operator conditions actually live. RGF's own `D` records
-#: carry a `detail_ref = '2'` for the same thing and there are **eight** of
-#: them; RGH names 942 easements against 35 operators, and exactly one easement
-#: appears in both. Reading only RGF meant `unsettleable` was deciding on 8
-#: easements where the feed describes 624 of the ones we hold.
+#: carry a `detail_ref = '2'` for the same thing and there are **14** of
+#: them; RGH names 989 easements against 35 operators, and exactly one easement
+#: appears in both. Reading only RGF meant `unsettleable` was deciding on 14
+#: easements where the feed describes 633 of the ones we hold.
 EASEMENT_TOC = pa.schema([
     ("easement_ref", pa.string()), ("toc", pa.string()),
 ])
@@ -296,7 +296,7 @@ def read_routeing(zip_path: Path) -> dict[str, pa.Table]:
                 # calling points can be judged against anyway.
 
         # RGH ties easements to operators, and is the file RGF's own `D`
-        # records only hint at: eight of those against 993 rows here. Two
+        # records only hint at: 14 of those against 1,053 rows here. Two
         # fields, `easement_ref,TOC`, and no header beyond the `/!!` block.
         with archive.open(members["RGH"]) as fh:
             for record in read_records(fh):
