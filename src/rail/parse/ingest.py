@@ -60,6 +60,16 @@ class IngestReport:
     def parsed(self) -> list[FileReport]:
         return [f for f in self.files if f.status == "parsed"]
 
+    @property
+    def writes_nothing(self) -> bool:
+        """No file in this feed has a layout, so no Parquet is written at all.
+
+        True of the routeing guide, whose files are comma-separated and are
+        read straight from the ZIP by `rail build`. Reporting that as
+        "ingested 0 rows" reads as a failure and is the normal outcome.
+        """
+        return not self.parsed
+
 
 def _write_tables(
     tables: dict[str, pa.Table],

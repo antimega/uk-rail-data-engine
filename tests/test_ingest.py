@@ -104,6 +104,39 @@ def test_ingest_report_is_written_next_to_the_data(tmp_path):
     assert written["snapshot"] == "RJTTF0123"
 
 
+def test_a_feed_with_no_layouts_says_so_rather_than_reporting_zero_rows(tmp_path):
+    """The routeing guide's files are comma-separated and have no layouts, so
+    ingesting one writes nothing. That is the normal outcome, not a failed
+    parse, and `writes_nothing` is what lets the callers say which it is."""
+    zip_path = tmp_path / "RJRG1075.ZIP"
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("RJRG1075.RGD", b"/ station links\r\nKDG,ASG,2.34\r\n")
+        archive.writestr("RJRG1075.RGI", b"RJRG1075.RGD\r\n")
+
+    manifest = Manifest(
+        feed="routeing",
+        filename="RJRG1075.ZIP",
+        url="https://example.invalid/routeing",
+        source="test",
+        fetched_at="2026-09-04T00:00:00+00:00",
+        last_modified=None,
+        size=zip_path.stat().st_size,
+        sha256="0" * 64,
+        sequence=1075,
+    )
+
+    report = ingest_snapshot(zip_path, manifest, tmp_path / "parquet")
+
+    assert report.total_rows == 0
+    assert report.writes_nothing
+
+    timetable_zip, timetable_manifest = build_snapshot(tmp_path)
+    parsed = ingest_snapshot(
+        timetable_zip, timetable_manifest, tmp_path / "parquet"
+    )
+    assert not parsed.writes_nothing
+
+
 def test_only_filter_restricts_which_members_are_parsed(tmp_path):
     zip_path, manifest = build_snapshot(tmp_path)
     report = ingest_snapshot(zip_path, manifest, tmp_path / "parquet", only={"MSN"})

@@ -235,7 +235,11 @@ def refresh(
                 store.path_for(manifest), manifest, config.parquet_dir
             )
             result.ingested.append(feed.value)
-            log(f"{feed.value}: ingested {report.total_rows:,} rows")
+            log(
+                f"{feed.value}: read at build time, not ingested"
+                if report.writes_nothing
+                else f"{feed.value}: ingested {report.total_rows:,} rows"
+            )
         except Exception as exc:  # noqa: BLE001
             result.errors.append(f"{feed.value} ingest: {exc}")
             log(f"{feed.value}: ingest FAILED - {exc}")
