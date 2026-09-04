@@ -694,6 +694,120 @@ def test_a_flat_rate_product_is_excluded_by_its_price_spread(fares):
     assert reasons["KWA"] == "flat rate, not a distance-based fare"
 
 
+#: 40 flows out of one origin, which is enough for a modal share to mean
+#: something. The smartcard tests below all price against this shape.
+def _spread_world():
+    flows = [flow(i, "1111", f"{i:04d}") for i in range(1, 41)]
+    stations = [("AAA", "1111", "1111")] + [
+        (f"S{i:02d}", f"{i:04d}", f"{i:04d}") for i in range(1, 41)
+    ]
+    return flows, stations
+
+
+def _classified(connection, code):
+    return connection.execute(
+        "select mirrors_ticket_code, is_walk_up, flow_count, modal_share"
+        " from ticket_type_current where ticket_code = ?", [code]
+    ).fetchone()
+
+
+def _reject_reasons(connection):
+    return dict(connection.execute(
+        "select ticket_code, reason from fare_reject").fetchall())
+
+
+def test_a_smartcard_type_is_judged_by_the_spread_of_the_code_it_mirrors(fares):
+    """`0AJ SMART FCR` is `FCR OFF-PEAK DAY 1R` on a different medium, and on
+    both flows the two carry they are the same price to the penny.
+
+    It is issued on two flows - London Terminals to two Kent stations at much
+    the same distance - which price identically, so its own modal share is 1.0
+    and a first class off-peak day return was condemned as a promotional flat
+    rate. **At two flows that test is a coin flip**: the share can only be 0.5
+    or 1.0, so one coincidence is the entire case against it. So the question is
+    asked of the referent, whose spread runs to five figures of flows.
+    """
+    flows, stations = _spread_world()
+    fare_records = (
+        [fare(i, "FCR", 3000 + i * 10) for i in range(1, 41)]  # varies with distance
+        + [fare(i, "0AJ", 3300) for i in (1, 2)]               # two flows, one price
+    )
+    connection, _ = fares(
+        flows=flows, fare_records=fare_records, stations=stations,
+        tickets=[ticket("FCR", "OFF-PEAK DAY 1R", kind="R", cls=1),
+                 ticket("0AJ", "SMART FCR", kind="R", cls=1)],
+    )
+
+    assert "0AJ" not in _reject_reasons(connection)
+
+    mirrors, walk_up, flow_count, share = _classified(connection, "0AJ")
+    assert (mirrors, walk_up) == ("FCR", True)
+    # The reported spread stays its own, so the review table does not claim the
+    # smartcard type sits on the referent's flows. Only the verdict moved.
+    assert (flow_count, share) == (2, 1.0)
+
+
+def test_a_smartcard_type_inherits_a_flat_rate_verdict_as_readily_as_it_escapes_one(fares):
+    """It tightens as well as rescues, which is the sign it is a rule rather
+    than a patch. `SMART TKR` mirrors `TKR CHILD FLTFARE R`, one price
+    everywhere, and is rejected on the referent's spread even where its own
+    prices vary with distance."""
+    flows, stations = _spread_world()
+    fare_records = (
+        [fare(i, "TKR", 250) for i in range(1, 41)]             # flat everywhere
+        + [fare(i, "0AB", 250 + i * 10) for i in range(1, 41)]  # its own spread varies
+        + [fare(i, "SDS", 1000 + i * 10) for i in range(1, 41)]
+    )
+    connection, _ = fares(
+        flows=flows, fare_records=fare_records, stations=stations,
+        tickets=[ticket("SDS", "ANYTIME DAY S"),
+                 ticket("TKR", "CHILD FLTFARE R", kind="R"),
+                 ticket("0AB", "SMART TKR", kind="R")],
+    )
+
+    assert _reject_reasons(connection)["0AB"] == \
+        "flat rate, not a distance-based fare"
+    assert _classified(connection, "0AB")[0] == "TKR"
+
+
+def test_the_mirrored_code_must_be_a_whole_token_of_the_same_shape(fares):
+    """Two guards, and the feed exercises both.
+
+    `SMART ADVANCE` ends in the letters of `NCE`, which names no ticket. And
+    `SMART FLEXI 1ST` ends in those of `1ST`, which names a real one -
+    `SUP OFFPK DAYTC` - on the strength of three shared characters. That is the
+    one the shape guard blocks, and in this feed it blocks it on ``tkt_type``:
+    `1ST` is a return (`R`) and the flexi season is `N`. Both are first class,
+    so class alone would let it through.
+
+    Both stand-ins are flat here, so a type that wrongly resolved one would be
+    condemned by it. Each is judged on its own spread instead.
+    """
+    flows, stations = _spread_world()
+    fare_records = (
+        [fare(i, "NCE", 500) for i in range(1, 41)]             # flat
+        + [fare(i, "1ST", 900) for i in range(1, 41)]           # flat
+        + [fare(i, "0AX", 500 + i * 10) for i in range(1, 41)]  # both vary
+        + [fare(i, "0AY", 900 + i * 10) for i in range(1, 41)]
+    )
+    connection, _ = fares(
+        flows=flows, fare_records=fare_records, stations=stations,
+        tickets=[
+            ticket("NCE", "SEASON NCE", kind="N"),
+            ticket("0AX", "SMART ADVANCE", kind="N"),
+            # Same class, different `tkt_type` - which is how the feed has
+            # carried this pair since RJFAF833.
+            ticket("1ST", "SUP OFFPK DAYTC", kind="R", cls=1),
+            ticket("0AY", "SMART FLEXI 1ST", kind="N", cls=1),
+        ],
+    )
+
+    reasons = _reject_reasons(connection)
+    for code in ("0AX", "0AY"):
+        assert reasons.get(code) != "flat rate, not a distance-based fare"
+        assert _classified(connection, code)[0] is None
+
+
 def test_first_class_is_available_on_request(fares):
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],

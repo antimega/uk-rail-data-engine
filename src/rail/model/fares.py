@@ -701,6 +701,50 @@ def build_fares_reference(
             )
             group by ticket_code
         ),
+        -- **A smartcard ticket is the same product on a different medium**, and
+        -- it names the paper code it mirrors. `SMART FCR` is `FCR OFF-PEAK DAY
+        -- 1R`; on both flows the two carry, they are the same price to the
+        -- penny, as are `0AL`/`CDS`, `0AF`/`SDS`, `0AC`/`FDR` and `0AD`/`FDS`.
+        -- So the flat-rate test above should be asked about the *referent's*
+        -- prices, which run to five figures of flows, rather than the handful
+        -- the smartcard version happens to be issued on.
+        --
+        -- `0AJ SMART FCR` is why. It sits on two flows - London Terminals to
+        -- two Kent stations at much the same distance - which price
+        -- identically, so its modal share is 1.0 and an off-peak day first
+        -- class return was condemned as a promotional flat rate. **At two flows
+        -- that test is a coin flip**: the share can only be 0.5 or 1.0, so one
+        -- coincidence is the entire case against it. The referent's own spread
+        -- is 18,000 flows at 0.026, which is as distance-based as fares get.
+        --
+        -- Two guards, and this feed exercises both:
+        --
+        -- * the referent is a **whole token**, not the tail of a word.
+        --   Otherwise `SMART ADVANCE` refers to `NCE` and `SMART BUS MULTI` to
+        --   `LTI`, neither of which is a ticket code today and either of which
+        --   could become one.
+        -- * it must **agree on type and class**, or `SMART FLEXI 1ST` refers to
+        --   `1ST SUP OFFPK DAYTC` on the strength of three shared characters.
+        --   `1ST` is a return and the flexi season is `N`, so it is `tkt_type`
+        --   that separates them - both are first class, and class alone would
+        --   let it through. It is the only one of the 65 the guard blocks, and
+        --   the only one that deserves blocking.
+        --
+        -- It tightens as well as rescues, which is the sign it is a rule rather
+        -- than a patch: `SMART TKR` inherits `TKR CHILD FLTFARE R` at 0.997 and
+        -- is condemned, correctly. Every type that would be tightened carries
+        -- no fares, so nothing is withdrawn from any journey.
+        smart_referent as (
+            select s.ticket_code, r.ticket_code as mirrors, p.flow_count, p.modal_share
+            from current_records s
+            join current_records r
+              on r.rn = 1
+             and r.ticket_code = regexp_extract(s.description, ' ([A-Z0-9]+)$', 1)
+             and r.tkt_type = s.tkt_type
+             and r.tkt_class = s.tkt_class
+            join fare_spread p on p.ticket_code = r.ticket_code
+            where s.rn = 1 and s.description like 'SMART %'
+        ),
         -- **The restriction says what the validity does not.** A fare valid
         -- only on the train you booked is an Advance product whatever it calls
         -- itself, and the six validity codes reading `BOOKDTRAINONLY` are not
@@ -751,15 +795,22 @@ def build_fares_reference(
                        as tkt_code_is_flexi_bundle,
                    coalesce(s.flow_count, 0) as flow_count,
                    s.modal_share,
+                   -- The reported spread stays this type's own, so the review
+                   -- table does not claim 0AJ has 18,000 flows. Only the
+                   -- verdict moves, and `mirrors_ticket_code` says when it did.
+                   sr.mirrors as mirrors_ticket_code,
                    coalesce(
-                       s.flow_count >= {_FLAT_RATE_MIN_FLOWS}
-                       and s.modal_share >= {_FLAT_RATE_THRESHOLD},
+                       coalesce(sr.flow_count, s.flow_count)
+                           >= {_FLAT_RATE_MIN_FLOWS}
+                       and coalesce(sr.modal_share, s.modal_share)
+                           >= {_FLAT_RATE_THRESHOLD},
                        false
                    ) as is_flat_rate,
                    coalesce(r.priced > 0 and r.on_booked_train = r.priced, false)
                        as every_fare_on_a_booked_train
             from current_records c
             left join fare_spread s using (ticket_code)
+            left join smart_referent sr using (ticket_code)
             left join restriction_bound r using (ticket_code)
             where c.rn = 1
         ),

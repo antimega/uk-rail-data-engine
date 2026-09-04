@@ -235,6 +235,67 @@ each found several exclusion rounds later. Blanket-excluding single-flow types
 would be wrong, `XOS OFF-PEAK DAY S` at £5.20 being a legitimate niche fare, so
 the description markers carry that weight instead.
 
+**At two flows it is a coin flip**, which is the same weakness one step up. The
+modal share can only be 0.5 or 1.0, so a type is condemned exactly when its two
+prices happen to match - and 104 types sit on precisely two flows, 39 of them
+condemned by that test. Most deserve it and are caught by a marker anyway
+(`CARNET 12`, `ANYTIME B2B`), which is why it went unnoticed. 38 still are;
+`0AJ SMART FCR` is the one that did not deserve it, and the one this rescued.
+
+It is issued on two flows - London Terminals to Edenbridge and to Leigh (Kent),
+much the same distance - which price identically at £33.00, so a first class
+off-peak day return was rejected as a promotional flat rate.
+
+### A smartcard type is judged by the code it mirrors
+
+A smartcard ticket is the same product on a different medium, and it says so:
+`SMART FCR` names `FCR`, and on every flow the two share they are the same price
+to the penny.
+
+```
+London Terminals -> Edenbridge      0AJ £33.00 = FCR £33.00    0AC £54.50 = FDR £54.50
+                                    0AD £36.30 = FDS £36.30    0AE £36.30 = SDR £36.30
+                                    0AF £24.20 = SDS £24.20    0AL £21.90 = CDS £21.90
+```
+
+Every pair the feed carries is identical on every flow they share, not only
+these six: 30 shared flows across the six pairs, 30 the same to the penny.
+
+So the flat-rate test asks about the **referent's** prices - `FCR` is 18,000
+flows at a modal share of 0.026, which is as distance-based as fares get - and
+not about the handful the smartcard version happens to be issued on. Only the
+verdict moves; the reported `flow_count` and `modal_share` stay the type's own,
+and `mirrors_ticket_code` names the referent where one was used.
+
+Two guards, and this feed exercises both:
+
+- **The referent is a whole token, not the tail of a word.** Otherwise `SMART
+  ADVANCE` refers to `NCE` and `SMART BUS MULTI` to `LTI` - neither is a ticket
+  code today, and either could become one.
+- **It must agree on `tkt_type` and `tkt_class`**, or `SMART FLEXI 1ST` refers
+  to `1ST SUP OFFPK DAYTC` on the strength of three shared characters. What
+  separates them is the **type**, not the class: `1ST` is a return (`R`) and the
+  flexi season is `N`, and both are first class, so a class-only guard would let
+  it through. It is the only one whose token resolves to a priced ticket and
+  whose shape does not, and the only one that deserves blocking.
+
+The rule matches `SMART ` with the trailing space, so it covers 65 types and
+leaves `SMARTCARD DAY R` alone - that one names no code. Of the 65: 9 name a
+product rather than a ticket (`SMART DAYSAVE`, `SMART BUS MULTI`), 4 name a
+ticket carrying no fares and so no spread to inherit (`SMART SD4`, `SMART SDP`,
+`SMART SDW`, `SMART GE1`), 1 is the shape mismatch above, and the remaining
+**51 resolve to a referent**. The 14 that do not are judged on their own spread
+as before.
+
+**It tightens as well as rescues**, which is the sign it is a rule rather than a
+patch: `SMART TKR` and `SMART TKS` inherit the child flat fares they mirror, at
+0.997, and are now correctly rejected. Neither carries a fare, so nothing is
+withdrawn from a journey.
+
+Note what is *not* inherited. Only the price spread crosses over - the referent's
+markers, restrictions and package flag do not, because the smartcard type carries
+its own and they are the ones that describe it.
+
 It is the one weakness here that keeps producing, and it is why the review
 below exists.
 
