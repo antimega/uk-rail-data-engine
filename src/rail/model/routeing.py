@@ -23,8 +23,8 @@ chain is matched in order rather than unioned. Links are directional and the
 file carries both directions explicitly where both are valid, so they are kept
 directional too.
 
-**Easements are applied**, from RGF. 1,595 of the 2,521 are positive - they
-grant a route the maps refuse - and 926 are negative, withdrawing one the maps
+**Easements are applied**, from RGF. 1,725 of the 2,653 are positive - they
+grant a route the maps refuse - and 928 are negative, withdrawing one the maps
 allow. Where an easement matches a journey but its applicability turns on
 something a list of calling points cannot settle (the ticket, the train, the
 passenger), the verdict becomes *unknown* rather than being guessed either way.
@@ -66,10 +66,10 @@ class Easement:
     the sleeper easements, which depend on who is travelling. Anything still
     open makes the verdict *unknown* rather than being guessed either way.
 
-    ``tocs`` comes from **RGH**, not from RGF's own `D` records. RGF gives eight
-    easements an operator and RGH gives 942, one of which is in both - so
-    reading only RGF left the guide deciding on eight easements where the feed
-    describes 624 of the ones held here.
+    ``tocs`` comes from **RGH**, not from RGF's own `D` records. RGF gives 14
+    easements an operator and RGH gives 989, one of which is in both - so
+    reading only RGF left the guide deciding on 14 easements where the feed
+    describes 633 of the ones held here.
     """
 
     ref: str
@@ -275,8 +275,8 @@ def _load_easements(connection: duckdb.DuckDBPyConnection) -> list[Easement]:
             ref=ref,
             grants=klass == "1",
             # Only the train UID is now unsettleable. Operators used to be here
-            # too, on the strength of RGF's eight `D` records - but RGH names
-            # 942 easements against 35 operators, and the router already
+            # too, on the strength of RGF's 14 `D` easements - but RGH names
+            # 989 easements against 35 operators, and the router already
             # collects the operator of every leg for RGK's own TOC conditions.
             # A question the engine can answer is not an unknown.
             unsettleable=bool(by_detail.get("1"))
@@ -299,7 +299,7 @@ def _load_easements(connection: duckdb.DuckDBPyConnection) -> list[Easement]:
             # allowed for doubleback easements", with a NOTE promising a
             # matching modifier-4 via record "for backwards compatibility".
             #
-            # **That promise does not hold here.** 83 of the 322 doubleback
+            # **That promise does not hold here.** 88 of the 324 doubleback
             # records have no via record for the same station, so a consumer
             # trusting the note loses that station from the easement entirely -
             # easement 701612 permits a doubleback through Wimbledon and names
@@ -720,18 +720,20 @@ class RouteingGuide:
         those sets that is non-empty has to intersect the journey for the
         easement to match. So
         an easement mentioning no station on this journey cannot apply, and
-        checking all 2,521 against every destination is 7 million comparisons
+        checking all 2,653 against every destination is 7 million comparisons
         for nothing: the sweep from York went from 0.06 s to 0.88 s before this
         index existed.
         """
         if self._easement_index is None:
             index: dict[str, list[Easement]] = {}
             for easement in self.easements:
-                # Doubleback targets count as named stations. The spec promises
-                # a matching `via` record for each, but 83 of the 322 do not
-                # have one - easement 701612 permits a doubleback through
-                # Wimbledon and names Wimbledon nowhere else - so leaving them
-                # out drops the easement from every journey it governs.
+                # Doubleback targets count as named stations. The spec
+                # promises a matching `via` record for each, but 88 of the 324
+                # do not have one - easement 701612 permits a doubleback
+                # through Wimbledon and names Wimbledon under no other
+                # modifier. No easement names its stations *only* by modifier
+                # 6, so including them drops no easement from the index; what
+                # it keeps is those 88 stations attached to their easements.
                 named = (easement.origins | easement.destinations
                          | easement.applicable | easement.via
                          | easement.doubleback)
