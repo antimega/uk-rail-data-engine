@@ -142,6 +142,12 @@ you use:
 - **Create the log directory first.** Most schedulers will not create it, and a
   missing directory fails the job with nothing written to say why.
 
+On macOS the agent also has to be allowed under **Login Items & Extensions →
+Allow in the Background**, where it appears as `refresh.sh`. Switched off there,
+it is not loaded at login, and a manual `launchctl bootstrap` hides that until
+the next reboot - `rail status` reporting no recent scheduled success is the
+sign.
+
 **What counts as a successful run** is the subtle part: reaching the portal is
 what renews the account, so a run that downloads nothing is still a success. A
 run where the daily guard skipped every feed is *not* - nothing reached the

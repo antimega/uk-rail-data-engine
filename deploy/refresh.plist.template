@@ -25,19 +25,25 @@
 
   Create data/logs/ before the first run - launchd will not create it, and a
   missing directory makes the job fail with no output saying why.
+
+  On macOS 13 and later the agent must also be allowed under System Settings >
+  General > Login Items & Extensions > Allow in the Background, where it is
+  listed as refresh.sh. Switched off there, it is unloaded at once and not
+  loaded again at login - and `launchctl bootstrap` by hand still works, which
+  makes it look fixed until the next reboot. `sfltool dumpbtm` shows the
+  disposition: "disallowed" is the tell.
 -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>__LABEL__</string>
 
+    <!-- The script, not `/bin/sh -c`: macOS names the agent in Login Items
+         after this, and "sh" from an unknown developer is what gets switched
+         off. See deploy/refresh.sh. -->
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/sh</string>
-        <string>-c</string>
-        <!-- Validate only when the refresh succeeded: there is nothing useful
-             to check after a fetch that never reached the portal. -->
-        <string>.venv/bin/rail refresh &amp;&amp; .venv/bin/rail validate</string>
+        <string>__PROJECT_ROOT__/deploy/refresh.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
