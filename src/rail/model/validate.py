@@ -26,6 +26,11 @@ import duckdb
 
 Severity = Literal["ok", "warn", "fail"]
 
+# How many RSPS5052-listed stations may have no train calling before that stops
+# reading as closures and starts reading as a broken crosswalk. One was closed
+# on RJTTF024; a resolution fault empties hundreds.
+CLOSED_STATION_ALLOWANCE = 10
+
 
 @dataclass
 class Check:
@@ -555,11 +560,24 @@ def run_checks(
     # different means, so agreement is worth asserting - and disagreement in one
     # direction only is the expected shape, since a new station reaches the
     # timetable before it reaches the supplementary list.
+    #
+    # **A listed station nothing calls at is a closure, not a contradiction.**
+    # Ravensthorpe dropped out of RJTTF024 entirely - no schedule names it - so
+    # it came out `unserved`, and failing on that fails every scheduled run for
+    # as long as a station is shut. The timetable is not saying it is a bus
+    # stop, only that no train calls in the horizon, so a handful is a warn
+    # naming them. Many at once is not a closure: a broken CRS resolution in
+    # `build_timetable` would empty hundreds of real stations into `unserved`,
+    # which is why the allowance is small and past it this still fails.
     contradicted, extra = connection.execute("""
-        select count(*) filter (where is_rail_station and kind <> 'rail'),
+        select count(*) filter (where is_rail_station and kind not in ('rail', 'unserved')),
                count(*) filter (where is_rail_station = false and kind = 'rail')
         from station where is_rail_station is not null
     """).fetchone()
+    closed = [row[0] for row in connection.execute("""
+        select crs from station
+        where is_rail_station and kind = 'unserved' order by crs
+    """).fetchall()]
     # RGX independently names the stations built since NFM64, so it can vouch
     # for most of the extras - and its silence is informative too: Wimbledon
     # Park and East Putney are absent from it, which fits their being
@@ -572,8 +590,13 @@ def run_checks(
         "select count(*) from duckdb_tables() where table_name = "
         "'routeing_new_station'").fetchone()[0] else 0
     add("integrity", "the timetable agrees a rail station is a rail station",
-        "ok" if contradicted == 0 else "fail",
-        f"{contradicted:,} contradicted; {extra:,} rail by the timetable and "
+        "fail" if contradicted or len(closed) > CLOSED_STATION_ALLOWANCE
+        else "warn" if closed else "ok",
+        f"{contradicted:,} contradicted; "
+        + (f"{len(closed):,} listed with no train calling ({', '.join(closed[:8])}"
+           f"{', …' if len(closed) > 8 else ''}) - closed, or the crosswalk "
+           f"has drifted if this is more than a few; " if closed else "")
+        + f"{extra:,} rail by the timetable and "
         f"not on the RSPS5052 list, {vouched:,} of them named by RGX")
 
     # **A location named for an operator and a direction is not a station.**

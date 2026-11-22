@@ -513,6 +513,43 @@ def test_a_rail_station_the_timetable_calls_a_bus_stop_fails(world):
     assert status_of(checks, "agrees a rail station is a rail station") == "fail"
 
 
+def test_a_listed_station_no_train_calls_at_is_a_warn(world):
+    """Ravensthorpe left the timetable entirely while closed. No train calling
+    is not the timetable calling it something else, and failing on it would
+    fail every scheduled run for as long as the station is shut."""
+    connection, timetable, fares, naptan = world()
+    connection.execute("update station set is_rail_station = true")
+    crs = connection.execute(
+        "select crs from station where kind = 'rail' limit 1").fetchone()[0]
+    connection.execute(
+        "update station set kind = 'unserved' where crs = ?", [crs])
+
+    checks = run_checks(connection, timetable, fares, naptan)
+
+    assert status_of(checks, "agrees a rail station is a rail station") == "warn"
+
+
+def test_many_listed_stations_with_no_train_still_fail(world):
+    """A broken CRS resolution empties real stations into `unserved` by the
+    hundred, so the allowance is for a handful of closures and no more."""
+    from rail.model.validate import CLOSED_STATION_ALLOWANCE
+
+    connection, timetable, fares, naptan = world()
+    rows = connection.execute("select count(*) from station").fetchone()[0]
+    if rows <= CLOSED_STATION_ALLOWANCE:
+        connection.execute(f"""
+            insert into station (crs, is_rail_station, kind)
+            select 'Z' || lpad(i::varchar, 2, '0'), true, 'unserved'
+            from range({CLOSED_STATION_ALLOWANCE + 1}) t(i)
+        """)
+    connection.execute(
+        "update station set is_rail_station = true, kind = 'unserved'")
+
+    checks = run_checks(connection, timetable, fares, naptan)
+
+    assert status_of(checks, "agrees a rail station is a rail station") == "fail"
+
+
 def test_the_routeing_feed_is_a_third_opinion_on_the_crosswalk(world):
     """The fares NLC is already checked against the timetable's NALCO. RGY
     states CRS against NLC directly, from a third file by a third process."""
