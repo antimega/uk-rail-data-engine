@@ -24,6 +24,8 @@ from typing import Literal
 
 import duckdb
 
+from .price import is_price
+
 Severity = Literal["ok", "warn", "fail"]
 
 # How many RSPS5052-listed stations may have no train calling before that stops
@@ -235,7 +237,7 @@ def run_checks(
             select f.ticket_code
             from read_parquet('{path(fares_dir, "fare")}') f
             join ticket_type_current t using (ticket_code)
-            where t.is_walk_up and f.fare > 0
+            where t.is_walk_up and {is_price('f.fare')}
             group by f.ticket_code
             having count(*) = count(*) filter (
                 where f.restriction_code in (select restriction_code from booked))
@@ -827,7 +829,7 @@ def run_checks(
     median_fare = scalar(f"""
         select median(f.fare) from read_parquet('{path(fares_dir, "fare")}') f
         join ticket_type_current t using (ticket_code)
-        where t.is_walk_up and t.tkt_class = 2 and f.fare > 0
+        where t.is_walk_up and t.tkt_class = 2 and {is_price('f.fare')}
     """) or 0
     add("fares", "median standard walk-up fare",
         _band(median_fare, 1_000, 20_000), f"£{median_fare / 100:,.2f}")
@@ -867,7 +869,7 @@ def run_checks(
     cheapest_advance = scalar(f"""
         select min(f.fare) from read_parquet('{path(fares_dir, "fare")}') f
         join ticket_type_current t using (ticket_code)
-        where t.is_advance_fare and t.tkt_class = 2 and f.fare > 0
+        where t.is_advance_fare and t.tkt_class = 2 and {is_price('f.fare')}
     """) or 0
     add("fares", "cheapest Advance fare is plausible",
         _band(cheapest_advance, 100, 1_000), f"£{cheapest_advance / 100:,.2f}")

@@ -42,6 +42,8 @@ from pathlib import Path
 
 import duckdb
 
+from .price import is_price
+
 #: Ships with the package, beside the layouts, for the reason above.
 REGISTER = Path(__file__).resolve().parents[1] / "reviewed_tickets.json"
 
@@ -92,7 +94,7 @@ def priced(connection: duckdb.DuckDBPyConnection, fares_dir: Path) -> dict[str, 
     return dict(connection.execute(f"""
         select ticket_code, count(*)
         from read_parquet('{fares_dir / "fare.parquet"}')
-        where fare is not null and fare > 0 group by 1
+        where {is_price('fare')} group by 1
     """).fetchall())
 
 

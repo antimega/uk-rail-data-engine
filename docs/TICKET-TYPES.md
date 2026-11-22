@@ -155,6 +155,7 @@ Not a fare to somewhere. `fare_reject` carries the reason for every one:
 | 6 | penalty fare notice, not a ticket |
 | 4 | pay-as-you-go information record |
 | 2 | a fee to change a ticket, not a fare |
+| 3 | sale placeholder, one price on every flow |
 | 1 | upgrade bought on board, not a fare on its own |
 | 1 | train swap, not a fare on its own |
 
@@ -298,6 +299,41 @@ its own and they are the ones that describe it.
 
 It is the one weakness here that keeps producing, and it is why the review
 below exists.
+
+### A rung of a reserved ladder is judged by the ladder
+
+Some Advance ladders are priced by zone, so each rung is **one price on every
+flow it carries** - exactly what the flat-rate test exists to condemn. Gatwick's
+`AIRPORT ADVANCE` is the case that found it: 44 codes, `JB0` £8.00 to Hastings
+and Bexhill, `JB3` £16.00, `JC6` £20.00 to Watford and Wembley, every one
+rejected as a placeholder when its fares arrived in RJFAF896. Avanti's A and B
+ladders (25 rungs a pound apart) and Southern's `ADVANCE` tiers `SAV`-`SPV` are
+the same shape.
+
+So for a type that **needs a reservation**, the modal share is taken over every
+current code sharing its description, `tkt_type` and `tkt_class` - provided
+there are at least three (`_LADDER_MIN_CODES`), since two rungs are as much a
+coin flip as one. A walk-up never needs a reservation, so this cannot rescue one.
+
+It rescued 145 types into the real Advance class, and from Gatwick it makes 104
+cheapest Advances cheaper. No walk-up price moved at any origin tested.
+
+**`SALE ADVANCE` is the case it would get wrong.** 50p, £1 and £2 on 7,000
+Northern flows apiece is a three-rung reserved ladder by shape and a placeholder
+in fact. The flat-rate test was all that kept it out, so it now carries a marker
+of its own, `%SALE ADVANCE%`.
+
+### £9,998 is not a price
+
+60,229 fare records sit at £9,998.00, £9,999.98 or £9,999.99, across 170 ticket
+types - every `FOR TEST USE ON` code, and Avanti's ladders on the London zone
+flows. The spec only names `99999999` as "no fare", but the gap is unmistakable:
+the dearest genuine fare is £5,810.00, a season. `PLACEHOLDER_FARE` in
+`model/price.py` treats everything from £9,998.00 up exactly as the sentinel is
+treated. It is never quoted. On a non-derivable record it withdraws the flow
+fare it overrides. And it **does not count towards the flat-rate test**, where
+67 placeholders had pulled `56A`'s modal share under the threshold and made it
+look like a varied fare.
 
 ---
 

@@ -1766,6 +1766,113 @@ def test_the_flat_rate_advance_placeholders_stay_excluded(fares):
     assert found["S01"] == 2010  # the ladder, not the 50p placeholder
 
 
+def _zonal_ladder_world():
+    """Gatwick's `AIRPORT ADVANCE`, in miniature: three reserved tiers, each one
+    price on every flow it carries, and a different price per tier."""
+    flows, stations = _spread_world()
+    records = [fare(i, code, pence)
+               for code, pence in (("JB0", 800), ("JB3", 1600), ("JC6", 2000))
+               for i in range(1, 41)]
+    return flows, stations, records
+
+
+def test_a_rung_of_a_reserved_ladder_is_judged_by_the_ladder(fares):
+    """Each tier of a zonal Advance ladder is flat on its own, which is how the
+    flat-rate test read all 44 Gatwick codes as placeholders. Its ladder is not:
+    three codes at three prices is a spread."""
+    flows, stations, records = _zonal_ladder_world()
+    connection, directory = fares(
+        flows=flows, fare_records=records, stations=stations,
+        tickets=[ticket(code, "AIRPORT ADVANCE", reservation="B")
+                 for code in ("JB0", "JB3", "JC6")],
+    )
+
+    assert not {"JB0", "JB3", "JC6"} & set(_reject_reasons(connection))
+    found = {r[0]: r[3] for r in cheapest_from(
+        connection, directory, "AAA", TRAVEL, include_advance=True)}
+    assert found["S01"] == 800
+
+
+def test_a_ladder_of_flat_walk_ups_is_still_flat(fares):
+    """The ladder rule asks for a reservation, so it cannot rescue a walk-up:
+    the same three flat prices on unreserved codes are promotional products."""
+    flows, stations, records = _zonal_ladder_world()
+    connection, _ = fares(
+        flows=flows, fare_records=records, stations=stations,
+        tickets=[ticket(code, "AIRPORT ADVANCE") for code in ("JB0", "JB3", "JC6")],
+    )
+
+    reasons = _reject_reasons(connection)
+    assert {reasons[c] for c in ("JB0", "JB3", "JC6")} == \
+        {"flat rate, not a distance-based fare"}
+
+
+def test_two_rungs_are_not_yet_a_ladder(fares):
+    """Below `_LADDER_MIN_CODES` the pooled share is as much a coin flip as a
+    single code's, so the rungs stay judged on their own."""
+    flows, stations, records = _zonal_ladder_world()
+    records = [r for r in records if r["ticket_code"] != "JC6"]
+    connection, _ = fares(
+        flows=flows, fare_records=records, stations=stations,
+        tickets=[ticket(code, "AIRPORT ADVANCE", reservation="B")
+                 for code in ("JB0", "JB3")],
+    )
+
+    assert {"JB0", "JB3"} <= set(_reject_reasons(connection))
+
+
+def test_sale_advance_is_named_now_the_ladder_rule_would_rescue_it(fares):
+    """50p, £1 and £2 on every flow, reserved, is a three-rung ladder by shape.
+    It is a placeholder, so it carries a marker rather than relying on the
+    flat-rate test."""
+    flows, stations = _spread_world()
+    records = [fare(i, code, pence)
+               for code, pence in (("DGA", 50), ("DGB", 100), ("DGC", 200))
+               for i in range(1, 41)]
+    connection, _ = fares(
+        flows=flows, fare_records=records, stations=stations,
+        tickets=[ticket(code, "SALE ADVANCE", reservation="B")
+                 for code in ("DGA", "DGB", "DGC")],
+    )
+
+    reasons = _reject_reasons(connection)
+    assert {reasons[c] for c in ("DGA", "DGB", "DGC")} == \
+        {"sale placeholder, one price on every flow"}
+
+
+def test_a_9998_pound_fare_is_no_fare(fares):
+    """Avanti's A First ladder carries £9,998.00 on the London zone flows and a
+    real price on two. The placeholder is never quoted, and it does not dilute
+    the flat-rate verdict on the code either."""
+    flows, stations = _spread_world()
+    records = (
+        [fare(i, "SDS", 1000 + i * 10) for i in range(1, 41)]
+        + [fare(i, "SDX", 999_800) for i in range(1, 41)]
+        + [fare(i, "SDX", 999_999) for i in (1,)]
+    )
+    connection, directory = fares(
+        flows=flows, fare_records=records, stations=stations,
+        tickets=[ticket("SDS", "ANYTIME DAY S"), ticket("SDX", "ANYTIME DAY S")],
+    )
+
+    found = prices(connection, directory)
+    assert max(found.values()) < 999_800
+    assert _classified(connection, "SDX")[2] == 0  # no flow carries a price
+
+
+def test_a_9998_pound_override_withdraws_the_flow_fare(fares):
+    """On a non-derivable record the placeholder means what `99999999` means:
+    no fare, and it takes the flow fare it lands on with it."""
+    connection, directory = fares(
+        flows=[flow(1, "1111", "2222")],
+        fare_records=[fare(1, "SDS", 1510)],
+        nfo=[nfo("1111", "2222", "SDS", 999_800)],
+        tickets=[ticket("SDS", "ANYTIME DAY S")],
+    )
+
+    assert "BBB" not in prices(connection, directory)
+
+
 def test_a_railcard_still_discounts_an_advance_fare(fares):
     connection, directory = fares(
         flows=[flow(1, "1111", "2222")],

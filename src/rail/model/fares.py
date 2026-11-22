@@ -35,6 +35,7 @@ import duckdb
 import pyarrow as pa
 
 from .plusbus import ZONE_MARKER
+from .price import PLACEHOLDER_FARE, is_price
 from .restrictions import applicable_bands
 
 #: Ticket group E is literally described "NOT FOR TRAVEL".
@@ -122,6 +123,11 @@ NON_PUBLIC_MARKERS: tuple[tuple[str, str], ...] = (
     ("%NOT FOR TRAVEL%", "not for travel"),
     ("%NOTFORTRAV%", "not for travel"),
     ("%PENALTY%", "penalty fare notice, not a ticket"),
+    # A flat 50p, £1 or £2 on every one of 7,000 Northern flows is a
+    # placeholder, not a fare. The flat-rate test used to be the only thing
+    # catching it; once a reserved type is judged by its whole ladder, three
+    # flat rungs at three prices look like a ladder, so it is named here.
+    ("%SALE ADVANCE%", "sale placeholder, one price on every flow"),
     # Complimentary staff and compensation tickets.
     ("%COMP %", "complimentary, not sold"),
     ("%COMP", "complimentary, not sold"),
@@ -474,6 +480,23 @@ _FLAT_RATE_THRESHOLD = 0.9
 #: higher guard let them through as the cheapest way to reach Scotland.
 _FLAT_RATE_MIN_FLOWS = 2
 
+#: **A reserved fare that is flat on its own is judged by its ladder.**
+#: Gatwick's `AIRPORT ADVANCE` is 44 codes, `JB0` £8.00 to Hastings and
+#: Bexhill, `JB3` £16.00, `JC6` £20.00 to Watford and Wembley: each tier is
+#: priced by zone, so every flow it carries has the same price and the
+#: flat-rate test condemned the lot as placeholders. Avanti's A and B ladders
+#: are the same shape - 25 tiers a pound apart - and so are Northern's
+#: `ADVANCE` tiers `SAV`-`SPV`.
+#:
+#: So for a type needing a reservation, the modal share is taken over every
+#: code sharing its description, ticket type and class, provided there are at
+#: least this many of them. That is a ladder's whole spread rather than one
+#: rung of it. A walk-up never needs a reservation, so this cannot rescue
+#: one. **`SALE ADVANCE` is the case this would get wrong** - 50p, £1 and £2
+#: on 7,000 flows apiece is a three-rung ladder by shape - so it carries a
+#: marker of its own in `NON_PUBLIC_MARKERS` rather than relying on this test.
+_LADDER_MIN_CODES = 3
+
 
 @dataclass
 class FaresCounts:
@@ -697,9 +720,29 @@ def build_fares_reference(
                 select ticket_code,
                        count(*) over (partition by ticket_code, fare) as same_price
                 from read_parquet('{fare_records}')
-                where fare is not null
+                -- Zero stays in: a £0.00 fare is a price, and a wrong one.
+                where fare is not null and fare < {PLACEHOLDER_FARE}
             )
             group by ticket_code
+        ),
+        -- The same spread over a whole ladder - every current code sharing a
+        -- description, ticket type and class. See `_LADDER_MIN_CODES`.
+        ladder_spread as (
+            select ladder, tkt_type, tkt_class,
+                   count(distinct ticket_code) as codes,
+                   max(same_price) * 1.0 / count(*) as modal_share
+            from (
+                select upper(trim(c.description)) as ladder, c.tkt_type,
+                       c.tkt_class, f.ticket_code,
+                       count(*) over (partition by upper(trim(c.description)),
+                                      c.tkt_type, c.tkt_class, f.fare)
+                           as same_price
+                from read_parquet('{fare_records}') f
+                join current_records c on c.ticket_code = f.ticket_code
+                                      and c.rn = 1
+                where f.fare is not null and f.fare < {PLACEHOLDER_FARE}
+            )
+            group by all
         ),
         -- **A smartcard ticket is the same product on a different medium**, and
         -- it names the paper code it mirrors. `SMART FCR` is `FCR OFF-PEAK DAY
@@ -777,7 +820,7 @@ def build_fares_reference(
                            (select restriction_code from booked_train_restrictions)
                    ) as on_booked_train
             from read_parquet('{fare_records}')
-            where fare is not null and fare > 0
+            where {is_price('fare')}
             group by ticket_code
         ),
         classified as (
@@ -803,7 +846,14 @@ def build_fares_reference(
                        coalesce(sr.flow_count, s.flow_count)
                            >= {_FLAT_RATE_MIN_FLOWS}
                        and coalesce(sr.modal_share, s.modal_share)
-                           >= {_FLAT_RATE_THRESHOLD},
+                           >= {_FLAT_RATE_THRESHOLD}
+                       -- A rung of a reserved ladder is judged by the ladder.
+                       and not coalesce(
+                           coalesce(c.reservation_required, '{NO_RESERVATION}')
+                               <> '{NO_RESERVATION}'
+                           and l.codes >= {_LADDER_MIN_CODES}
+                           and l.modal_share < {_FLAT_RATE_THRESHOLD},
+                           false),
                        false
                    ) as is_flat_rate,
                    coalesce(r.priced > 0 and r.on_booked_train = r.priced, false)
@@ -812,6 +862,9 @@ def build_fares_reference(
             left join fare_spread s using (ticket_code)
             left join smart_referent sr using (ticket_code)
             left join restriction_bound r using (ticket_code)
+            left join ladder_spread l
+              on l.ladder = upper(trim(c.description))
+             and l.tkt_type = c.tkt_type and l.tkt_class = c.tkt_class
             where c.rn = 1
         ),
         -- One definition of "a real adult fare to somewhere", then split into
@@ -1112,8 +1165,11 @@ def build_fares_reference(
 
 
 #: RSPS5045 4.4.3 fields 12 and 13: an 8-character fare of 99999999 means no
-#: fare is available for the ticket/railcard combination, not a price.
+#: fare is available for the ticket/railcard combination, not a price. Kept as
+#: the spec's own statement; `PLACEHOLDER_FARE` lies below it and is what the
+#: queries test, so the sentinel and the £9,998 family are one rule.
 _NO_FARE = 99999999
+assert PLACEHOLDER_FARE <= _NO_FARE
 
 
 def _band_toc_applies(band: str, dest: str) -> str:
@@ -1234,7 +1290,7 @@ flow_fares as (
     join read_parquet($fare_path) r using (flow_id)
     join fare_alias a on a.code = f.other_code
     left join station_nlc dn on dn.crs = a.crs
-    where r.fare is not null and r.fare > 0
+    where {is_price('r.fare')}
 ),
 -- Non-derivable fares are stated directly against a code pair and override the
 -- flow-derived price.
@@ -1255,7 +1311,7 @@ non_derivable_all as (
            -- non-standard discounts have nothing to act on.
            null::integer as ns_disc_ind,
            n.ticket_code,
-           case when n.adult_fare >= {_NO_FARE} then null else n.adult_fare end
+           case when n.adult_fare >= {PLACEHOLDER_FARE} then null else n.adult_fare end
                as fare,
            n.restriction_code, 'ndf' as source,
            -- **A non-derivable fare names no operator, and that is the record
@@ -1349,7 +1405,7 @@ combined as (
     from flows f
     join read_parquet($fare_path) r using (flow_id)
     join destination_zone z on z.code = f.other_code
-    where r.fare is not null and r.fare > 0
+    where {is_price('r.fare')}
 ),
 sellable as (
     select c.dest_crs, c.other_code, c.ns_disc_ind, c.toc,

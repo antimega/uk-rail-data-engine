@@ -28,6 +28,8 @@ from pathlib import Path
 
 import duckdb
 
+from .price import is_price
+
 #: The zone locations describe themselves this way - "DERBY+BUS".
 ZONE_MARKER = "%+BUS"
 
@@ -72,7 +74,7 @@ def build_plusbus(
         join station_nlc n on n.nlc = fl.origin_code
         join ticket_type_current t on t.ticket_code = fa.ticket_code
         where current_date between fl.start_date and fl.end_date
-          and fa.fare is not null and fa.fare > 0
+          and {is_price('fa.fare')}
     """)
 
     connection.execute("""

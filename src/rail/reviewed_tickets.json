@@ -1,7 +1,7 @@
 {
  "note": "What each ticket code was classified as when somebody last looked. Written by `rail tickets --accept`; see rail/model/tickets.py for why this is not an override.",
  "source": "Ticket codes and descriptions from the RDG fares feed. Contains information from National Rail Enquiries, licensed under the NRE Developer Terms and Conditions v3.0 - https://opendata.nationalrail.co.uk/terms. The `class` field is this project's own classification, not part of the feed.",
- "snapshot": "RJFAF875",
+ "snapshot": "RJFAF952",
  "tickets": {
   "0AA": {
    "description": "SMART TKS",
@@ -388,8 +388,64 @@
    "class": "rejected",
    "reason": "supplement, not a fare on its own"
   },
+  "1EA": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EB": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EC": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1ED": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EE": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
   "1EF": {
    "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "1EG": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EH": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EI": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EJ": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EK": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EL": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EM": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EN": {
+   "description": "LONDON EVE OUT",
+   "class": "advance"
+  },
+  "1EO": {
+   "description": "LONDON EVE OUT",
    "class": "advance"
   },
   "1ES": {
@@ -521,8 +577,64 @@
    "description": "ADVANCE 1ST",
    "class": "advance"
   },
+  "1NA": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NB": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NC": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1ND": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NE": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
   "1NF": {
    "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "1NG": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NH": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NI": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NJ": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NK": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NL": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NM": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NN": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "1NO": {
+   "description": "LON NIGHT OUT",
    "class": "advance"
   },
   "1NS": {
@@ -633,8 +745,9 @@
    "reason": "supplement, not a fare on its own"
   },
   "1U2": {
-   "description": "OFF PK - 1ST PK",
-   "class": "walk-up"
+   "description": "1ST UPG - BASIC",
+   "class": "rejected",
+   "reason": "supplement, not a fare on its own"
   },
   "1U3": {
    "description": "OFF PK - 1ST PK",
@@ -788,128 +901,103 @@
   },
   "22A": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22B": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22C": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22D": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22E": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22F": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22G": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22H": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22I": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22J": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22K": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22L": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22M": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22N": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22O": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22P": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22Q": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22R": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22S": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22T": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22U": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22V": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22W": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22X": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "22Y": {
    "description": "AVANTI B STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "23A": {
    "description": "AVANTI B STD PR",
@@ -1062,128 +1150,103 @@
   },
   "26A": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26B": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26C": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26D": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26E": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26F": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26G": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26H": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26I": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26J": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26K": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26L": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26M": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26N": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26O": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26P": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26Q": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26R": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26S": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26T": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26U": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26V": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26W": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26X": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "26Y": {
    "description": "AVANTI B FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "2AA": {
    "description": "ADVANCE",
@@ -1828,128 +1891,103 @@
   },
   "52A": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52B": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52C": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52D": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52E": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52F": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52G": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52H": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52I": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52J": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52K": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52L": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52M": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52N": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52O": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52P": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52Q": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52R": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52S": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52T": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52U": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52V": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52W": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52X": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "52Y": {
    "description": "AVANTI A STD",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "53A": {
    "description": "AVANTI A STD PR",
@@ -2097,128 +2135,103 @@
   },
   "56A": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56B": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56C": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56D": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56E": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56F": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56G": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56H": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56I": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56J": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56K": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56L": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56M": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56N": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56O": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56P": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56Q": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56R": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56S": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56T": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56U": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56V": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56W": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56X": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "56Y": {
    "description": "AVANTI A FIRST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "5GA": {
    "description": "GROUP PREM STD",
@@ -2861,13 +2874,11 @@
   },
   "A53": {
    "description": "AVANTI A STD PR",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "A54": {
    "description": "AVANTI B STD PR",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "A60": {
    "description": "FIXD CL FAM 3 R",
@@ -4134,8 +4145,9 @@
    "reason": "package, priced with parking or admission"
   },
   "CX1": {
-   "description": "OFFPEAK SMR ADV",
-   "class": "advance"
+   "description": "OFFPEAK PROMO A",
+   "class": "not-a-real-advance",
+   "reason": "no reservation needed, so not tied to a booked train"
   },
   "CX2": {
    "description": "OP DAY R AD2",
@@ -4159,134 +4171,6 @@
   "CZS": {
    "description": "ZOO STUDENT",
    "class": "walk-up"
-  },
-  "D1A": {
-   "description": "ADV LEADING 1ST",
-   "class": "advance"
-  },
-  "D1B": {
-   "description": "ADV LEADING 1ST",
-   "class": "advance"
-  },
-  "D1C": {
-   "description": "ADV LEADING 1ST",
-   "class": "advance"
-  },
-  "D1D": {
-   "description": "ADV LEADING 1ST",
-   "class": "advance"
-  },
-  "D1E": {
-   "description": "ADV LEADING 1ST",
-   "class": "advance"
-  },
-  "D1F": {
-   "description": "ADV LEADING 1ST",
-   "class": "advance"
-  },
-  "D1G": {
-   "description": "ADV LEADING 1ST",
-   "class": "advance"
-  },
-  "D1H": {
-   "description": "ADV LEADING 1ST",
-   "class": "advance"
-  },
-  "D2A": {
-   "description": "ADVANCE LEADING",
-   "class": "advance"
-  },
-  "D2B": {
-   "description": "ADVANCE LEADING",
-   "class": "advance"
-  },
-  "D2C": {
-   "description": "ADVANCE LEADING",
-   "class": "advance"
-  },
-  "D2D": {
-   "description": "ADVANCE LEADING",
-   "class": "advance"
-  },
-  "D2E": {
-   "description": "ADVANCE LEADING",
-   "class": "advance"
-  },
-  "D2F": {
-   "description": "ADVANCE LEADING",
-   "class": "advance"
-  },
-  "D2G": {
-   "description": "ADVANCE LEADING",
-   "class": "advance"
-  },
-  "D2H": {
-   "description": "ADVANCE LEADING",
-   "class": "advance"
-  },
-  "D3A": {
-   "description": "ADV PROMO 1ST",
-   "class": "advance"
-  },
-  "D3B": {
-   "description": "ADV PROMO 1ST",
-   "class": "advance"
-  },
-  "D3C": {
-   "description": "ADV PROMO 1ST",
-   "class": "advance"
-  },
-  "D3D": {
-   "description": "ADV PROMO 1ST",
-   "class": "advance"
-  },
-  "D3E": {
-   "description": "ADV PROMO 1ST",
-   "class": "advance"
-  },
-  "D3F": {
-   "description": "ADV PROMO 1ST",
-   "class": "advance"
-  },
-  "D3G": {
-   "description": "ADV PROMO 1ST",
-   "class": "advance"
-  },
-  "D3H": {
-   "description": "ADV PROMO 1ST",
-   "class": "advance"
-  },
-  "D4A": {
-   "description": "ADVANCE PROMO",
-   "class": "advance"
-  },
-  "D4B": {
-   "description": "ADVANCE PROMO",
-   "class": "advance"
-  },
-  "D4C": {
-   "description": "ADVANCE PROMO",
-   "class": "advance"
-  },
-  "D4D": {
-   "description": "ADVANCE PROMO",
-   "class": "advance"
-  },
-  "D4E": {
-   "description": "ADVANCE PROMO",
-   "class": "advance"
-  },
-  "D4F": {
-   "description": "ADVANCE PROMO",
-   "class": "advance"
-  },
-  "D4G": {
-   "description": "ADVANCE PROMO",
-   "class": "advance"
-  },
-  "D4H": {
-   "description": "ADVANCE PROMO",
-   "class": "advance"
   },
   "D52": {
    "description": "FAMILY A STD",
@@ -4424,17 +4308,17 @@
   "DGA": {
    "description": "SALE ADVANCE",
    "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "reason": "sale placeholder, one price on every flow"
   },
   "DGB": {
    "description": "SALE ADVANCE",
    "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "reason": "sale placeholder, one price on every flow"
   },
   "DGC": {
    "description": "SALE ADVANCE",
    "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "reason": "sale placeholder, one price on every flow"
   },
   "DGQ": {
    "description": "ADVANCE",
@@ -4735,12 +4619,17 @@
    "class": "walk-up"
   },
   "DUO": {
-   "description": "GRT ANGLIA DUO",
+   "description": "GBR ANGLIA DUO",
    "class": "rejected",
    "reason": "family or group product"
   },
   "DUS": {
    "description": "DUO SINGLE",
+   "class": "rejected",
+   "reason": "family or group product"
+  },
+  "DZG": {
+   "description": "70min Flex Res",
    "class": "rejected",
    "reason": "family or group product"
   },
@@ -5087,6 +4976,38 @@
    "description": "Evening Out TC",
    "class": "walk-up"
   },
+  "EWA": {
+   "description": "EVENTS RETURN",
+   "class": "advance"
+  },
+  "EWB": {
+   "description": "EVENTS RETURN",
+   "class": "advance"
+  },
+  "EWC": {
+   "description": "EVENTS RETURN",
+   "class": "advance"
+  },
+  "EWD": {
+   "description": "EVENTS RETURN",
+   "class": "advance"
+  },
+  "EWE": {
+   "description": "EVENTS RETURN",
+   "class": "advance"
+  },
+  "EWF": {
+   "description": "EVENTS RETURN",
+   "class": "advance"
+  },
+  "EWG": {
+   "description": "EVENTS RETURN",
+   "class": "advance"
+  },
+  "EWH": {
+   "description": "EVENTS RETURN",
+   "class": "advance"
+  },
   "EX0": {
    "description": "CLUB SOLO+CHILD",
    "class": "rejected",
@@ -5401,62 +5322,62 @@
    "reason": "family product priced for several people"
   },
   "FAA": {
-   "description": "FAMILY TKT 1+1",
+   "description": "FAMILY RTN 1+1",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAB": {
-   "description": "FAMILY TKT 1+2",
+   "description": "FAMILY RTN 1+2",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAC": {
-   "description": "FAMILY TKT 2+1",
+   "description": "FAMILY RTN 2+1",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAD": {
-   "description": "FAMILY TKT 2+2",
+   "description": "FAMILY RTN 2+2",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAE": {
-   "description": "FAMILY TKT 2+3",
+   "description": "FAMILY RTN 2+3",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAF": {
-   "description": "FAMILY TKT 2+4",
+   "description": "FAMILY RTN 2+4",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAG": {
-   "description": "FAMILY TKT 1+1",
+   "description": "FAMILY RTN 1+1",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAH": {
-   "description": "FAMILY TKT 1+2",
+   "description": "FAMILY RTN 1+2",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAI": {
-   "description": "FAMILY TKT 2+1",
+   "description": "FAMILY RTN 2+1",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAJ": {
-   "description": "FAMILY TKT 2+2",
+   "description": "FAMILY RTN 2+2",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAK": {
-   "description": "FAMILY TKT 2+3",
+   "description": "FAMILY RTN 2+3",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
   "FAL": {
-   "description": "FAMILY TKT 2+4",
+   "description": "FAMILY RTN 2+4",
    "class": "rejected",
    "reason": "family product priced for several people"
   },
@@ -5467,8 +5388,7 @@
   },
   "FAV": {
    "description": "ADVANCE 1ST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "FAW": {
    "description": "CONWYVALLEYSPCL",
@@ -5489,8 +5409,7 @@
   },
   "FBV": {
    "description": "ADVANCE 1ST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "FBW": {
    "description": "BUS WEEKLY",
@@ -5582,8 +5501,7 @@
   },
   "FDV": {
    "description": "ADVANCE 1ST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "FE0": {
    "description": "Day-Flex",
@@ -5886,14 +5804,6 @@
    "description": "TVMASTR 28D 1ST",
    "class": "walk-up"
   },
-  "FMR": {
-   "description": "FALMOUTH 150 R",
-   "class": "walk-up"
-  },
-  "FMS": {
-   "description": "FALMOUTH 150 S",
-   "class": "walk-up"
-  },
   "FMW": {
    "description": "TVMASTER 7D 1ST",
    "class": "walk-up"
@@ -6119,6 +6029,11 @@
    "class": "rejected",
    "reason": "family product priced for several people"
   },
+  "FZ8": {
+   "description": "TEST USE ONLY",
+   "class": "rejected",
+   "reason": "test data in the feed"
+  },
   "FZI": {
    "description": "SCILLY BUS",
    "class": "walk-up"
@@ -6215,6 +6130,11 @@
    "class": "rejected",
    "reason": "family or group product"
   },
+  "G2G": {
+   "description": "Family&Duo Sgl",
+   "class": "rejected",
+   "reason": "family product priced for several people"
+  },
   "G2O": {
    "description": "OFF PEAK S",
    "class": "walk-up"
@@ -6228,9 +6148,9 @@
    "class": "walk-up"
   },
   "G2T": {
-   "description": "WEB DUO SOR RTN",
+   "description": "Family&Duo Rtn",
    "class": "rejected",
-   "reason": "family or group product"
+   "reason": "family product priced for several people"
   },
   "G2X": {
    "description": "FIXED SINGLE",
@@ -6590,6 +6510,11 @@
    "description": "ADVANCE",
    "class": "advance"
   },
+  "GF0": {
+   "description": "FLYAWAY",
+   "class": "rejected",
+   "reason": "family or group product"
+  },
   "GF1": {
    "description": "FLYAWAY 1-CHILD",
    "class": "rejected",
@@ -6677,9 +6602,24 @@
    "description": "GLASTO FEST SGL",
    "class": "walk-up"
   },
+  "GMH": {
+   "description": "PAYG HERE-HERE",
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
+  },
+  "GMI": {
+   "description": "PAYG INCOMPLETE",
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
+  },
   "GMM": {
    "description": "TRAINCARDMTHLY",
    "class": "walk-up"
+  },
+  "GMU": {
+   "description": "PAYG UNSTARTED",
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
   },
   "GMW": {
    "description": "TRAINCARDWKLY",
@@ -6854,14 +6794,14 @@
    "reason": "sold through one retailer scheme, not published"
   },
   "GWY": {
-   "description": "GWR TEST TK 1ST",
+   "description": "GW STAFFRGER 1S",
    "class": "rejected",
-   "reason": "test data in the feed"
+   "reason": "staff travel, not sold to the public"
   },
   "GWZ": {
-   "description": "GWR TEST TK STD",
+   "description": "GW STAFFRNG STD",
    "class": "rejected",
-   "reason": "test data in the feed"
+   "reason": "staff travel, not sold to the public"
   },
   "GXO": {
    "description": "GX SOR-FOR UPGR",
@@ -6884,10 +6824,6 @@
   },
   "GYF": {
    "description": "GYS FAM ADMIT",
-   "class": "walk-up"
-  },
-  "H1F": {
-   "description": "HELICOPTER X 1",
    "class": "walk-up"
   },
   "HAB": {
@@ -6954,10 +6890,6 @@
    "description": "ADMISSION ONLY",
    "class": "walk-up"
   },
-  "HCG": {
-   "description": "2 DAY FRI & SAT",
-   "class": "walk-up"
-  },
   "HCH": {
    "description": "ADMIT ONLY SNR",
    "class": "walk-up"
@@ -6971,16 +6903,8 @@
    "description": "BUS ADMT SENIOR",
    "class": "walk-up"
   },
-  "HCK": {
-   "description": "2 DAY SAT & SUN",
-   "class": "walk-up"
-  },
   "HCL": {
    "description": "FRIDAY PREVIEW",
-   "class": "walk-up"
-  },
-  "HCM": {
-   "description": "3 DAY ADMISSION",
    "class": "walk-up"
   },
   "HCN": {
@@ -7000,10 +6924,6 @@
    "description": "2 DAY ADMISSION",
    "class": "walk-up"
   },
-  "HCR": {
-   "description": "2 DAY FRI & SUN",
-   "class": "walk-up"
-  },
   "HCU": {
    "description": "LINGFIELD R M-F",
    "class": "walk-up"
@@ -7011,11 +6931,6 @@
   "HCV": {
    "description": "EPSOM LIVE",
    "class": "walk-up"
-  },
-  "HCW": {
-   "description": "1 DAY FAM ADMIT",
-   "class": "rejected",
-   "reason": "family or group product"
   },
   "HCX": {
    "description": "2 DAY FAM ADMIT",
@@ -7456,43 +7371,47 @@
    "class": "walk-up"
   },
   "JA0": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA1": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA2": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA3": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA4": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA5": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA6": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA7": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA8": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JA9": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
+   "class": "advance"
+  },
+  "JAF": {
+   "description": "ADVANCE 1ST",
    "class": "advance"
   },
   "JAS": {
@@ -7500,31 +7419,31 @@
    "class": "advance"
   },
   "JB0": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JB1": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JB2": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JB3": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JB4": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JB5": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JB6": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JBS": {
@@ -7532,31 +7451,31 @@
    "class": "advance"
   },
   "JC0": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JC1": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JC2": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JC3": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JC4": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JC5": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JC6": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JCS": {
@@ -7564,43 +7483,43 @@
    "class": "advance"
   },
   "JD0": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD1": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD2": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD3": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD4": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD5": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD6": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD7": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD8": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JD9": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JDS": {
@@ -7608,43 +7527,43 @@
    "class": "advance"
   },
   "JE0": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE1": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE2": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE3": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE4": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE5": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE6": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE7": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE8": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JE9": {
-   "description": "ADVANCE FLEX",
+   "description": "AIRPORT ADVANCE",
    "class": "advance"
   },
   "JES": {
@@ -7652,39 +7571,39 @@
    "class": "advance"
   },
   "JF0": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JF1": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JF2": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JF3": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JF4": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JF5": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JF7": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JF8": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JF9": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JFS": {
@@ -7692,23 +7611,23 @@
    "class": "advance"
   },
   "JG0": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JG1": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JG2": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JG3": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JG4": {
-   "description": "ADVANCE 1ST FLX",
+   "description": "AIRPORT ADV 1ST",
    "class": "advance"
   },
   "JGS": {
@@ -7827,6 +7746,10 @@
    "class": "rejected",
    "reason": "flat rate, not a distance-based fare"
   },
+  "KWS": {
+   "description": "Kid with Adult",
+   "class": "walk-up"
+  },
   "L09": {
    "description": "ADVANCE",
    "class": "advance"
@@ -7885,8 +7808,7 @@
   },
   "L1I": {
    "description": "LUMOFIXED",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "L1J": {
    "description": "LUMOFIXED",
@@ -7894,8 +7816,7 @@
   },
   "L1K": {
    "description": "LUMOFIXED",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "L1L": {
    "description": "LUMOFIXED",
@@ -7903,8 +7824,7 @@
   },
   "L1M": {
    "description": "LumoFixed",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "L1N": {
    "description": "LumoFixed",
@@ -7912,8 +7832,7 @@
   },
   "L1O": {
    "description": "LumoFixed",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "L1P": {
    "description": "LumoFixed",
@@ -7921,8 +7840,7 @@
   },
   "L1Q": {
    "description": "LumoFixed",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "L1R": {
    "description": "LAUNCH 1ST RTN",
@@ -8557,6 +8475,62 @@
    "description": "LEEDS FESTIVAL",
    "class": "walk-up"
   },
+  "LEA": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEB": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEC": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LED": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEE": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEF": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEG": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEH": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEI": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEJ": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEK": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEL": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEM": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
+  "LEN": {
+   "description": "LON EVENING OUT",
+   "class": "advance"
+  },
   "LG2": {
    "description": "GA GRP 1STSGL",
    "class": "rejected",
@@ -8611,6 +8585,62 @@
    "description": "LNER COMP 2R",
    "class": "rejected",
    "reason": "complimentary, not sold"
+  },
+  "LNA": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNB": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNC": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LND": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNE": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNF": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNG": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNH": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNI": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNJ": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNK": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNL": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNP": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
+  },
+  "LNQ": {
+   "description": "LON NIGHT OUT",
+   "class": "advance"
   },
   "LNR": {
    "description": "LIGHT NIGHT",
@@ -8875,15 +8905,6 @@
    "description": "METROLNK 7D",
    "class": "walk-up"
   },
-  "MM1": {
-   "description": "MIM SHOW DUO",
-   "class": "walk-up"
-  },
-  "MM2": {
-   "description": "MIM SHOW FAMILY",
-   "class": "rejected",
-   "reason": "family product priced for several people"
-  },
   "MMA": {
    "description": "MOBILE SDR",
    "class": "rejected",
@@ -9038,6 +9059,11 @@
    "reason": "test data in the feed"
   },
   "NAP": {
+   "description": "FOR TEST USE ON",
+   "class": "rejected",
+   "reason": "test data in the feed"
+  },
+  "NAQ": {
    "description": "FOR TEST USE ON",
    "class": "rejected",
    "reason": "test data in the feed"
@@ -9207,8 +9233,7 @@
   },
   "NFP": {
    "description": "ADVANCE CLWB 60",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "NFR": {
    "description": "NORTHERN F & F",
@@ -9232,6 +9257,11 @@
   "NFY": {
    "description": "ADVANCE",
    "class": "advance"
+  },
+  "NGN": {
+   "description": "FOR TEST USE ON",
+   "class": "rejected",
+   "reason": "test data in the feed"
   },
   "NHA": {
    "description": "ADVANCE",
@@ -9376,8 +9406,8 @@
   },
   "NR8": {
    "description": "1st Great Scot",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "not-a-real-advance",
+   "reason": "rover or explorer pass, not a single journey"
   },
   "NRF": {
    "description": "FOR TEST USE ON",
@@ -9393,6 +9423,11 @@
    "description": "SN-GEX 1ST S UP",
    "class": "rejected",
    "reason": "supplement, not a fare on its own"
+  },
+  "NSE": {
+   "description": "FOR TEST USE ON",
+   "class": "rejected",
+   "reason": "test data in the feed"
   },
   "NSF": {
    "description": "Seatfrog Swap",
@@ -9414,8 +9449,9 @@
    "class": "walk-up"
   },
   "NW0": {
-   "description": "ADVANCE",
-   "class": "advance"
+   "description": "FOR TEST USE ON",
+   "class": "rejected",
+   "reason": "test data in the feed"
   },
   "NW1": {
    "description": "Advance",
@@ -9940,10 +9976,26 @@
    "class": "rejected",
    "reason": "dummy record, the feed says do not use"
   },
+  "P1S": {
+   "description": "ADVANCE PLUS",
+   "class": "advance"
+  },
+  "P2S": {
+   "description": "ADVANCE PLUS",
+   "class": "advance"
+  },
+  "P3S": {
+   "description": "ADVANCE PLUS",
+   "class": "advance"
+  },
   "P41": {
    "description": "AWC Prm Corp UG",
    "class": "rejected",
    "reason": "corporate scheme, not sold to the public"
+  },
+  "P4S": {
+   "description": "ADVANCE PLUS",
+   "class": "advance"
   },
   "P5A": {
    "description": "StdPrem Advance",
@@ -9970,6 +10022,18 @@
    "description": "Fam Refund Prem",
    "class": "rejected",
    "reason": "family or group product"
+  },
+  "P5S": {
+   "description": "ADVANCE PLUS",
+   "class": "advance"
+  },
+  "P6S": {
+   "description": "ADVANCE PLUS",
+   "class": "advance"
+  },
+  "P7S": {
+   "description": "ADVANCE PLUS",
+   "class": "advance"
   },
   "PA1": {
    "description": "PAYG ANYTIME S",
@@ -10008,10 +10072,6 @@
    "description": "PAYG PEAK INFO",
    "class": "rejected",
    "reason": "pay-as-you-go information record"
-  },
-  "PAR": {
-   "description": "ARGYLE RETURN",
-   "class": "walk-up"
   },
   "PAS": {
    "description": "CARDIFF ANNUAL",
@@ -10178,6 +10238,14 @@
    "class": "rejected",
    "reason": "pay-as-you-go information record"
   },
+  "POR": {
+   "description": "ANYTIME PLUS R",
+   "class": "walk-up"
+  },
+  "POS": {
+   "description": "ANYTIME PLUS S",
+   "class": "walk-up"
+  },
   "POT": {
    "description": "CPAY OffPK TEST",
    "class": "rejected",
@@ -10250,6 +10318,11 @@
    "description": "SEASON      STD",
    "class": "walk-up"
   },
+  "PSU": {
+   "description": "STD PLUS UPG S",
+   "class": "rejected",
+   "reason": "supplement, not a fare on its own"
+  },
   "PSV": {
    "description": "PRICEBUS SVR",
    "class": "walk-up"
@@ -10312,6 +10385,14 @@
    "description": "Std Plus Upgrde",
    "class": "rejected",
    "reason": "supplement, not a fare on its own"
+  },
+  "PVR": {
+   "description": "OFF-PEAK PLUS R",
+   "class": "walk-up"
+  },
+  "PVS": {
+   "description": "OFF-PEAK PLUS S",
+   "class": "walk-up"
   },
   "PWS": {
    "description": "PENALTYWARNING",
@@ -10465,7 +10546,7 @@
    "class": "walk-up"
   },
   "QPO": {
-   "description": "QF CAR PARK OP",
+   "description": "WEEKEND PARKING",
    "class": "walk-up"
   },
   "QPS": {
@@ -11150,8 +11231,7 @@
   },
   "SAV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SAW": {
    "description": "STD SINGLECABIN",
@@ -11184,8 +11264,7 @@
   },
   "SB8": {
    "description": "SLEEPER BUSNESS",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SB9": {
    "description": "SLEEPER BUSNESS",
@@ -11193,8 +11272,7 @@
   },
   "SBV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SCA": {
    "description": "ANUAL COUTYCRD",
@@ -11227,8 +11305,7 @@
   },
   "SCV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SD1": {
    "description": "SN DAYSAVE 1",
@@ -11284,8 +11361,7 @@
   },
   "SDV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SDW": {
    "description": "DAYSAVE WEEKLY",
@@ -11345,8 +11421,7 @@
   },
   "SEV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SF1": {
    "description": "SEATFROG UPG",
@@ -11385,7 +11460,8 @@
   },
   "SFF": {
    "description": "Flat Fare Promo",
-   "class": "walk-up"
+   "class": "rejected",
+   "reason": "family or group product"
   },
   "SFL": {
    "description": "SP FLOWER SHOW",
@@ -11461,8 +11537,7 @@
   },
   "SGV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SHF": {
    "description": "SHEARINGS 1ST",
@@ -11478,8 +11553,7 @@
   },
   "SHV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SI1": {
    "description": "PACKAGE 1ST",
@@ -11489,10 +11563,6 @@
    "description": "PACKAGE STD",
    "class": "advance"
   },
-  "SIH": {
-   "description": "RAILHELICOPTER",
-   "class": "walk-up"
-  },
   "SIT": {
    "description": "SETTLING IN TIC",
    "class": "rejected",
@@ -11500,8 +11570,7 @@
   },
   "SJV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SK1": {
    "description": "Promo OP Day S",
@@ -11582,8 +11651,7 @@
   },
   "SKV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SL1": {
    "description": "STENA LEVEL 1",
@@ -11600,8 +11668,7 @@
   },
   "SLV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SM0": {
    "description": "ADVANCE",
@@ -11650,8 +11717,7 @@
   },
   "SMV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SN2": {
    "description": "SN-GEX SGL UPG",
@@ -11684,8 +11750,7 @@
   },
   "SNV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SNX": {
    "description": "Senior Adv Rtn",
@@ -11775,8 +11840,7 @@
   },
   "SOV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SOW": {
    "description": "W SUP OPK DAY S",
@@ -11831,8 +11895,7 @@
   },
   "SPV": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "SQ0": {
    "description": "ADVANCE",
@@ -12382,6 +12445,11 @@
    "description": "Rev Inspect Chg",
    "class": "walk-up"
   },
+  "TGX": {
+   "description": "PAYG PROMO",
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
+  },
   "TIS": {
    "description": "PROMO ADVANCE",
    "class": "advance"
@@ -12416,7 +12484,7 @@
    "reason": "supplement, not a fare on its own"
   },
   "TM4": {
-   "description": "TM U16'S EDUC",
+   "description": "TM U16s EDUC",
    "class": "walk-up"
   },
   "TM5": {
@@ -13097,13 +13165,11 @@
   },
   "VA5": {
    "description": "ADVANCE",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "VA6": {
    "description": "ADVANCE 1ST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "VA7": {
    "description": "ADVANCE 1ST",
@@ -13649,214 +13715,6 @@
    "description": "ADVANCE PROMO",
    "class": "advance"
   },
-  "W3A": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3B": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3C": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3D": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3E": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3F": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3G": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3H": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3I": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3J": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3K": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3L": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3M": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3N": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3O": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3P": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3Q": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3R": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3S": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3T": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3U": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3V": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3W": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3X": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3Y": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W3Z": {
-   "description": "ADVANCE 1ST",
-   "class": "advance"
-  },
-  "W4A": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4B": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4C": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4D": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4E": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4F": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4G": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4H": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4I": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4J": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4K": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4L": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4M": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4N": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4O": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4P": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4Q": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4R": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4S": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4T": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4U": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4V": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4W": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4X": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4Y": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
-  "W4Z": {
-   "description": "ADVANCE",
-   "class": "advance"
-  },
   "W6A": {
    "description": "WYCA ANNUAL ZN6",
    "class": "walk-up"
@@ -14273,6 +14131,21 @@
    "description": "SUP OFFPK DAYTC",
    "class": "walk-up"
   },
+  "WTH": {
+   "description": "PAYG HERE-HERE",
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
+  },
+  "WTI": {
+   "description": "PAYG INCOMPLETE",
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
+  },
+  "WTU": {
+   "description": "PAYG UNSTARTED",
+   "class": "rejected",
+   "reason": "pay as you go, a tap rather than a ticket"
+  },
   "WUG": {
    "description": "GC WEEKEND UPG",
    "class": "rejected",
@@ -14313,8 +14186,7 @@
   },
   "XAF": {
    "description": "ADVANCE 1ST",
-   "class": "rejected",
-   "reason": "flat rate, not a distance-based fare"
+   "class": "advance"
   },
   "XAR": {
    "description": "ANYTIME DAY R",
@@ -14790,6 +14662,126 @@
   },
   "Z54": {
    "description": "ADVANCE",
+   "class": "advance"
+  },
+  "Z61": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z62": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z63": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z64": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z65": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z66": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z67": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z68": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z69": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z70": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z71": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z72": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z73": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z74": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z75": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z81": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z82": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z83": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z84": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z85": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z86": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z87": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z88": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z89": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z90": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z91": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z92": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z93": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z94": {
+   "description": "ADVANCE 1ST",
+   "class": "advance"
+  },
+  "Z95": {
+   "description": "ADVANCE 1ST",
    "class": "advance"
   },
   "ZA1": {
