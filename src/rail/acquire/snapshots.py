@@ -31,7 +31,9 @@ class Manifest:
     size: int
     sha256: str
     #: Sequence number parsed from the filename (e.g. RJFAF0123 -> 123), which
-    #: is how RSP versions a feed. None if the name doesn't carry one.
+    #: is how RSP versions a feed. None if the name doesn't carry one. **Not an
+    #: order**: it is three digits on the timetable and fares feeds and wraps,
+    #: so RJTTF024 followed RJTTF988. See `SnapshotStore.manifests`.
     sequence: int | None
 
     @property
@@ -73,7 +75,17 @@ class SnapshotStore:
         found = []
         for path in sorted(self.feed_dir(feed).glob(f"*{MANIFEST_SUFFIX}")):
             found.append(Manifest(**json.loads(path.read_text())))
-        found.sort(key=lambda m: (m.sequence or -1, m.fetched_at))
+        # **Oldest first by when it was fetched, not by its number.** The
+        # sequence is three digits on the timetable and fares feeds and wraps:
+        # on 22 November 2026 RJTTF024 arrived after RJTTF988, sorted as the
+        # oldest timetable held, and `rail refresh` duly re-ingested and rebuilt
+        # from the October one while logging the new download. The portal only
+        # ever serves the current generation, so the last one fetched is the
+        # newest - and re-storing an identical file refreshes its manifest's
+        # `fetched_at`, which is right, since that is the one being served.
+        # The sequence breaks a tie within one second and nothing more.
+        found.sort(key=lambda m: (datetime.fromisoformat(m.fetched_at),
+                                  m.sequence or -1))
         return found
 
     def latest(self, feed: Feed) -> Manifest | None:

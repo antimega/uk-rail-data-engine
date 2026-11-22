@@ -167,3 +167,27 @@ def test_snapshot_store_is_idempotent_for_identical_content(tmp_path):
         )
 
     assert len(store.manifests(Feed.FARES)) == 1
+
+
+def test_the_newest_snapshot_is_the_last_fetched_not_the_highest_numbered(tmp_path):
+    """The timetable and fares sequences are three digits and wrap. RJTTF003
+    arrived on 1 November 2026 and RJTTF024 on the 22nd, both after RJTTF988 -
+    and ordered by number they were the two *oldest* timetables held, so every
+    refresh in between rebuilt from October while logging the new download."""
+    from rail.acquire.source import Feed
+
+    store = SnapshotStore(tmp_path / "raw")
+    directory = store.feed_dir(Feed.TIMETABLE)
+    for name, fetched in (("RJTTF974.ZIP", "2026-10-01T07:16:00+00:00"),
+                          ("RJTTF988.ZIP", "2026-10-15T06:54:53+00:00"),
+                          ("RJTTF003.ZIP", "2026-11-01T07:15:14+00:00"),
+                          ("RJTTF024.ZIP", "2026-11-22T12:15:29+00:00")):
+        (directory / f"{name}.manifest.json").write_text(json.dumps({
+            "feed": "timetable", "filename": name,
+            "url": "https://example.invalid/timetable", "source": "test",
+            "fetched_at": fetched, "last_modified": None, "size": 1,
+            "sha256": "0" * 64, "sequence": parse_sequence(name)}))
+
+    assert [m.filename for m in store.manifests(Feed.TIMETABLE)] == [
+        "RJTTF974.ZIP", "RJTTF988.ZIP", "RJTTF003.ZIP", "RJTTF024.ZIP"]
+    assert store.latest(Feed.TIMETABLE).filename == "RJTTF024.ZIP"
